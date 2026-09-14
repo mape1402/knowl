@@ -1,5 +1,13 @@
 # Changelog
 
+## [v1.0.2]
+
+- Exposes deployed contract schemas from Control Plane hosts through contract catalog endpoints.
+- Adds lookup endpoints for all deployed artifacts, exact contract versions, and latest contract versions.
+- Limits Control Plane catalog responses to generated artifacts whose source status is `Deployed`.
+- Keeps Runtime contract catalog endpoints unchanged.
+- Adds service, endpoint, integration, and e2e coverage for Control Plane contract consumption.
+
 ## [v1.0.1]
 
 - First production-ready KnOwl release with reusable `KnOwl.*` libraries for contract design, promotion, distribution, runtime catalog, storage, security, Web UI, bootstrap, and worker behavior.
