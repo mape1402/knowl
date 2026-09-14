@@ -1,0 +1,37 @@
+@page
+@model KnOwl.ControlPlane.WebUI.Pages.Contracts.Types.NewModel
+@{
+    ViewData["Title"] = "New Type";
+    var designerUrl = $"/buttermorph/schema-types/designer?context={Model.ButterMorphContext}&mode=create&popup=true";
+}
+
+<section class="dashboard-section">
+    <div class="platform-card event-editor">
+        <div class="platform-card-header">
+            <span>New custom type</span>
+            <a class="btn btn-secondary btn-sm" asp-page="/Contracts/Types/Index">
+                <i class="bi bi-arrow-left"></i> Back to catalog
+            </a>
+        </div>
+
+        <p class="event-editor-intro">
+            ButterMorph captures the custom type definition and KnOwl stores it in the current catalog.
+        </p>
+
+        <div class="event-editor-actions mt-3">
+            <button type="button"
+                    class="btn btn-primary"
+                    data-buttermorph-url="@designerUrl"
+                    data-buttermorph-title="New custom type"
+                    data-buttermorph-redirect-url="@Url.Page("/Contracts/Types/Index")">
+                <i class="bi bi-box-arrow-up-right"></i> Abrir ButterMorph
+            </button>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-host.js"></script>
+    <script src="~/_content/KnOwl.ControlPlane.WebUI/js/buttermorph-knowl-host.js" asp-append-version="true"></script>
+}
+

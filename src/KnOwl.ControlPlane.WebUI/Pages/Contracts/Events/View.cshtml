@@ -1,0 +1,94 @@
+@page
+@model KnOwl.ControlPlane.WebUI.Pages.Contracts.Events.ViewModel
+@{
+    ViewData["Title"] = "Event Details";
+    var newVersionUrl = Model.Event is null
+        ? string.Empty
+        : $"/buttermorph/payload-schema/designer?context=event-version:new:{Model.Event.Id}&mode=edit&popup=true";
+}
+
+<section class="dashboard-section">
+    <div class="platform-card event-detail-card">
+        <div class="platform-card-header">
+            <span>Event Details</span>
+            <div class="d-flex gap-2">
+                <a class="btn btn-secondary btn-sm" asp-page="/Contracts/Events/Edit" asp-route-id="@Model.Event?.Id">Edit event</a>
+                @if (Model.Event is not null)
+                {
+                    <button type="button"
+                            class="btn btn-primary btn-sm"
+                            data-buttermorph-url="@newVersionUrl"
+                            data-buttermorph-title="New version of @Model.Event.Name"
+                            data-buttermorph-redirect-url="@Url.Page("/Contracts/Events/View", new { id = Model.Event.Id })">
+                        New version
+                    </button>
+                }
+                <a class="btn btn-secondary btn-sm" asp-page="/Contracts/Events/Index"><i class="bi bi-arrow-left"></i> Back</a>
+            </div>
+        </div>
+
+        @if (Model.Event is null)
+        {
+            <div class="events-empty-state"><h3>Event not found</h3></div>
+        }
+        else
+        {
+            @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+            {
+                <div class="alert alert-info mt-3">@Model.StatusMessage</div>
+            }
+
+            <div class="event-meta-grid">
+                <div><span class="event-meta-label">Name</span><p class="event-meta-value">@Model.Event.Name</p></div>
+                <div><span class="event-meta-label">Topic</span><p class="event-meta-value">@(string.IsNullOrWhiteSpace(Model.Event.Topic) ? "-" : Model.Event.Topic)</p></div>
+                <div><span class="event-meta-label">Versions</span><p class="event-meta-value">@Model.Event.Versions.Count</p></div>
+            </div>
+            <div class="mt-3">
+                <span class="event-meta-label">Description</span>
+                <p class="event-meta-value">@(string.IsNullOrWhiteSpace(Model.Event.Description) ? "-" : Model.Event.Description)</p>
+            </div>
+
+            <div class="mt-3">
+                <span class="event-meta-label">Available Versions</span>
+                <div class="d-flex gap-2 flex-wrap mt-2">
+                    @foreach (var ver in Model.Event.Versions.OrderByDescending(x => x.CreatedAtUtc))
+                    {
+                        <a class="btn btn-secondary btn-sm @(Model.SelectedVersion?.Id == ver.Id ? "active" : "")"
+                           asp-page="/Contracts/Events/View"
+                           asp-route-id="@Model.Event.Id"
+                           asp-route-version="@ver.VersionNumber">
+                            @ver.VersionNumber
+                        </a>
+                    }
+                </div>
+            </div>
+
+            <div class="mt-3 event-detail-schema">
+                <span class="event-meta-label">Payload schema (@Model.SelectedVersion?.VersionNumber)</span>
+                <p class="event-meta-value"><strong>Status:</strong> @Model.SelectedVersion?.Status</p>
+                <p class="event-meta-value"><strong>Comment:</strong> @(string.IsNullOrWhiteSpace(Model.SelectedVersion?.Comment) ? "-" : Model.SelectedVersion?.Comment)</p>
+                @if (Model.SelectedVersion is not null)
+                {
+                    <div class="d-flex gap-2 flex-wrap mb-3">
+                        @foreach (var target in Model.AllowedTargets)
+                        {
+                            <form method="post" asp-page-handler="Transition">
+                                <input type="hidden" name="id" value="@Model.Event.Id" />
+                                <input type="hidden" name="versionId" value="@Model.SelectedVersion.Id" />
+                                <input type="hidden" name="targetStatus" value="@target" />
+                                <button type="submit" class="btn btn-secondary btn-sm">@target</button>
+                            </form>
+                        }
+                    </div>
+                }
+                <pre class="contract-json-output">@Model.FormattedPayloadSchemaJson</pre>
+            </div>
+        }
+    </div>
+</section>
+
+@section Scripts {
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-host.js"></script>
+    <script src="~/_content/KnOwl.ControlPlane.WebUI/js/buttermorph-knowl-host.js" asp-append-version="true"></script>
+}
+

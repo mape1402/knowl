@@ -1,0 +1,152 @@
+replicaCount: #{REPLICA_COUNT}#
+
+image:
+  repository: "#{IMAGE_REPOSITORY}#"
+  tag: "#{IMAGE_TAG}#"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - name: "#{IMAGE_PULL_SECRET}#"
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: false
+  name: "#{SERVICE_ACCOUNT}#"
+  azureClientId: "#{SA_CLIENT_ID}#"
+
+podAnnotations: {}
+podSecurityContext: {}
+securityContext: {}
+
+service:
+  type: "#{SERVICE_TYPE}#"
+  port: #{SERVICE_PORT}#
+  targetPort: #{SERVICE_TARGET_PORT}#
+  externalTrafficPolicy: Cluster
+  loadBalancerIP: ""
+  annotations: {}
+  internal:
+    enabled: #{SERVICE_INTERNAL_ENABLED}#
+    subnet: "#{SERVICE_INTERNAL_SUBNET}#"
+
+healthChecks:
+  livenessPath: "#{HEALTHCHECK_LIVENESS_PATH}#"
+  readinessPath: "#{HEALTHCHECK_READINESS_PATH}#"
+  livenessInitialDelaySeconds: #{HEALTHCHECK_LIVENESS_INITIAL_DELAY_SECONDS}#
+  livenessPeriodSeconds: #{HEALTHCHECK_LIVENESS_PERIOD_SECONDS}#
+  readinessInitialDelaySeconds: #{HEALTHCHECK_READINESS_INITIAL_DELAY_SECONDS}#
+  readinessPeriodSeconds: #{HEALTHCHECK_READINESS_PERIOD_SECONDS}#
+
+ingress:
+  enabled: #{INGRESS_ENABLED}#
+  port: #{SERVICE_PORT}#
+  className: "#{INGRESS_CLASS_NAME}#"
+  annotations:
+    appgw.ingress.kubernetes.io/use-private-ip: "true"
+    appgw.ingress.kubernetes.io/backend-protocol: #{INGRESS_PROTOCOL}#
+    appgw.ingress.kubernetes.io/appgw-ssl-certificate: #{APPW_ING_CERT}#
+    appgw.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+  - host: "#{INGRESS_HOST}#"
+    paths:
+    - path: /
+      pathType: Prefix
+  tls: []
+
+resources:
+  limits:
+    cpu: "#{RESOURCE_LIMIT_CPU}#"
+    memory: "#{RESOURCE_LIMIT_MEMORY}#"
+  requests:
+    cpu: "#{RESOURCE_REQUEST_CPU}#"
+    memory: "#{RESOURCE_REQUEST_MEMORY}#"
+
+autoscaling:
+  enabled: #{AUTOSCALING_ENABLED}#
+  minReplicas: #{AUTOSCALING_MIN_REPLICAS}#
+  maxReplicas: #{AUTOSCALING_MAX_REPLICAS}#
+  targetCPUUtilizationPercentage: #{AUTOSCALING_TARGET_CPU_PERCENT}#
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+env:
+  ASPNETCORE_ENVIRONMENT: "#{ASPNETCORE_ENVIRONMENT}#"
+
+database:
+  useManagedIdentity: #{DATABASE_USE_MANAGED_IDENTITY}#
+  managedIdentityClientId: "#{SA_CLIENT_ID}#"
+
+connectionStrings:
+  knowlDb: "#{CONNECTIONSTRINGS_ATLASDB}#"
+
+runtime:
+  enabled: #{RUNTIME_ENABLED}#
+  replicaCount: #{RUNTIME_REPLICA_COUNT}#
+  image:
+    repository: "#{RUNTIME_IMAGE_REPOSITORY}#"
+    tag: "#{IMAGE_TAG}#"
+    pullPolicy: IfNotPresent
+  podAnnotations: {}
+  podSecurityContext: {}
+  securityContext: {}
+  service:
+    type: "#{RUNTIME_SERVICE_TYPE}#"
+    port: #{RUNTIME_SERVICE_PORT}#
+    targetPort: #{RUNTIME_SERVICE_TARGET_PORT}#
+    externalTrafficPolicy: Cluster
+    loadBalancerIP: ""
+    annotations: {}
+    internal:
+      enabled: #{RUNTIME_SERVICE_INTERNAL_ENABLED}#
+      subnet: "#{RUNTIME_SERVICE_INTERNAL_SUBNET}#"
+  healthChecks:
+    livenessPath: "#{RUNTIME_HEALTHCHECK_LIVENESS_PATH}#"
+    readinessPath: "#{RUNTIME_HEALTHCHECK_READINESS_PATH}#"
+    livenessInitialDelaySeconds: #{RUNTIME_HEALTHCHECK_LIVENESS_INITIAL_DELAY_SECONDS}#
+    livenessPeriodSeconds: #{RUNTIME_HEALTHCHECK_LIVENESS_PERIOD_SECONDS}#
+    readinessInitialDelaySeconds: #{RUNTIME_HEALTHCHECK_READINESS_INITIAL_DELAY_SECONDS}#
+    readinessPeriodSeconds: #{RUNTIME_HEALTHCHECK_READINESS_PERIOD_SECONDS}#
+  ingress:
+    enabled: #{RUNTIME_INGRESS_ENABLED}#
+    port: #{RUNTIME_SERVICE_PORT}#
+    className: "#{RUNTIME_INGRESS_CLASS_NAME}#"
+    annotations:
+      appgw.ingress.kubernetes.io/use-private-ip: "true"
+      appgw.ingress.kubernetes.io/backend-protocol: #{RUNTIME_INGRESS_PROTOCOL}#
+      appgw.ingress.kubernetes.io/appgw-ssl-certificate: #{APPW_ING_CERT}#
+      appgw.ingress.kubernetes.io/ssl-redirect: "true"
+    hosts:
+    - host: "#{RUNTIME_INGRESS_HOST}#"
+      paths:
+      - path: /
+        pathType: Prefix
+    tls: []
+  resources:
+    limits:
+      cpu: "#{RUNTIME_RESOURCE_LIMIT_CPU}#"
+      memory: "#{RUNTIME_RESOURCE_LIMIT_MEMORY}#"
+    requests:
+      cpu: "#{RUNTIME_RESOURCE_REQUEST_CPU}#"
+      memory: "#{RUNTIME_RESOURCE_REQUEST_MEMORY}#"
+  autoscaling:
+    enabled: #{RUNTIME_AUTOSCALING_ENABLED}#
+    minReplicas: #{RUNTIME_AUTOSCALING_MIN_REPLICAS}#
+    maxReplicas: #{RUNTIME_AUTOSCALING_MAX_REPLICAS}#
+    targetCPUUtilizationPercentage: #{RUNTIME_AUTOSCALING_TARGET_CPU_PERCENT}#
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  database:
+    useManagedIdentity: #{DATABASE_USE_MANAGED_IDENTITY}#
+    managedIdentityClientId: "#{SA_CLIENT_ID}#"
+  artifactPull:
+    enabled: #{RUNTIME_ARTIFACT_PULL_ENABLED}#
+    initialDelaySeconds: #{RUNTIME_ARTIFACT_PULL_INITIAL_DELAY_SECONDS}#
+    intervalSeconds: #{RUNTIME_ARTIFACT_PULL_INTERVAL_SECONDS}#
+  connectionStrings:
+    knowlRuntimeDb: "#{CONNECTIONSTRINGS_ATLASRUNTIMEDB}#"
+
+secretNameOverride: ""

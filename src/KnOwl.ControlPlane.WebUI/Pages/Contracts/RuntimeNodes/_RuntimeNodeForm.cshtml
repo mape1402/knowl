@@ -1,0 +1,54 @@
+@using KnOwl.ControlPlane.Distribution.Core
+@model KnOwl.ControlPlane.WebUI.Pages.Contracts.RuntimeNodes.IndexModel
+@{
+    var environments = Model.Environments;
+}
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <label class="form-label" asp-for="Input.Name"></label>
+        <input class="form-control" asp-for="Input.Name" />
+        <span class="text-danger" asp-validation-for="Input.Name"></span>
+    </div>
+    <div class="col-md-6">
+        <label class="form-label" asp-for="Input.Code"></label>
+        <input class="form-control" asp-for="Input.Code" />
+        <span class="text-danger" asp-validation-for="Input.Code"></span>
+    </div>
+</div>
+<div class="row g-3 mt-1">
+    <div class="col-md-12">
+        <label class="form-label" asp-for="Input.EnvironmentId">Environment</label>
+        <select class="form-select" asp-for="Input.EnvironmentId">
+            <option value="">Select environment</option>
+            @foreach (var environment in environments)
+            {
+                <option value="@environment.Id">@environment.Name (@environment.Code)</option>
+            }
+        </select>
+    </div>
+</div>
+<div class="row g-3 mt-1">
+    <div class="col-md-6">
+        <label class="form-label" asp-for="Input.DistributionMode"></label>
+        <select class="form-select" asp-for="Input.DistributionMode" asp-items="Html.GetEnumSelectList<DistributionMode>()"></select>
+    </div>
+    <div class="col-md-6">
+        <label class="form-label" asp-for="Input.Status"></label>
+        <select class="form-select" asp-for="Input.Status" asp-items="Html.GetEnumSelectList<RuntimeNodeStatus>()"></select>
+    </div>
+</div>
+<div class="mt-3 mb-3 form-check">
+    <input class="form-check-input" asp-for="Input.IsEnabled" />
+    <label class="form-check-label" asp-for="Input.IsEnabled"></label>
+</div>
+<div class="row g-3">
+    <div class="col-md-12">
+        <label class="form-label" asp-for="Input.EndpointBaseUri"></label>
+        <input class="form-control" asp-for="Input.EndpointBaseUri" placeholder="https://runtime-host" />
+    </div>
+</div>
+<div class="mt-3 mb-3">
+    <label class="form-label" asp-for="Input.Description"></label>
+    <textarea class="form-control" asp-for="Input.Description"></textarea>
+</div>

@@ -1,0 +1,107 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Home";
+}
+
+<!-- ── Hero ──────────────────────────────────────────── -->
+<section class="hero-banner">
+    <div class="hero-content">
+        <h1 class="hero-title">
+            <i class="bi bi-hexagon-fill hero-icon"></i>
+            KnOwl
+        </h1>
+        <p class="hero-subtitle">
+            Centralized hub for technical documentation, APIs, asynchronous messaging contracts, and NuGet feeds.
+        </p>
+    </div>
+</section>
+
+<!-- ── Quick access ─────────────────────────────────── -->
+<section class="dashboard-section">
+    <h2 class="section-heading">Quick Access</h2>
+    <div class="hub-grid">
+
+        <a href="#" class="hub-card">
+            <div class="hub-card-icon" style="--hc-accent: #4f46e5;">
+                <i class="bi bi-journal-code"></i>
+            </div>
+            <div class="hub-card-body">
+                <h3 class="hub-card-title">API Documentation</h3>
+                <p class="hub-card-desc">Explora los contratos REST y gRPC de cada microservicio con ejemplos y esquemas.</p>
+            </div>
+            <span class="hub-card-arrow"><i class="bi bi-arrow-right"></i></span>
+        </a>
+
+        <a href="#" class="hub-card">
+            <div class="hub-card-icon" style="--hc-accent: #7c3aed;">
+                <i class="bi bi-arrow-left-right"></i>
+            </div>
+            <div class="hub-card-body">
+                <h3 class="hub-card-title">Async Contracts</h3>
+                <p class="hub-card-desc">Catalog of events, commands, and messages for asynchronous service integration.</p>
+            </div>
+            <span class="hub-card-arrow"><i class="bi bi-arrow-right"></i></span>
+        </a>
+
+        <a href="#" class="hub-card">
+            <div class="hub-card-icon" style="--hc-accent: #0078d4;">
+                <i class="bi bi-box-seam"></i>
+            </div>
+            <div class="hub-card-body">
+                <h3 class="hub-card-title">NuGet Feeds</h3>
+                <p class="hub-card-desc">Internal packages, versioning, and consumption guidance for your projects.</p>
+            </div>
+            <span class="hub-card-arrow"><i class="bi bi-arrow-right"></i></span>
+        </a>
+
+        <a href="#" class="hub-card">
+            <div class="hub-card-icon" style="--hc-accent: #059669;">
+                <i class="bi bi-book"></i>
+            </div>
+            <div class="hub-card-body">
+                <h3 class="hub-card-title">Technical Guides</h3>
+                <p class="hub-card-desc">Architecture guides, design patterns, coding standards, and runbooks.</p>
+            </div>
+            <span class="hub-card-arrow"><i class="bi bi-arrow-right"></i></span>
+        </a>
+
+    </div>
+</section>
+
+<!-- ── Overview ──────────────────────────────────────── -->
+<section class="dashboard-section">
+    <h2 class="section-heading">Resumen de la plataforma</h2>
+    <div class="stats-grid">
+        <div class="stat-card">
+            <span class="stat-value">—</span>
+            <span class="stat-label">APIs registradas</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-value">—</span>
+            <span class="stat-label">Contratos async</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-value">—</span>
+            <span class="stat-label">Paquetes NuGet</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-value">—</span>
+            <span class="stat-label">Published Guides</span>
+        </div>
+    </div>
+</section>
+
+<!-- ── Getting started ──────────────────────────────── -->
+<section class="dashboard-section">
+    <h2 class="section-heading">Primeros pasos</h2>
+    <div class="platform-card">
+        <ol class="getting-started-list">
+            <li><strong>Browse the catalog</strong> — use the sidebar to explore available APIs and contracts.</li>
+            <li><strong>Review the schemas</strong> — each endpoint includes request/response samples and error codes.</li>
+            <li><strong>Integra paquetes</strong> — configura el NuGet feed interno y agrega los paquetes compartidos a tu proyecto.</li>
+            <li><strong>Contribute</strong> — propose documentation changes or register new contracts from your team.</li>
+        </ol>
+    </div>
+</section>
+

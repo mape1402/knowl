@@ -1,0 +1,37 @@
+@page "{id:guid}"
+@model KnOwl.ControlPlane.WebUI.Pages.Contracts.Types.NewVersionModel
+@{
+    ViewData["Title"] = "New Type Version";
+    var designerUrl = $"/buttermorph/schema-types/designer?context={Model.ButterMorphContext}&mode=create&popup=true";
+}
+
+<section class="dashboard-section">
+    <div class="platform-card event-editor">
+        <div class="platform-card-header">
+            <span>New version of @Model.TypeName</span>
+            <a class="btn btn-secondary btn-sm" asp-page="/Contracts/Types/View" asp-route-id="@Model.TypeId">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+
+        <p class="event-editor-intro">
+            ButterMorph loads the latest available version and KnOwl saves a new version when you confirm the designer.
+        </p>
+
+        <div class="event-editor-actions mt-3">
+            <button type="button"
+                    class="btn btn-primary"
+                    data-buttermorph-url="@designerUrl"
+                    data-buttermorph-title="New version of @Model.TypeName"
+                    data-buttermorph-redirect-url="@Url.Page("/Contracts/Types/View", new { id = Model.TypeId })">
+                <i class="bi bi-box-arrow-up-right"></i> Abrir ButterMorph
+            </button>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-host.js"></script>
+    <script src="~/_content/KnOwl.ControlPlane.WebUI/js/buttermorph-knowl-host.js" asp-append-version="true"></script>
+}
+

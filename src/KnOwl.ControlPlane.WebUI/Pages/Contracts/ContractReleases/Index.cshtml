@@ -1,0 +1,152 @@
+@page
+@model KnOwl.ControlPlane.WebUI.Pages.Contracts.ContractReleases.IndexModel
+@{
+    ViewData["Title"] = "Releases";
+}
+
+<section class="dashboard-section">
+    <div class="platform-card">
+        <div class="platform-card-header">
+            <span>Contract Releases</span>
+            <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#releaseModal">New release</button>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+        {
+            <div class="alert alert-info mt-3">@Model.StatusMessage</div>
+        }
+        <div class="table-responsive mt-3">
+            <table class="table align-middle">
+                <thead><tr><th>Release</th><th>Status</th><th>Artifacts</th><th>Created</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var release in Model.Releases)
+                {
+                    <tr>
+                        <td>@release.Name</td>
+                        <td>@release.Status</td>
+                        <td>@release.Items.Count</td>
+                        <td>@release.CreatedAtUtc.ToString("u")</td>
+                        <td><a class="btn btn-secondary btn-sm" asp-page="/Contracts/ContractReleases/View" asp-route-id="@release.Id">View</a></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<div class="modal fade" id="releaseModal" tabindex="-1" aria-hidden="true" data-show="@Model.ShowReleaseModal.ToString().ToLowerInvariant()" data-initial-step="@Model.InitialReleaseStep">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <form method="post" id="releaseWizardForm">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title">New Release</h5>
+                        <div class="release-step-indicator"><span class="active" data-step-label="1">1. Artifacts</span><span data-step-label="2">2. Runtime nodes</span></div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div asp-validation-summary="All" class="text-danger mb-3"></div>
+                    <div class="release-step" data-step="1">
+                        <h6>Select artifacts</h6>
+                        @if (Model.Artifacts.Count == 0)
+                        {
+                            <div class="alert alert-light border mb-0">No artifacts are ready yet. Deploy an approved Event or Command version first.</div>
+                        }
+                        else
+                        {
+                        <div class="table-responsive release-picker-table">
+                            <table class="table align-middle">
+                                <thead><tr><th></th><th>Type</th><th>Topic</th><th>Version</th><th>Hash</th></tr></thead>
+                                <tbody>
+                                @foreach (var artifact in Model.Artifacts)
+                                {
+                                    <tr>
+                                        <td><input type="checkbox" name="Input.ArtifactIds" value="@artifact.Id" checked="@Model.Input.ArtifactIds.Contains(artifact.Id)" /></td>
+                                        <td>@artifact.ArtifactType</td>
+                                        <td>@artifact.Topic</td>
+                                        <td>@artifact.VersionNumber</td>
+                                        <td><code>@artifact.ContentHash</code></td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                        }
+                    </div>
+                    <div class="release-step d-none" data-step="2">
+                        <h6>Select runtime nodes</h6>
+                        @if (Model.RuntimeNodes.Count == 0)
+                        {
+                            <div class="alert alert-light border mb-0">No active runtime nodes are available. Create or enable a runtime node first.</div>
+                        }
+                        else
+                        {
+                        <div class="table-responsive release-picker-table">
+                            <table class="table align-middle">
+                                <thead><tr><th></th><th>Name</th><th>Code</th><th>Environment</th><th>Mode</th></tr></thead>
+                                <tbody>
+                                @foreach (var node in Model.RuntimeNodes)
+                                {
+                                    <tr>
+                                        <td><input type="checkbox" name="Input.RuntimeNodeIds" value="@node.Id" checked="@Model.Input.RuntimeNodeIds.Contains(node.Id)" /></td>
+                                        <td>@node.Name</td>
+                                        <td><code>@node.Code</code></td>
+                                        <td>@(node.Environment?.Name ?? "-")</td>
+                                        <td>@node.DistributionMode</td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-secondary d-none" id="releaseBackStep">Back</button>
+                    <button type="button" class="btn btn-primary" id="releaseNextStep">Next</button>
+                    <button type="submit" class="btn btn-primary d-none" id="releaseSubmit">Create and distribute</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(() => {
+    let step = 1;
+    const modal = document.getElementById('releaseModal');
+    const next = document.getElementById('releaseNextStep');
+    const back = document.getElementById('releaseBackStep');
+    const submit = document.getElementById('releaseSubmit');
+    const artifactChecks = () => Array.from(document.querySelectorAll('[name="Input.ArtifactIds"]'));
+    const nodeChecks = () => Array.from(document.querySelectorAll('[name="Input.RuntimeNodeIds"]'));
+    const hasChecked = items => items.some(x => x.checked);
+    const updateActions = () => {
+        if (next) next.disabled = !hasChecked(artifactChecks());
+        if (submit) submit.disabled = !hasChecked(nodeChecks());
+    };
+    const setStep = value => {
+        step = value;
+        document.querySelectorAll('.release-step').forEach(x => x.classList.toggle('d-none', x.dataset.step !== String(step)));
+        document.querySelectorAll('[data-step-label]').forEach(x => x.classList.toggle('active', x.dataset.stepLabel === String(step)));
+        back.classList.toggle('d-none', step === 1);
+        next.classList.toggle('d-none', step === 2);
+        submit.classList.toggle('d-none', step !== 2);
+        updateActions();
+    };
+    next?.addEventListener('click', () => setStep(2));
+    back?.addEventListener('click', () => setStep(1));
+    artifactChecks().forEach(x => x.addEventListener('change', updateActions));
+    nodeChecks().forEach(x => x.addEventListener('change', updateActions));
+    if (modal?.dataset.show === 'true') {
+        bootstrap.Modal.getOrCreateInstance(modal).show();
+        setStep(Number(modal.dataset.initialStep || '1'));
+    }
+    modal?.addEventListener('hidden.bs.modal', () => setStep(1));
+    updateActions();
+})();
+</script>
+}

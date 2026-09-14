@@ -1,0 +1,113 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Runtime Overview";
+}
+
+<section class="runtime-hero">
+    <div>
+        <p class="eyebrow">Live contract catalog</p>
+        <h2>Published schemas available to backend services.</h2>
+        <p>Inspect deployed Events and Commands, verify control-plane connections, and copy runtime consumption endpoints.</p>
+    </div>
+    <div class="runtime-hero-actions">
+        <a class="runtime-button primary" asp-page="/Artifacts/Index">View Artifacts</a>
+        <a class="runtime-button" asp-page="/ControlPlanes/Index">Control Planes</a>
+    </div>
+</section>
+
+<section class="runtime-metrics">
+    <article class="metric-card">
+        <span>@Model.TotalArtifacts</span>
+        <small>Total artifacts</small>
+    </article>
+    <article class="metric-card">
+        <span>@Model.EventArtifacts</span>
+        <small>Events</small>
+    </article>
+    <article class="metric-card">
+        <span>@Model.CommandArtifacts</span>
+        <small>Commands</small>
+    </article>
+    <article class="metric-card">
+        <span>@Model.ActiveControlPlanes</span>
+        <small>Active control planes</small>
+    </article>
+</section>
+
+<section class="runtime-grid two-columns">
+    <article class="runtime-card">
+        <div class="card-heading">
+            <div>
+                <p class="eyebrow">Recent deployment</p>
+                <h3>Latest Artifacts</h3>
+            </div>
+            <a asp-page="/Artifacts/Index">Open list</a>
+        </div>
+        @if (Model.LatestArtifacts.Count == 0)
+        {
+            <div class="empty-state">No artifacts have been deployed into this runtime yet.</div>
+        }
+        else
+        {
+            <div class="runtime-list">
+                @foreach (var artifact in Model.LatestArtifacts)
+                {
+                    <a class="runtime-list-row" asp-page="/Artifacts/View" asp-route-id="@artifact.Id">
+                        <span class="type-badge">@artifact.ArtifactType</span>
+                        <span>
+                            <strong>@artifact.Name</strong>
+                            <small>@artifact.Topic @artifact.VersionNumber</small>
+                        </span>
+                        <time>@artifact.DeployedAtUtc.ToString("u")</time>
+                    </a>
+                }
+            </div>
+        }
+    </article>
+
+    <article class="runtime-card">
+        <div class="card-heading">
+            <div>
+                <p class="eyebrow">Connections</p>
+                <h3>Control Planes</h3>
+            </div>
+            <a asp-page="/ControlPlanes/Index">Open list</a>
+        </div>
+        @if (Model.ControlPlanes.Count == 0)
+        {
+            <div class="empty-state">No control planes are registered in this runtime.</div>
+        }
+        else
+        {
+            <div class="runtime-list">
+                @foreach (var node in Model.ControlPlanes)
+                {
+                    <div class="runtime-list-row">
+                        <span class="status-dot @(node.IsReady ? "ok" : "warn")"></span>
+                        <span>
+                            <strong>@node.Name</strong>
+                            <small>@node.Key · @node.DistributionMode · @node.Status</small>
+                        </span>
+                        <span class="muted">@node.CredentialSummary</span>
+                    </div>
+                }
+            </div>
+        }
+    </article>
+</section>
+
+<section class="runtime-card">
+    <div class="card-heading">
+        <div>
+            <p class="eyebrow">Consumption</p>
+            <h3>Runtime endpoints</h3>
+        </div>
+    </div>
+    <div class="endpoint-grid">
+        <code>GET /runtime/contracts/artifacts</code>
+        <code>GET /runtime/contracts/{artifactType}/{topic}/versions/{versionNumber}</code>
+        <code>GET /runtime/contracts/{artifactType}/{topic}/latest</code>
+        <code>gRPC RuntimeContracts.GetExact / RuntimeContracts.GetLatest</code>
+    </div>
+</section>

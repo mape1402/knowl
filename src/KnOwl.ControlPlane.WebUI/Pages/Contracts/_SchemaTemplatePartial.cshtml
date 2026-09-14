@@ -1,0 +1,127 @@
+<template id="schema-field-template">
+    <div class="schema-field">
+        <div class="schema-field-main row g-2">
+            <div class="col-md-3">
+                <label class="form-label">Field</label>
+                <input type="text" class="form-control field-name-input" placeholder="Field key" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Type</label>
+                <select class="form-control field-type-select">
+                    <option value="string">string</option>
+                    <option value="number">number</option>
+                    <option value="integer">integer</option>
+                    <option value="boolean">boolean</option>
+                    <option value="object">object</option>
+                    <option value="array">array</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Description</label>
+                <input type="text" class="form-control field-description-input" placeholder="Short field description" />
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <div class="form-check mb-2">
+                    <input class="form-check-input field-required-input" type="checkbox" />
+                    <label class="form-check-label">Required</label>
+                </div>
+            </div>
+            <div class="col-md-1 d-flex align-items-end" style="padding-left:0.25rem;">
+                <div class="d-flex gap-1">
+                    <button type="button" class="btn btn-secondary btn-sm field-metadata-btn px-2" title="Field metadata">
+                        <i class="bi bi-sliders"></i>
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm edit-object-fields-btn px-2 d-none" title="Edit properties">
+                        <i class="bi bi-braces"></i>
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm edit-array-object-fields-btn px-2 d-none" title="Edit item structure">
+                        <i class="bi bi-list-nested"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-danger btn-sm remove-field-btn px-2" title="Delete field">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="schema-object-builder mt-2 d-none">
+            <span class="schema-nested-summary object-summary">No properties configured</span>
+            <div class="schema-fields-list child-fields-list"></div>
+            <button type="button" class="btn btn-secondary btn-sm add-child-field-btn d-none"><i class="bi bi-plus-lg"></i> Add property</button>
+        </div>
+        <div class="schema-array-builder mt-2 d-none">
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <label class="form-label">Array Item Type</label>
+                    <select class="form-control array-item-type-select">
+                        <option value="string">string</option>
+                        <option value="number">number</option>
+                        <option value="integer">integer</option>
+                        <option value="boolean">boolean</option>
+                        <option value="object">object</option>
+                        <option value="array">array</option>
+                    </select>
+                </div>
+            </div>
+            <div class="schema-array-object-builder mt-2 d-none">
+                <span class="schema-nested-summary array-object-summary">No properties configured</span>
+                <div class="schema-fields-list array-object-fields-list"></div>
+                <button type="button" class="btn btn-secondary btn-sm add-array-object-field-btn d-none"><i class="bi bi-plus-lg"></i> Add property</button>
+            </div>
+            <div class="schema-array-nested-builder mt-2 d-none">
+                <div class="schema-fields-list nested-array-item-list"></div>
+                <div class="schema-add-row">
+                    <button type="button" class="btn btn-secondary btn-sm add-nested-array-item-btn"><i class="bi bi-plus-lg"></i> Add item</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<div class="modal fade" id="field-metadata-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Field Metadata</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="field-metadata-validation" class="alert alert-danger d-none"></div>
+                <div id="field-validation-section" class="field-validation-section mb-3">
+                    <h6 class="field-modal-section-title">Field Validations</h6>
+                    <div id="field-validation-fields" class="row g-3"></div>
+                </div>
+                <h6 class="field-modal-section-title">Custom fields</h6>
+                <div id="field-metadata-fields" class="row g-3"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="save-field-metadata-btn">Apply</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="object-schema-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content object-schema-modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title mb-1" id="object-schema-modal-title">Object Properties</h5>
+                    <div id="object-schema-breadcrumb" class="object-schema-breadcrumb"></div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="object-schema-fields-host" class="object-schema-fields-host"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="object-schema-back-btn">Back</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="object-schema-add-field-btn">
+                    <i class="bi bi-plus-lg"></i> Add property
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+

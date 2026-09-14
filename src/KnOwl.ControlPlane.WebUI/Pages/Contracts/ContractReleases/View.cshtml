@@ -1,0 +1,98 @@
+@page
+@using KnOwl.ControlPlane.Distribution.Core
+@model KnOwl.ControlPlane.WebUI.Pages.Contracts.ContractReleases.ViewModel
+@{
+    ViewData["Title"] = "Release Details";
+    var hasExecutableTargets = Model.Release?.Targets.Any(target =>
+        target.Status is ContractReleaseTargetStatus.Pending
+            or ContractReleaseTargetStatus.PushScheduled
+            or ContractReleaseTargetStatus.AvailableForPull
+            or ContractReleaseTargetStatus.Failed) == true;
+}
+
+<section class="dashboard-section">
+    <div class="platform-card">
+        <div class="platform-card-header">
+            <span>Release Details</span>
+            <div class="d-flex gap-2">
+                @if (hasExecutableTargets && Model.Release is not null)
+                {
+                    <form method="post" asp-page-handler="PushAll">
+                        <input type="hidden" name="id" value="@Model.Release.Id" />
+                        <button type="submit" class="btn btn-primary btn-sm">Distribute all</button>
+                    </form>
+                }
+                <a class="btn btn-secondary btn-sm" asp-page="/Contracts/ContractReleases/Index">Back</a>
+            </div>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+        {
+            <div class="alert alert-info mt-3">@Model.StatusMessage</div>
+        }
+        @if (Model.Release is not null)
+        {
+            <div class="event-meta-grid mt-3">
+                <div><span class="event-meta-label">Release</span><p class="event-meta-value">@Model.Release.Name</p></div>
+                <div><span class="event-meta-label">Status</span><p class="event-meta-value">@Model.Release.Status</p></div>
+                <div><span class="event-meta-label">Artifacts</span><p class="event-meta-value">@Model.Release.Items.Count</p></div>
+            </div>
+            <h6 class="mt-4">Artifacts</h6>
+            <div class="table-responsive mt-2">
+                <table class="table align-middle">
+                    <thead><tr><th>Type</th><th>Topic</th><th>Version</th><th>Hash</th></tr></thead>
+                    <tbody>
+                    @foreach (var item in Model.Release.Items)
+                    {
+                        <tr><td>@item.Artifact?.ArtifactType</td><td>@item.Artifact?.Topic</td><td>@item.Artifact?.VersionNumber</td><td><code>@item.Artifact?.ContentHash</code></td></tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <h6 class="mt-4">Runtime targets</h6>
+            <div class="table-responsive mt-2">
+                <table class="table align-middle">
+                    <thead><tr><th>Runtime</th><th>Mode</th><th>Artifact</th><th>Status</th><th>Activation</th><th>Last attempt</th><th>Error</th><th></th></tr></thead>
+                    <tbody>
+                    @foreach (var target in Model.Release.Targets.OrderBy(x => x.RuntimeNode?.Name).ThenBy(x => x.Artifact?.Topic))
+                    {
+                        var canPushRuntime = target.RuntimeNode?.DistributionMode is DistributionMode.Push or DistributionMode.Hybrid;
+                        var canRetryTarget = target.Status is ContractReleaseTargetStatus.Pending
+                            or ContractReleaseTargetStatus.PushScheduled
+                            or ContractReleaseTargetStatus.AvailableForPull
+                            or ContractReleaseTargetStatus.Failed;
+                        var canPush = canPushRuntime && canRetryTarget;
+                        var lastAttempt = target.Attempts.OrderByDescending(x => x.StartedAtUtc).FirstOrDefault();
+                        <tr>
+                            <td>@target.RuntimeNode?.Name</td>
+                            <td>@target.RuntimeNode?.DistributionMode</td>
+                            <td>@target.Artifact?.Topic @target.Artifact?.VersionNumber</td>
+                            <td>@target.Status</td>
+                            <td>@target.ActivationStatus</td>
+                            <td>@(lastAttempt is null ? "-" : $"{lastAttempt.Action} {(lastAttempt.Succeeded ? "OK" : "FAIL")}")</td>
+                            <td class="text-danger small">@(lastAttempt?.ErrorMessage ?? target.FailureReason ?? "-")</td>
+                            <td class="text-end">
+                                @if (canPush)
+                                {
+                                    <form method="post" asp-page-handler="PushTarget" class="d-inline">
+                                        <input type="hidden" name="id" value="@Model.Release.Id" />
+                                        <input type="hidden" name="targetId" value="@target.Id" />
+                                        <button type="submit" class="btn btn-primary btn-sm">Push</button>
+                                    </form>
+                                }
+                                else if (target.Status == ContractReleaseTargetStatus.Activated)
+                                {
+                                    <span class="text-muted small">Done</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">Pull only</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</section>

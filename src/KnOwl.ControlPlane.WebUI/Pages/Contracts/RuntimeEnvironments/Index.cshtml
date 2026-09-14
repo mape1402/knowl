@@ -1,0 +1,103 @@
+@page
+@model KnOwl.ControlPlane.WebUI.Pages.Contracts.RuntimeEnvironments.IndexModel
+@{
+    ViewData["Title"] = "Runtime Environments";
+}
+
+<section class="dashboard-section">
+    <div class="platform-card">
+        <div class="platform-card-header">
+            <span>Runtime Environments</span>
+            <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#environmentModal" data-mode="new">New environment</button>
+        </div>
+        <div class="table-responsive mt-3">
+            <table class="table align-middle">
+                <thead><tr><th>Name</th><th>Code</th><th>Enabled</th><th>Description</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var env in Model.Environments)
+                {
+                    <tr>
+                        <td>@env.Name</td>
+                        <td><code>@env.Code</code></td>
+                        <td>@(env.IsEnabled ? "Yes" : "No")</td>
+                        <td>@env.Description</td>
+                        <td>
+                            <button class="btn btn-secondary btn-sm" type="button"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#environmentModal"
+                                    data-mode="edit"
+                                    data-id="@env.Id"
+                                    data-name="@env.Name"
+                                    data-code="@env.Code"
+                                    data-enabled="@env.IsEnabled.ToString().ToLowerInvariant()"
+                                    data-description="@env.Description">
+                                Edit
+                            </button>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<div class="modal fade" id="environmentModal" tabindex="-1" aria-hidden="true" data-show="@Model.ShowEnvironmentModal.ToString().ToLowerInvariant()">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post">
+                <div class="modal-header">
+                    <h5 class="modal-title">Runtime Environment</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div asp-validation-summary="All" class="text-danger mb-3"></div>
+                    <input type="hidden" asp-for="Input.Id" />
+                    <div class="mb-3">
+                        <label class="form-label" asp-for="Input.Name"></label>
+                        <input class="form-control" asp-for="Input.Name" />
+                        <span class="text-danger" asp-validation-for="Input.Name"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" asp-for="Input.Code"></label>
+                        <input class="form-control" asp-for="Input.Code" />
+                        <span class="text-danger" asp-validation-for="Input.Code"></span>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" asp-for="Input.IsEnabled" />
+                        <label class="form-check-label" asp-for="Input.IsEnabled"></label>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" asp-for="Input.Description"></label>
+                        <textarea class="form-control" asp-for="Input.Description"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save environment</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(() => {
+    const modal = document.getElementById('environmentModal');
+    if (!modal) return;
+    if (modal.dataset.show === 'true') {
+        bootstrap.Modal.getOrCreateInstance(modal).show();
+    }
+    modal.addEventListener('show.bs.modal', event => {
+        const button = event.relatedTarget;
+        const isEdit = button?.dataset.mode === 'edit';
+        modal.querySelector('[name="Input.Id"]').value = isEdit ? button.dataset.id : '';
+        modal.querySelector('[name="Input.Name"]').value = isEdit ? button.dataset.name : '';
+        modal.querySelector('[name="Input.Code"]').value = isEdit ? button.dataset.code : '';
+        modal.querySelector('[name="Input.IsEnabled"]').checked = isEdit ? button.dataset.enabled === 'true' : true;
+        modal.querySelector('[name="Input.Description"]').value = isEdit ? (button.dataset.description || '') : '';
+    });
+})();
+</script>
+}

@@ -1,0 +1,52 @@
+@{
+    var pageTitle = ViewData["Title"]?.ToString() ?? "Runtime";
+    var path = Context.Request.Path;
+    var artifactsActive = path.StartsWithSegments("/Artifacts");
+    var controlPlanesActive = path.StartsWithSegments("/ControlPlanes");
+    var overviewActive = !artifactsActive && !controlPlanesActive;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@pageTitle - KnOwl Runtime</title>
+    <link rel="stylesheet" href="~/_content/KnOwl.Runtime.WebUI/css/runtime.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="runtime-shell">
+        <aside class="runtime-sidebar">
+            <a class="runtime-brand" asp-page="/Index">
+                <span class="runtime-brand-mark">AR</span>
+                <span>
+                    <strong>KnOwl Runtime</strong>
+                    <small>Contract storage</small>
+                </span>
+            </a>
+            <nav class="runtime-nav" aria-label="Runtime navigation">
+                <a class="@(overviewActive ? "active" : null)" asp-page="/Index">Overview</a>
+                <a class="@(artifactsActive ? "active" : null)" asp-page="/Artifacts/Index">Artifacts</a>
+                <a class="@(controlPlanesActive ? "active" : null)" asp-page="/ControlPlanes/Index">Control Planes</a>
+            </nav>
+            <div class="runtime-sidebar-note">
+                Runtime is read-only for contracts. New artifacts arrive through Distribution.
+            </div>
+        </aside>
+
+        <div class="runtime-main">
+            <header class="runtime-topbar">
+                <div>
+                    <span class="eyebrow">Runtime host</span>
+                    <h1>@pageTitle</h1>
+                </div>
+                <a class="status-pill" href="/health">Health</a>
+            </header>
+            <main class="runtime-content">
+                @RenderBody()
+            </main>
+        </div>
+    </div>
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
