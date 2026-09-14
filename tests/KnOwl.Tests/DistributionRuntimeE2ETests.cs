@@ -89,6 +89,8 @@ public sealed class DistributionRuntimeE2ETests
         var release = await controlDb.ContractReleases.AsNoTracking().FirstAsync(x => x.Id == controlTarget.ReleaseId);
 
         using var catalogResponse = await http.GetAsync($"{runtimeBaseUrl}/runtime/contracts/event/customer.created/versions/1.0.0");
+        using var controlCatalogResponse = await http.GetAsync($"{controlBaseUrl}/contracts/event/customer.created/versions/1.0.0");
+        using var controlLatestResponse = await http.GetAsync($"{controlBaseUrl}/contracts/event/customer.created/latest");
 
         Assert.Equal(HttpStatusCode.OK, pushResponse.StatusCode);
         Assert.Contains("Runtime artifact pushed", pushBody);
@@ -98,6 +100,8 @@ public sealed class DistributionRuntimeE2ETests
         Assert.NotNull(runtimeArtifact);
         Assert.Equal("hash-e2e", runtimeArtifact.ContentHash);
         Assert.Equal(HttpStatusCode.OK, catalogResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, controlCatalogResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, controlLatestResponse.StatusCode);
     }
 
     [Fact]
@@ -171,6 +175,7 @@ public sealed class DistributionRuntimeE2ETests
         var controlTarget = await controlDb.ContractReleaseTargets.AsNoTracking().FirstAsync(x => x.Id == setup.ReleaseTargetId);
         var release = await controlDb.ContractReleases.AsNoTracking().FirstAsync(x => x.Id == controlTarget.ReleaseId);
         var attempts = await controlDb.ContractReleaseAttempts.AsNoTracking().Where(x => x.ReleaseTargetId == setup.ReleaseTargetId).ToListAsync();
+        using var controlCatalogResponse = await http.GetAsync($"{controlBaseUrl}/contracts/command/customer.register/versions/1.0.0");
 
         Assert.Equal(HttpStatusCode.OK, applyResponse.StatusCode);
         Assert.Contains("Ready", applyBody);
@@ -179,6 +184,7 @@ public sealed class DistributionRuntimeE2ETests
         Assert.Equal(ContractReleaseTargetStatus.Activated, controlTarget.Status);
         Assert.Equal(ContractReleaseStatus.Completed, release.Status);
         Assert.Contains(attempts, x => x.Action == "Ack" && x.Succeeded);
+        Assert.Equal(HttpStatusCode.OK, controlCatalogResponse.StatusCode);
     }
 
     private static async Task ResetRuntimeDatabase(ServiceProvider provider)

@@ -14,6 +14,11 @@ public interface IContractArtifactRepository
     Task<IReadOnlyList<ContractArtifact>> GetAll(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets all deployed contract artifacts ordered by creation date.
+    /// </summary>
+    Task<IReadOnlyList<ContractArtifact>> GetDeployed(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets a contract artifact by identifier.
     /// </summary>
     Task<ContractArtifact?> GetById(Guid id, CancellationToken cancellationToken = default);
@@ -32,6 +37,16 @@ public interface IContractArtifactRepository
     /// Gets a contract artifact by runtime identity.
     /// </summary>
     Task<ContractArtifact?> GetByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets a deployed contract artifact by runtime identity.
+    /// </summary>
+    Task<ContractArtifact?> GetDeployedByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the latest deployed artifact for a contract topic.
+    /// </summary>
+    Task<ContractArtifact?> GetLatestDeployed(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Persists a new immutable contract artifact.
