@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>KnOwl.Messaging.Pigeon</PackageId>
+    <Title>KnOwl Pigeon Messaging Adapter</Title>
+    <PackageType>Dependency</PackageType>
+    <Description>Pigeon consume decision, execution, and deferred replay adapter for KnOwl messaging idempotency.</Description>
+    <PackageTags>$(PackageTags);messaging;pigeon;interceptor</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Pigeon.Messaging" Version="4.0.0" />
+    <ProjectReference Include="..\KnOwl.Messaging\KnOwl.Messaging.csproj" />
+    <ProjectReference Include="..\KnOwl.Mule\KnOwl.Mule.csproj" />
+    <ProjectReference Include="..\KnOwl\KnOwl.csproj" />
+  </ItemGroup>
+
+</Project>

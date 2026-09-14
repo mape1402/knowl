@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>KnOwl.AspNetCore</PackageId>
+    <Title>KnOwl ASP.NET Core Adapter</Title>
+    <PackageType>Dependency</PackageType>
+    <Description>ASP.NET Core adapter for KnOwl HTTP idempotency.</Description>
+    <PackageTags>$(PackageTags);aspnetcore;http;web</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\KnOwl\KnOwl.csproj" />
+  </ItemGroup>
+
+</Project>

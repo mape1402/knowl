@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>KnOwl.Messaging</PackageId>
+    <Title>KnOwl Messaging Adapter</Title>
+    <PackageType>Dependency</PackageType>
+    <Description>Transport-neutral messaging adapter for KnOwl consumer idempotency.</Description>
+    <PackageTags>$(PackageTags);messaging;consumers</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\KnOwl\KnOwl.csproj" />
+  </ItemGroup>
+
+</Project>

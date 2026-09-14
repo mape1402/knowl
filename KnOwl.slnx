@@ -1,0 +1,23 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/KnOwl.AspNetCore/KnOwl.AspNetCore.csproj" />
+    <Project Path="src/KnOwl.AspNetCore.Dashboard/KnOwl.AspNetCore.Dashboard.csproj" />
+    <Project Path="src/KnOwl.EntityFrameworkCore/KnOwl.EntityFrameworkCore.csproj" />
+    <Project Path="src/KnOwl.InMemory/KnOwl.InMemory.csproj" />
+    <Project Path="src/KnOwl.Messaging/KnOwl.Messaging.csproj" />
+    <Project Path="src/KnOwl.Messaging.Pigeon/KnOwl.Messaging.Pigeon.csproj" />
+    <Project Path="src/KnOwl.Mule/KnOwl.Mule.csproj" />
+    <Project Path="src/KnOwl/KnOwl.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/KnOwl.Sample/KnOwl.Sample.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/KnOwl.AspNetCore.Tests/KnOwl.AspNetCore.Tests.csproj" />
+    <Project Path="tests/KnOwl.EntityFrameworkCore.Tests/KnOwl.EntityFrameworkCore.Tests.csproj" />
+    <Project Path="tests/KnOwl.InMemory.Tests/KnOwl.InMemory.Tests.csproj" />
+    <Project Path="tests/KnOwl.Messaging.Tests/KnOwl.Messaging.Tests.csproj" />
+    <Project Path="tests/KnOwl.Mule.Tests/KnOwl.Mule.Tests.csproj" />
+    <Project Path="tests/KnOwl.Tests/KnOwl.Tests.csproj" />
+  </Folder>
+</Solution>
