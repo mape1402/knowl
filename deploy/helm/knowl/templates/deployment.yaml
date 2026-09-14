@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "knowl.fullname" . }}
+  labels:
+    {{- include "knowl.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "knowl.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "knowl.selectorLabels" . | nindent 8 }}
+        azure.workload.identity/use: "true"
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "knowl.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      automountServiceAccountToken: true
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: {{ include "knowl.name" . }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: {{ .Values.env.ASPNETCORE_ENVIRONMENT | quote }}
+        - name: Database__UseManagedIdentity
+          value: {{ .Values.database.useManagedIdentity | quote }}
+        - name: Database__ManagedIdentityClientId
+          value: {{ .Values.database.managedIdentityClientId | quote }}
+        {{- if .Values.connectionStrings.knowlDb }}
+        - name: ConnectionStrings__KnOwlDb
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "knowl.secretName" . }}
+              key: ConnectionStrings__KnOwlDb
+        {{- end }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.service.targetPort }}
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.healthChecks.livenessPath }}
+            port: http
+          initialDelaySeconds: {{ .Values.healthChecks.livenessInitialDelaySeconds }}
+          periodSeconds: {{ .Values.healthChecks.livenessPeriodSeconds }}
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.healthChecks.readinessPath }}
+            port: http
+          initialDelaySeconds: {{ .Values.healthChecks.readinessInitialDelaySeconds }}
+          periodSeconds: {{ .Values.healthChecks.readinessPeriodSeconds }}
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+

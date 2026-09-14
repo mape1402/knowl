@@ -1,0 +1,37 @@
+@page "{id:guid}"
+@model KnOwl.ControlPlane.WebUI.Pages.Contracts.MetadataFields.EditModel
+@{
+    ViewData["Title"] = "Edit custom field";
+    var designerUrl = $"/buttermorph/metadata-fields/designer?context={Model.ButterMorphContext}&mode=edit&popup=true";
+}
+
+<section class="dashboard-section">
+    <div class="platform-card event-editor">
+        <div class="platform-card-header">
+            <span>Edit custom field</span>
+            <a class="btn btn-secondary btn-sm" asp-page="/Contracts/MetadataFields/View" asp-route-id="@Model.Id">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+
+        <p class="event-editor-intro">
+            ButterMorph loads the saved definition and KnOwl persists the changes in the current catalog.
+        </p>
+
+        <div class="event-editor-actions mt-3">
+            <button type="button"
+                    class="btn btn-primary"
+                    data-buttermorph-url="@designerUrl"
+                    data-buttermorph-title="Edit custom field"
+                    data-buttermorph-redirect-url="@Url.Page("/Contracts/MetadataFields/View", new { id = Model.Id })">
+                <i class="bi bi-box-arrow-up-right"></i> Abrir ButterMorph
+            </button>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-host.js"></script>
+    <script src="~/_content/KnOwl.ControlPlane.WebUI/js/buttermorph-knowl-host.js" asp-append-version="true"></script>
+}
+

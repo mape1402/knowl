@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <ItemGroup>
+    <ProjectReference Include="..\KnOwl.Contracts\KnOwl.Contracts.csproj" />
+    <ProjectReference Include="..\KnOwl.Runtime\KnOwl.Runtime.csproj" />
+    <ProjectReference Include="..\KnOwl.Runtime.Application\KnOwl.Runtime.Application.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFrameworks>net9.0;net10.0</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+</Project>

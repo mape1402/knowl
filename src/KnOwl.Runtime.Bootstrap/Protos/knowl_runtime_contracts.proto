@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+option csharp_namespace = "KnOwl.Runtime.Bootstrap.Grpc";
+
+package knowl.runtime;
+
+service RuntimeContracts {
+  rpc GetExact (RuntimeContractExactRequest) returns (RuntimeContractResponse);
+  rpc GetLatest (RuntimeContractLatestRequest) returns (RuntimeContractResponse);
+}
+
+message RuntimeContractExactRequest {
+  string artifact_type = 1;
+  string topic = 2;
+  string version_number = 3;
+}
+
+message RuntimeContractLatestRequest {
+  string artifact_type = 1;
+  string topic = 2;
+}
+
+message RuntimeContractResponse {
+  bool found = 1;
+  string id = 2;
+  string source_artifact_id = 3;
+  string source_release_id = 4;
+  string artifact_type = 5;
+  string definition_id = 6;
+  string version_id = 7;
+  string name = 8;
+  string topic = 9;
+  string version_number = 10;
+  string description = 11;
+  string payload_schema_json = 12;
+  string content_hash = 13;
+  string deployed_at_utc = 14;
+}

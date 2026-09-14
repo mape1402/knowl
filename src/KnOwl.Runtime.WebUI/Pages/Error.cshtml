@@ -1,0 +1,11 @@
+@page
+@model ErrorModel
+@{
+    ViewData["Title"] = "Runtime Error";
+}
+
+<section class="runtime-card">
+    <p class="eyebrow">Unhandled error</p>
+    <h2>Runtime could not render the request.</h2>
+    <p class="muted">Request id: <code>@Model.RequestId</code></p>
+</section>

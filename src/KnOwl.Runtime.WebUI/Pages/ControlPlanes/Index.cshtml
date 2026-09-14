@@ -1,0 +1,60 @@
+@page
+@model KnOwl.Runtime.WebUI.Pages.ControlPlanes.IndexModel
+@{
+    ViewData["Title"] = "Control Planes";
+}
+
+<section class="runtime-card">
+    <div class="card-heading">
+        <div>
+            <p class="eyebrow">Distribution sources</p>
+            <h2>Control Planes</h2>
+        </div>
+        <span class="count-pill">@Model.DesignNodes.Count configured</span>
+    </div>
+
+    @if (Model.DesignNodes.Count == 0)
+    {
+        <div class="empty-state">No control planes are registered. Import a runtime package from the KnOwl control plane to enable distribution.</div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Key</th>
+                        <th>Mode</th>
+                        <th>Status</th>
+                        <th>Credentials</th>
+                        <th>Endpoint</th>
+                        <th>Updated</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var node in Model.DesignNodes)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@node.Name</strong>
+                                <small class="block-muted">Remote node: @(string.IsNullOrWhiteSpace(node.RemoteRuntimeNodeId) ? "-" : node.RemoteRuntimeNodeId)</small>
+                            </td>
+                            <td><code>@node.Key</code></td>
+                            <td>@node.DistributionMode</td>
+                            <td>
+                                <span class="status-label @(node.IsEnabled ? "ok" : "warn")">@node.Status</span>
+                            </td>
+                            <td>
+                                <span class="block-muted">Inbound: @node.InboundCredentialStatus</span>
+                                <span class="block-muted">Outbound: @node.OutboundCredentialStatus</span>
+                            </td>
+                            <td><code class="endpoint-text">@node.EndpointBaseUri</code></td>
+                            <td>@node.UpdatedAtUtc.ToString("u")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>

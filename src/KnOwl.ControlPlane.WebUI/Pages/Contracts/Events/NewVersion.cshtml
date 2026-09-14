@@ -1,0 +1,72 @@
+@page "{id:guid}"
+@model KnOwl.ControlPlane.WebUI.Pages.Contracts.Events.NewVersionModel
+@{
+    ViewData["Title"] = "New Event Version";
+    var designerUrl = $"/buttermorph/payload-schema/designer?context={Model.ButterMorphContext}&mode=edit&popup=true";
+}
+
+<section class="dashboard-section">
+    <div class="platform-card event-editor">
+        <div class="platform-card-header">
+            <span>New version of @Model.EventName</span>
+            <div class="event-list-actions">
+                <button class="btn btn-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#contract-general-data" aria-expanded="true" aria-controls="contract-general-data">
+                    <i class="bi bi-layout-sidebar-inset"></i> Version Data
+                </button>
+                <a class="btn btn-secondary btn-sm" asp-page="/Contracts/Events/View" asp-route-id="@Model.EventId">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+            </div>
+        </div>
+
+        <form id="event-editor-form" method="post">
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+            <input asp-for="EventId" type="hidden" />
+            <input asp-for="PayloadSchemaJson" type="hidden" id="payload-schema-json" />
+
+            <div class="contract-editor-scroll">
+                <div class="collapse show" id="contract-general-data">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label asp-for="Input.Version" class="form-label"></label>
+                        <input asp-for="Input.Version" id="event-version" type="text" class="form-control" maxlength="13" />
+                        <span asp-validation-for="Input.Version" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-8">
+                        <label asp-for="Input.Comment" class="form-label"></label>
+                        <input asp-for="Input.Comment" type="text" class="form-control" maxlength="1000" placeholder="What changed in this version?" />
+                        <span asp-validation-for="Input.Comment" class="text-danger"></span>
+                    </div>
+                </div>
+                </div>
+
+                <div class="event-schema-block">
+                    <div class="event-schema-header">
+                        <div>
+                            <h2 class="section-heading event-schema-title">New version payload</h2>
+                            <small class="text-muted" data-buttermorph-payload-status>The previous version is loaded in ButterMorph for editing.</small>
+                        </div>
+                        <button type="button"
+                                class="btn btn-secondary btn-sm"
+                                data-buttermorph-url="@designerUrl"
+                                data-buttermorph-title="Schema del payload"
+                                data-buttermorph-payload-context="@Model.ButterMorphContext">
+                            <i class="bi bi-box-arrow-up-right"></i> Design schema
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="event-editor-actions contract-editor-actions mt-3">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Create version</button>
+            </div>
+        </form>
+    </div>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-host.js"></script>
+    <script src="~/_content/KnOwl.ControlPlane.WebUI/js/buttermorph-knowl-host.js" asp-append-version="true"></script>
+}
+

@@ -1,0 +1,67 @@
+@page
+@model KnOwl.ControlPlane.WebUI.Pages.Contracts.MetadataFields.IndexModel
+@{
+    ViewData["Title"] = "Custom Fields";
+    var designerUrl = "/buttermorph/metadata-fields/designer?mode=create&popup=true";
+}
+
+<section class="dashboard-section">
+    <div class="platform-card">
+        <div class="platform-card-header">
+            <span>Custom Fields</span>
+            <button type="button"
+                    class="btn btn-primary btn-sm"
+                    data-buttermorph-url="@designerUrl"
+                    data-buttermorph-title="New custom field"
+                    data-buttermorph-redirect-url="@Url.Page("/Contracts/MetadataFields/Index")">
+                <i class="bi bi-plus-lg"></i> New field
+            </button>
+        </div>
+
+        <p class="event-editor-intro">Dynamic fields available for schema and field metadata.</p>
+
+        <div class="events-list compact-contract-list">
+            @foreach (var item in Model.Fields)
+            {
+                <article class="event-list-card">
+                    <h3 class="event-list-title">
+                        @item.Name
+                        @if (!item.IsActive)
+                        {
+                            <span class="badge text-bg-warning">Inactive</span>
+                        }
+                        @if (item.IsRequired)
+                        {
+                            <span class="badge text-bg-secondary">Required</span>
+                        }
+                    </h3>
+                    <p class="event-list-topic">@item.Key · @item.DataType</p>
+                    <div class="event-list-meta">
+                        <span>Version: @(string.IsNullOrWhiteSpace(item.Version) ? "-" : item.Version)</span>
+                        <span>Applies to: @(item.AppliesTo.Count > 0 ? string.Join(", ", item.AppliesTo) : "-")</span>
+                        <span>Created: @item.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(item.Description))
+                    {
+                        <p>@item.Description</p>
+                    }
+                    <div class="event-list-actions">
+                        <a class="btn btn-secondary btn-sm" asp-page="/Contracts/MetadataFields/View" asp-route-id="@item.Id">View details</a>
+                        @if (item.IsActive)
+                        {
+                            <form method="post" asp-page-handler="Deactivate" asp-route-id="@item.Id" onsubmit="return confirm('Deactivate this custom field?');" class="d-inline">
+                                <button type="submit" class="btn btn-outline-danger btn-sm">Deactivate</button>
+                            </form>
+                        }
+                    </div>
+                </article>
+            }
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-host.js"></script>
+    <script src="~/_content/KnOwl.ControlPlane.WebUI/js/buttermorph-knowl-host.js" asp-append-version="true"></script>
+}
+

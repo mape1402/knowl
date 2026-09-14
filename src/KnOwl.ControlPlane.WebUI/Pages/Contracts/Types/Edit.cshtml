@@ -1,0 +1,48 @@
+@page "{id:guid}"
+@model KnOwl.ControlPlane.WebUI.Pages.Contracts.Types.EditModel
+@{
+    ViewData["Title"] = "Edit Type";
+}
+
+<section class="dashboard-section">
+    <div class="platform-card event-editor">
+        <div class="platform-card-header">
+            <span>Edit custom type</span>
+            <a class="btn btn-secondary btn-sm" asp-page="/Contracts/Types/View" asp-route-id="@Model.Id">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+
+        <form method="post">
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+            <input asp-for="Id" type="hidden" />
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-5">
+                    <label asp-for="Input.Name" class="form-label"></label>
+                    <input asp-for="Input.Name" class="form-control" />
+                    <span asp-validation-for="Input.Name" class="text-danger"></span>
+                </div>
+                <div class="col-md-5">
+                    <label asp-for="Input.Description" class="form-label"></label>
+                    <input asp-for="Input.Description" class="form-control" />
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <div class="form-check mb-2">
+                        <input asp-for="Input.IsActive" class="form-check-input" />
+                        <label asp-for="Input.IsActive" class="form-check-label"></label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="event-editor-actions mt-3">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save changes</button>
+            </div>
+        </form>
+    </div>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
+

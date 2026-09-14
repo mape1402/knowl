@@ -1,0 +1,33 @@
+@page
+@model KnOwl.ControlPlane.WebUI.Pages.Contracts.ContractArtifacts.IndexModel
+@{
+    ViewData["Title"] = "Artifacts";
+}
+
+<section class="dashboard-section">
+    <div class="platform-card">
+        <div class="platform-card-header">
+            <span>Contract Artifacts</span>
+            <a class="btn btn-primary btn-sm" asp-page="/Contracts/ContractReleases/Index">Create release</a>
+        </div>
+        <div class="table-responsive mt-3">
+            <table class="table align-middle">
+                <thead><tr><th>Type</th><th>Topic</th><th>Version</th><th>Name</th><th>Hash</th><th>Created</th></tr></thead>
+                <tbody>
+                @foreach (var artifact in Model.Artifacts)
+                {
+                    <tr>
+                        <td>@artifact.ArtifactType</td>
+                        <td>@artifact.Topic</td>
+                        <td>@artifact.VersionNumber</td>
+                        <td>@artifact.Name</td>
+                        <td><code>@artifact.ContentHash</code></td>
+                        <td>@artifact.CreatedAtUtc.ToString("u")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+

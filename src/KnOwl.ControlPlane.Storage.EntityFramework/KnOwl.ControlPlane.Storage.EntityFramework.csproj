@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\KnOwl.Contracts\KnOwl.Contracts.csproj" />
+    <ProjectReference Include="..\KnOwl.ControlPlane\KnOwl.ControlPlane.csproj" />
+    <ProjectReference Include="..\KnOwl.Runtime\KnOwl.Runtime.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.7" Condition="'$(TargetFramework)' == 'net9.0'" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.7" Condition="'$(TargetFramework)' == 'net9.0'" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.3" Condition="'$(TargetFramework)' == 'net10.0'" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.3" Condition="'$(TargetFramework)' == 'net10.0'" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>true</IsPackable>
+    <PackageId>KnOwl.ControlPlane.Storage.EntityFramework</PackageId>
+    <Title>KnOwl Control Plane Entity Framework Storage</Title>
+    <Description>Entity Framework Core storage for KnOwl control plane design and distribution metadata.</Description>
+  </PropertyGroup>
+
+</Project>

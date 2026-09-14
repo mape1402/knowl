@@ -1,0 +1,127 @@
+@model KnOwl.ControlPlane.WebUI.SchemaTypes.TypeVersionInput
+
+<input asp-for="PayloadSchemaJson" type="hidden" id="payload-schema-json" />
+<input asp-for="ArrayItemType" type="hidden" id="array-item-type" />
+<input asp-for="ArrayItemTypeVersionId" type="hidden" id="array-item-type-version-id" />
+<input asp-for="AllowedValuesJson" type="hidden" id="type-allowed-values-json" />
+
+<div class="row g-3 mb-3">
+    <div class="col-md-4">
+        <label asp-for="VersionNumber" class="form-label"></label>
+        <input asp-for="VersionNumber" class="form-control" maxlength="13" />
+        <span asp-validation-for="VersionNumber" class="text-danger"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="BaseType" class="form-label"></label>
+        <select asp-for="BaseType" class="form-control" id="type-base-select">
+            <option value="string">string</option>
+            <option value="number">number</option>
+            <option value="integer">integer</option>
+            <option value="boolean">boolean</option>
+            <option value="object">object</option>
+            <option value="array">array</option>
+        </select>
+        <span asp-validation-for="BaseType" class="text-danger"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="Comment" class="form-label"></label>
+        <input asp-for="Comment" class="form-control" maxlength="1000" />
+        <span asp-validation-for="Comment" class="text-danger"></span>
+    </div>
+</div>
+
+<div class="type-constraints type-constraints-string row g-3 mb-3">
+    <div class="col-md-3">
+        <label asp-for="MinLength" class="form-label"></label>
+        <input asp-for="MinLength" class="form-control" type="number" min="0" />
+    </div>
+    <div class="col-md-3">
+        <label asp-for="MaxLength" class="form-label"></label>
+        <input asp-for="MaxLength" class="form-control" type="number" min="0" />
+    </div>
+    <div class="col-md-6">
+        <label asp-for="Pattern" class="form-label"></label>
+        <input asp-for="Pattern" class="form-control" />
+    </div>
+    <div class="col-12">
+        <label class="form-label">Lista de valores permitidos</label>
+        <div class="type-enum-chip-editor" data-enum-type="string">
+            <div class="type-enum-chips"></div>
+            <input type="text" class="form-control type-enum-input" placeholder="Escribe un valor y presiona Enter" />
+        </div>
+        <small class="text-muted d-block mt-1">Optional. Captured values are saved as the schema enum.</small>
+    </div>
+</div>
+
+<div class="type-constraints type-constraints-number row g-3 mb-3">
+    <div class="col-md-3">
+        <label asp-for="Precision" class="form-label"></label>
+        <input asp-for="Precision" class="form-control" type="number" min="1" />
+    </div>
+    <div class="col-md-3">
+        <label asp-for="Scale" class="form-label"></label>
+        <input asp-for="Scale" class="form-control" type="number" min="0" />
+    </div>
+    <div class="col-md-3">
+        <label asp-for="Minimum" class="form-label"></label>
+        <input asp-for="Minimum" class="form-control" type="number" />
+    </div>
+    <div class="col-md-3">
+        <label asp-for="Maximum" class="form-label"></label>
+        <input asp-for="Maximum" class="form-control" type="number" />
+    </div>
+    <div class="col-12">
+        <label class="form-label">Lista de valores permitidos</label>
+        <div class="type-enum-chip-editor" data-enum-type="number">
+            <div class="type-enum-chips"></div>
+            <input type="number" step="any" class="form-control type-enum-input" placeholder="Escribe un valor y presiona Enter" />
+        </div>
+        <small class="text-muted d-block mt-1">Optional. Captured values are saved as the schema enum.</small>
+    </div>
+</div>
+
+<div class="type-constraints type-constraints-integer row g-3 mb-3">
+    <div class="col-md-3">
+        <label asp-for="Minimum" class="form-label"></label>
+        <input asp-for="Minimum" class="form-control" type="number" />
+    </div>
+    <div class="col-md-3">
+        <label asp-for="Maximum" class="form-label"></label>
+        <input asp-for="Maximum" class="form-control" type="number" />
+    </div>
+    <div class="col-12">
+        <label class="form-label">Lista de valores permitidos</label>
+        <div class="type-enum-chip-editor" data-enum-type="integer">
+            <div class="type-enum-chips"></div>
+            <input type="number" step="1" class="form-control type-enum-input" placeholder="Escribe un valor y presiona Enter" />
+        </div>
+        <small class="text-muted d-block mt-1">Optional. Captured values are saved as the schema enum.</small>
+    </div>
+</div>
+
+<div class="type-constraints type-constraints-object event-schema-block mb-3">
+    <div class="event-schema-header">
+        <h2 class="section-heading event-schema-title">Object Structure</h2>
+        <button id="add-root-field" type="button" class="btn btn-secondary btn-sm">
+            <i class="bi bi-plus-lg"></i> Add field
+        </button>
+    </div>
+    <div id="schema-root-fields" class="schema-fields-list"></div>
+</div>
+
+<div class="type-constraints type-constraints-array row g-3 mb-3">
+    <div class="col-md-6">
+        <label class="form-label">Type de item</label>
+        <select class="form-control" id="array-item-type-select"></select>
+        <span asp-validation-for="ArrayItemTypeVersionId" class="text-danger"></span>
+    </div>
+    <div class="col-md-3">
+        <label asp-for="MinItems" class="form-label"></label>
+        <input asp-for="MinItems" class="form-control" type="number" min="0" />
+    </div>
+    <div class="col-md-3">
+        <label asp-for="MaxItems" class="form-label"></label>
+        <input asp-for="MaxItems" class="form-control" type="number" min="0" />
+    </div>
+</div>
+

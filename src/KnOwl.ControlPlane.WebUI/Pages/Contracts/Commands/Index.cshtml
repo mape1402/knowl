@@ -1,0 +1,72 @@
+@page
+@model KnOwl.ControlPlane.WebUI.Pages.Contracts.Commands.IndexModel
+@{
+    ViewData["Title"] = "Commands";
+    var newCommandUrl = $"/buttermorph/payload-schema/designer?context={KnOwl.ControlPlane.WebUI.ButterMorph.KnOwlButterMorphContext.CommandNew()}&mode=create&popup=true";
+}
+
+<section class="dashboard-section">
+    <div class="platform-card">
+        <div class="platform-card-header">
+            <span>Registered Commands</span>
+            <button type="button"
+                    class="btn btn-primary btn-sm"
+                    data-buttermorph-url="@newCommandUrl"
+                    data-buttermorph-title="New command"
+                    data-buttermorph-command-create="true">
+                <i class="bi bi-plus-lg"></i> New command
+            </button>
+        </div>
+
+        <p class="event-editor-intro">Global commands and their versions.</p>
+
+        @if (Model.Commands.Count == 0)
+        {
+            <div class="events-empty-state">
+                <i class="bi bi-inbox"></i>
+                <h3>No saved commands</h3>
+                <p>Start by creating your first command contract.</p>
+                <button type="button"
+                        class="btn btn-primary btn-sm"
+                        data-buttermorph-url="@newCommandUrl"
+                        data-buttermorph-title="New command"
+                        data-buttermorph-command-create="true">
+                    Add command
+                </button>
+            </div>
+        }
+        else
+        {
+            <div class="events-list compact-contract-list">
+                @foreach (var item in Model.Commands)
+                {
+                    <article class="event-list-card">
+                        <h3 class="event-list-title">@item.Name</h3>
+                        <p class="event-list-topic">@(string.IsNullOrWhiteSpace(item.Topic) ? "-" : item.Topic)</p>
+                        <div class="event-list-meta">
+                            <span>Versions: @item.Versions.Count</span>
+                            <span>@(item.IsActive ? "Active" : "Inactive")</span>
+                            <span>Created: @item.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                        </div>
+                        <div class="event-list-actions">
+                            <a class="btn btn-secondary btn-sm" asp-page="/Contracts/Commands/View" asp-route-id="@item.Id">View details</a>
+                            <a class="btn btn-secondary btn-sm" asp-page="/Contracts/Commands/Edit" asp-route-id="@item.Id">Edit</a>
+                            @if (item.IsActive)
+                            {
+                                <form method="post" asp-page-handler="Delete" asp-route-id="@item.Id" onsubmit="return confirm('Deactivate this command? Existing versions and artifacts will be preserved.');" class="d-inline">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">Deactivate</button>
+                                </form>
+                            }
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </div>
+</section>
+
+@section Scripts {
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-host.js"></script>
+    <script src="~/_content/KnOwl.ControlPlane.WebUI/js/buttermorph-knowl-host.js" asp-append-version="true"></script>
+}
+

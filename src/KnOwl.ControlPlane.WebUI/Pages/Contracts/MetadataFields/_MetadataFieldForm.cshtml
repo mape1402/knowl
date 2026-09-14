@@ -1,0 +1,121 @@
+@model KnOwl.ControlPlane.WebUI.ContractMetadata.ContractFieldMetadataInput
+
+<div class="row g-3 mb-3">
+    <div class="col-md-4">
+        <label asp-for="Name" class="form-label"></label>
+        <input asp-for="Name" class="form-control" />
+        <span asp-validation-for="Name" class="text-danger"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="Key" class="form-label"></label>
+        <input asp-for="Key" class="form-control" />
+        <span asp-validation-for="Key" class="text-danger"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="DataType" class="form-label"></label>
+        <select asp-for="DataType" class="form-control" id="metadata-data-type">
+            <option value="string">string</option>
+            <option value="number">number</option>
+            <option value="integer">integer</option>
+            <option value="boolean">boolean</option>
+            <option value="date">date</option>
+        </select>
+        <span asp-validation-for="DataType" class="text-danger"></span>
+    </div>
+    <div class="col-12">
+        <label asp-for="Description" class="form-label"></label>
+        <textarea asp-for="Description" class="form-control" rows="2"></textarea>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <label asp-for="SortOrder" class="form-label"></label>
+        <input asp-for="SortOrder" class="form-control" type="number" />
+    </div>
+    <div class="col-md-3 d-flex align-items-end">
+        <div class="form-check mb-2">
+            <input asp-for="IsRequired" class="form-check-input" />
+            <label asp-for="IsRequired" class="form-check-label"></label>
+        </div>
+    </div>
+    <div class="col-md-3 d-flex align-items-end">
+        <div class="form-check mb-2">
+            <input asp-for="IsActive" class="form-check-input" />
+            <label asp-for="IsActive" class="form-check-label"></label>
+        </div>
+    </div>
+</div>
+
+<div class="platform-card mb-3">
+    <div class="platform-card-header">
+        <span>Secciones</span>
+    </div>
+    <div class="row g-3">
+        <div class="col-md-3">
+            <div class="form-check">
+                <input asp-for="AppliesToEvents" class="form-check-input" />
+                <label asp-for="AppliesToEvents" class="form-check-label"></label>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="form-check">
+                <input asp-for="AppliesToCommands" class="form-check-input" />
+                <label asp-for="AppliesToCommands" class="form-check-label"></label>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="platform-card mb-3">
+    <div class="platform-card-header">
+        <span>Validacion minima</span>
+    </div>
+
+    <div class="metadata-validation metadata-validation-string row g-3">
+        <div class="col-md-3">
+            <label asp-for="MinLength" class="form-label"></label>
+            <input asp-for="MinLength" class="form-control" type="number" min="0" />
+        </div>
+        <div class="col-md-3">
+            <label asp-for="MaxLength" class="form-label"></label>
+            <input asp-for="MaxLength" class="form-control" type="number" min="0" />
+        </div>
+        <div class="col-md-6">
+            <label asp-for="Pattern" class="form-label"></label>
+            <input asp-for="Pattern" class="form-control" />
+        </div>
+    </div>
+
+    <div class="metadata-validation metadata-validation-number metadata-validation-integer row g-3">
+        <div class="col-md-3">
+            <label asp-for="Minimum" class="form-label"></label>
+            <input asp-for="Minimum" class="form-control" type="number" />
+        </div>
+        <div class="col-md-3">
+            <label asp-for="Maximum" class="form-label"></label>
+            <input asp-for="Maximum" class="form-control" type="number" />
+        </div>
+    </div>
+
+    <div class="metadata-validation metadata-validation-date row g-3">
+        <div class="col-md-3">
+            <label asp-for="DateMinimum" class="form-label"></label>
+            <input asp-for="DateMinimum" class="form-control" type="date" />
+        </div>
+        <div class="col-md-3">
+            <label asp-for="DateMaximum" class="form-label"></label>
+            <input asp-for="DateMaximum" class="form-control" type="date" />
+        </div>
+    </div>
+
+    <div class="metadata-validation metadata-validation-allowed-values row g-3 mt-1">
+        <div class="col-md-6">
+            <label asp-for="AllowedValuesText" class="form-label"></label>
+            <input asp-for="AllowedValuesText" type="hidden" id="allowed-values-hidden" />
+            <input type="text" class="form-control" id="allowed-value-input" placeholder="Valor permitido, Enter para agregar" />
+            <div id="allowed-values-chips" class="d-flex flex-wrap gap-2 mt-2"></div>
+            <small class="text-muted">Si agregas valores permitidos, el formulario dinamico usara un select.</small>
+        </div>
+    </div>
+</div>

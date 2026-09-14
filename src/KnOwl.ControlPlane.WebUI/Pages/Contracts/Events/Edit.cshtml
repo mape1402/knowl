@@ -1,0 +1,50 @@
+@page "{id:guid}"
+@model KnOwl.ControlPlane.WebUI.Pages.Contracts.Events.EditModel
+@{
+    ViewData["Title"] = "Edit Event";
+}
+
+<section class="dashboard-section">
+    <div class="platform-card event-editor">
+        <div class="platform-card-header">
+            <span>Edit event</span>
+            <a class="btn btn-secondary btn-sm" asp-page="/Contracts/Events/Index">
+                <i class="bi bi-arrow-left"></i> Back to list
+            </a>
+        </div>
+
+        <form method="post">
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+            <input asp-for="Id" type="hidden" />
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label asp-for="Input.Name" class="form-label"></label>
+                    <input asp-for="Input.Name" type="text" class="form-control" />
+                    <span asp-validation-for="Input.Name" class="text-danger"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Input.Topic" class="form-label"></label>
+                    <input asp-for="Input.Topic" type="text" class="form-control" maxlength="70" />
+                    <span asp-validation-for="Input.Topic" class="text-danger"></span>
+                </div>
+                <div class="col-12">
+                    <label asp-for="Input.Description" class="form-label"></label>
+                    <textarea asp-for="Input.Description" class="form-control" rows="2"></textarea>
+                    <span asp-validation-for="Input.Description" class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class="event-editor-actions mt-3">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> Save changes
+                </button>
+            </div>
+        </form>
+    </div>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
+
