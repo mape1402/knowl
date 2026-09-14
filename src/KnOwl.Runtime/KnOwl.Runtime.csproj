@@ -9,6 +9,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>true</IsPackable>
+    <PackageId>KnOwl.Runtime</PackageId>
+    <Description>Domain model and repository contracts for KnOwl runtime contract metadata.</Description>
   </PropertyGroup>
 
 </Project>

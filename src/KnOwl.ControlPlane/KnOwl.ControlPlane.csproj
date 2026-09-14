@@ -9,6 +9,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>true</IsPackable>
+    <PackageId>KnOwl.ControlPlane</PackageId>
+    <Description>Domain model and repository contracts for KnOwl control plane design and distribution.</Description>
   </PropertyGroup>
 
 </Project>

@@ -18,6 +18,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
     <IsPackable>true</IsPackable>
+    <PackageId>KnOwl.ControlPlane.WebUI</PackageId>
+    <Description>Reusable Razor UI components and pages for KnOwl control plane hosts.</Description>
   </PropertyGroup>
 
 </Project>

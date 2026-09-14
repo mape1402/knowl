@@ -5,6 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>true</IsPackable>
+    <PackageId>KnOwl.Contracts</PackageId>
+    <Description>Shared contracts for KnOwl artifact delivery, distribution, and connection security.</Description>
   </PropertyGroup>
 
 </Project>
