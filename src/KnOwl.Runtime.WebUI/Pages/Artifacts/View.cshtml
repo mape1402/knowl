@@ -1,0 +1,81 @@
+@page "{id:guid}"
+@model KnOwl.Runtime.WebUI.Pages.Artifacts.ViewModel
+@{
+    ViewData["Title"] = "Artifact Details";
+}
+
+@if (Model.Artifact is null)
+{
+    <section class="runtime-card">
+        <p class="eyebrow">Not found</p>
+        <h2>Artifact was not found.</h2>
+        <a class="runtime-button" asp-page="/Artifacts/Index">Back to artifacts</a>
+    </section>
+}
+else
+{
+    <section class="runtime-card artifact-detail">
+        <div class="card-heading">
+            <div>
+                <p class="eyebrow">@Model.Artifact.ArtifactType artifact</p>
+                <h2>@Model.Artifact.Name</h2>
+            </div>
+            <a class="runtime-button" asp-page="/Artifacts/Index">Back</a>
+        </div>
+
+        <div class="detail-grid">
+            <div>
+                <span>Topic</span>
+                <code>@Model.Artifact.Topic</code>
+            </div>
+            <div>
+                <span>Version</span>
+                <strong>@Model.Artifact.VersionNumber</strong>
+            </div>
+            <div>
+                <span>Deployed</span>
+                <strong>@Model.Artifact.DeployedAtUtc.ToString("u")</strong>
+            </div>
+            <div>
+                <span>Source artifact</span>
+                <code>@Model.Artifact.SourceArtifactId</code>
+            </div>
+            <div>
+                <span>Source release</span>
+                <code>@Model.Artifact.SourceReleaseId</code>
+            </div>
+            <div>
+                <span>Content hash</span>
+                <code>@Model.Artifact.ContentHash</code>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.Artifact.Description))
+        {
+            <p class="artifact-description">@Model.Artifact.Description</p>
+        }
+    </section>
+
+    <section class="runtime-card">
+        <div class="card-heading">
+            <div>
+                <p class="eyebrow">Consumption</p>
+                <h3>Endpoints</h3>
+            </div>
+        </div>
+        <div class="endpoint-grid">
+            <code>GET @Model.ExactEndpoint</code>
+            <code>GET @Model.LatestEndpoint</code>
+        </div>
+    </section>
+
+    <section class="runtime-card schema-card">
+        <div class="card-heading">
+            <div>
+                <p class="eyebrow">Snapshot</p>
+                <h3>Payload Schema</h3>
+            </div>
+        </div>
+        <pre class="json-panel"><code>@Model.PrettyPayloadSchemaJson</code></pre>
+    </section>
+}
