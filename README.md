@@ -31,6 +31,16 @@ KnOwl packages target both `net9.0` and `net10.0`. The shared package version is
 
 The samples are intentionally thin hosts. Database migrations live in the hosts, while reusable domain, application, storage, UI, endpoint, worker, and bootstrap behavior lives in the `KnOwl.*` libraries.
 
+## Contract Catalog
+
+Runtime hosts expose deployed local artifacts through `/runtime/contracts/*`.
+
+Control Plane hosts also expose deployed source artifacts, limited to contracts whose generated artifact has `SourceStatus` equal to `Deployed`:
+
+- `GET /contracts/artifacts`
+- `GET /contracts/{artifactType}/{topic}/versions/{versionNumber}`
+- `GET /contracts/{artifactType}/{topic}/latest`
+
 ## Build
 
 ```powershell

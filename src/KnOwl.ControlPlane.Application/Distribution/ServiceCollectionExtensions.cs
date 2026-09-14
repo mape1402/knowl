@@ -1,5 +1,6 @@
 using KnOwl.ControlPlane.Application.Distribution.Artifacts;
 using KnOwl.ControlPlane.Application.Distribution.ArtifactDelivery;
+using KnOwl.ControlPlane.Application.Distribution.Catalog;
 using KnOwl.ControlPlane.Application.Distribution.ReleaseBundles;
 using KnOwl.ControlPlane.Application.Distribution.Security;
 using KnOwl.Contracts.Security;
@@ -31,6 +32,7 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<ConnectionTokenCacheKeyBuilder>();
         services.TryAddSingleton<ConnectionCredentialPackageSerializer>();
         services.TryAddSingleton<IControlPlaneRuntimeNodeSecretProtector, DataProtectionControlPlaneRuntimeNodeSecretProtector>();
+        services.AddScoped<IControlPlaneContractCatalogService, ControlPlaneContractCatalogService>();
         services.AddScoped<IContractArtifactBuilder, ContractArtifactBuilder>();
         services.AddScoped<IContractReleaseInteractionService, ContractReleaseInteractionService>();
         services.AddScoped<IContractReleaseExecutionService, ContractReleaseExecutionService>();

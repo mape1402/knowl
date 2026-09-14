@@ -2,6 +2,7 @@ using ButterMorph.Web.Razor;
 using KnOwl.ControlPlane.Application;
 using KnOwl.ControlPlane.Application.Distribution;
 using KnOwl.ControlPlane.Bootstrap.Configuration;
+using KnOwl.ControlPlane.Bootstrap.Contracts;
 using KnOwl.ControlPlane.Bootstrap.Distribution;
 using KnOwl.ControlPlane.Storage.EntityFramework.Design.Data;
 using KnOwl.ControlPlane.Storage.EntityFramework;
@@ -71,6 +72,7 @@ public static class KnOwlControlPlaneBootstrapExtensions
         app.MapHealthChecks("/health/live");
         app.MapHealthChecks("/health/ready");
         app.MapButterMorphDesigner(options.ButterMorphPath);
+        app.MapKnOwlControlPlaneContractCatalogEndpoints();
         app.MapKnOwlArtifactDeliveryEndpoints();
         app.MapRazorPages().WithStaticAssets();
 
