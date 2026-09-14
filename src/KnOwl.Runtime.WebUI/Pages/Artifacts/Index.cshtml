@@ -1,0 +1,73 @@
+@page
+@model KnOwl.Runtime.WebUI.Pages.Artifacts.IndexModel
+@{
+    ViewData["Title"] = "Runtime Artifacts";
+}
+
+<section class="runtime-card">
+    <div class="card-heading">
+        <div>
+            <p class="eyebrow">Published catalog</p>
+            <h2>Artifacts</h2>
+        </div>
+        <span class="count-pill">@Model.FilteredArtifacts.Count of @Model.TotalArtifacts</span>
+    </div>
+
+    <form class="filter-bar" method="get">
+        <label>
+            <span>Type</span>
+            <select name="type">
+                <option value="">All</option>
+                @foreach (var type in Model.ArtifactTypes)
+                {
+                    <option value="@type" selected="@(Model.Type == type)">@type</option>
+                }
+            </select>
+        </label>
+        <label>
+            <span>Search</span>
+            <input name="query" value="@Model.Query" placeholder="Topic, name, version or hash" />
+        </label>
+        <button class="runtime-button primary" type="submit">Apply</button>
+        <a class="runtime-button" asp-page="/Artifacts/Index">Clear</a>
+    </form>
+
+    @if (Model.FilteredArtifacts.Count == 0)
+    {
+        <div class="empty-state">No runtime artifacts match the current filter.</div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Topic</th>
+                        <th>Name</th>
+                        <th>Version</th>
+                        <th>Deployed</th>
+                        <th>Hash</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var artifact in Model.FilteredArtifacts)
+                    {
+                        <tr>
+                            <td><span class="type-badge">@artifact.ArtifactType</span></td>
+                            <td><code>@artifact.Topic</code></td>
+                            <td>@artifact.Name</td>
+                            <td>@artifact.VersionNumber</td>
+                            <td>@artifact.DeployedAtUtc.ToString("u")</td>
+                            <td><code class="hash-text">@artifact.ContentHash</code></td>
+                            <td class="text-end">
+                                <a class="runtime-button compact" asp-page="/Artifacts/View" asp-route-id="@artifact.Id">View</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>

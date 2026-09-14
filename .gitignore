@@ -6,7 +6,7 @@ obj/
 *.suo
 *.nupkg
 *.snupkg
-artifacts/
+/artifacts/
 outputs/
 TestResults/
 *.log
