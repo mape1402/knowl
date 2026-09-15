@@ -15,6 +15,7 @@ public class ViewModel(
     public CommandDefinition? Command { get; private set; }
     public CommandVersion? SelectedVersion { get; private set; }
     public string FormattedPayloadSchemaJson { get; private set; } = "{}";
+    public string FormattedReplyPayloadSchemaJson { get; private set; } = "{}";
     public IReadOnlyCollection<ContractVersionStatus> AllowedTargets { get; private set; } = [];
 
     [TempData]
@@ -41,6 +42,7 @@ public class ViewModel(
         if (SelectedVersion is not null)
         {
             FormattedPayloadSchemaJson = FormatJson(SelectedVersion.PayloadSchemaJson);
+            FormattedReplyPayloadSchemaJson = FormatJson(SelectedVersion.ReplyPayloadSchemaJson);
             AllowedTargets = promotion.GetAllowedTargets(SelectedVersion.Status);
         }
 
@@ -54,8 +56,8 @@ public class ViewModel(
             await promotion.TransitionCommandVersion(versionId, targetStatus, cancellationToken);
             if (targetStatus == ContractVersionStatus.Deployed)
             {
-                var artifact = await artifactBuilder.BuildCommandArtifact(versionId, cancellationToken);
-                StatusMessage = $"Version transitioned to {targetStatus}. Artifact generated: {artifact.Topic}@{artifact.VersionNumber}.";
+                var artifacts = await artifactBuilder.BuildCommandArtifacts(versionId, cancellationToken);
+                StatusMessage = $"Version transitioned to {targetStatus}. Artifacts generated: {artifacts.Count}.";
             }
             else
             {
@@ -70,7 +72,7 @@ public class ViewModel(
         return RedirectToPage(new { id });
     }
 
-    private static string FormatJson(string json)
+    private static string FormatJson(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
         {

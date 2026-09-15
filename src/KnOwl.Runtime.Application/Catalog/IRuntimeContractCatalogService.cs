@@ -29,4 +29,20 @@ public interface IRuntimeContractCatalogService
         ContractArtifactType artifactType,
         string topic,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets one event artifact by key and exact version number.
+    /// </summary>
+    Task<RuntimeContractArtifact?> GetEvent(
+        string eventKey,
+        string versionNumber,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets command request and optional reply artifacts by key and exact version number.
+    /// </summary>
+    Task<CommandContractArtifacts<RuntimeContractArtifact>?> GetCommand(
+        string commandKey,
+        string versionNumber,
+        CancellationToken cancellationToken = default);
 }

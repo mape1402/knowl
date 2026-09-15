@@ -38,8 +38,16 @@ Runtime hosts expose deployed local artifacts through `/runtime/contracts/*`.
 Control Plane hosts also expose deployed source artifacts, limited to contracts whose generated artifact has `SourceStatus` equal to `Deployed`:
 
 - `GET /contracts/artifacts`
-- `GET /contracts/{artifactType}/{topic}/versions/{versionNumber}`
-- `GET /contracts/{artifactType}/{topic}/latest`
+- `GET /contracts/events/{eventKey}/versions/{versionNumber}`
+- `GET /contracts/commands/{commandKey}/versions/{versionNumber}`
+
+Runtime hosts expose the same split catalog shape for deployed local artifacts:
+
+- `GET /runtime/contracts/artifacts`
+- `GET /runtime/contracts/events/{eventKey}/versions/{versionNumber}`
+- `GET /runtime/contracts/commands/{commandKey}/versions/{versionNumber}`
+
+Event catalog responses return one deployed artifact. Command catalog responses return the deployed request artifact and the optional deployed reply artifact for the same command version.
 
 ## Build
 

@@ -28,4 +28,20 @@ public interface IControlPlaneContractCatalogService
         ContractArtifactType artifactType,
         string topic,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets one deployed event artifact by key and exact version number.
+    /// </summary>
+    Task<ContractArtifact?> GetEvent(
+        string eventKey,
+        string versionNumber,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets deployed command request and optional reply artifacts by key and exact version number.
+    /// </summary>
+    Task<CommandContractArtifacts<ContractArtifact>?> GetCommand(
+        string commandKey,
+        string versionNumber,
+        CancellationToken cancellationToken = default);
 }

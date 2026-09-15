@@ -51,6 +51,16 @@ public static class KnOwlButterMorphContext
     public static string CommandVersion(Guid commandId) => $"command-version:new:{commandId}";
 
     /// <summary>
+    /// Creates a draft context key for adding a command request schema.
+    /// </summary>
+    public static string CommandVersionRequestDraft(Guid commandId) => $"command-version-request:new:{commandId}";
+
+    /// <summary>
+    /// Creates a draft context key for adding a command reply schema.
+    /// </summary>
+    public static string CommandVersionReplyDraft(Guid commandId) => $"command-version-reply:new:{commandId}";
+
+    /// <summary>
     /// Attempts to read a GUID identifier from a context key with the expected prefix.
     /// </summary>
     public static bool TryReadGuid(string contextKey, string prefix, out Guid id)

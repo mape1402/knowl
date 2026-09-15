@@ -27,7 +27,7 @@ public sealed class RuntimeArtifactDeliveryPackage
     public Guid ArtifactId { get; set; }
 
     /// <summary>
-    /// Gets or sets the artifact type, such as Event or Command.
+    /// Gets or sets the artifact type, such as Event, CommandRequest, or CommandReply.
     /// </summary>
     public ContractArtifactType ArtifactType { get; set; }
 

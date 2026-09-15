@@ -26,10 +26,14 @@ public class NewVersionModel(
     [Required]
     public string PayloadSchemaJson { get; set; } = "{\"type\":\"object\",\"properties\":{}}";
 
+    [BindProperty]
+    public string? ReplyPayloadSchemaJson { get; set; }
+
     public string CommandName { get; private set; } = string.Empty;
     public string SchemaTypesJson { get; private set; } = "[]";
     public string MetadataFieldsJson { get; private set; } = "[]";
     public string ButterMorphContext { get; private set; } = string.Empty;
+    public string ReplyButterMorphContext { get; private set; } = string.Empty;
 
     public async Task<IActionResult> OnGetAsync(Guid id, CancellationToken cancellationToken)
     {
@@ -41,10 +45,12 @@ public class NewVersionModel(
 
         CommandId = entity.Id;
         CommandName = entity.Name;
-        ButterMorphContext = KnOwlButterMorphContext.CommandVersion(entity.Id);
+        ButterMorphContext = KnOwlButterMorphContext.CommandVersionRequestDraft(entity.Id);
+        ReplyButterMorphContext = KnOwlButterMorphContext.CommandVersionReplyDraft(entity.Id);
         var latest = entity.Versions.OrderByDescending(x => x.CreatedAtUtc).FirstOrDefault();
         Input.Version = NextVersion(latest?.VersionNumber);
         PayloadSchemaJson = latest?.PayloadSchemaJson ?? "{\"type\":\"object\",\"properties\":{}}";
+        ReplyPayloadSchemaJson = latest?.ReplyPayloadSchemaJson;
         await LoadCatalogs(cancellationToken);
         return Page();
     }
@@ -58,11 +64,26 @@ public class NewVersionModel(
         }
 
         CommandName = entity.Name;
-        ButterMorphContext = KnOwlButterMorphContext.CommandVersion(entity.Id);
+        ButterMorphContext = KnOwlButterMorphContext.CommandVersionRequestDraft(entity.Id);
+        ReplyButterMorphContext = KnOwlButterMorphContext.CommandVersionReplyDraft(entity.Id);
         if (!ModelState.IsValid)
         {
             await LoadCatalogs(cancellationToken);
             return Page();
+        }
+
+        if (!string.IsNullOrWhiteSpace(ReplyPayloadSchemaJson))
+        {
+            try
+            {
+                JsonDocument.Parse(ReplyPayloadSchemaJson);
+            }
+            catch (JsonException)
+            {
+                ModelState.AddModelError(nameof(ReplyPayloadSchemaJson), "The reply schema is not valid JSON.");
+                await LoadCatalogs(cancellationToken);
+                return Page();
+            }
         }
 
         try
@@ -89,6 +110,7 @@ public class NewVersionModel(
         {
             VersionNumber = version,
             PayloadSchemaJson = PayloadSchemaJson,
+            ReplyPayloadSchemaJson = string.IsNullOrWhiteSpace(ReplyPayloadSchemaJson) ? null : ReplyPayloadSchemaJson,
             Comment = string.IsNullOrWhiteSpace(Input.Comment) ? null : Input.Comment.Trim(),
             CreatedAtUtc = now,
             UpdatedAtUtc = now

@@ -14,13 +14,13 @@ namespace KnOwl.Tests;
 public sealed class ControlPlaneContractCatalogEndpointTests
 {
     [Fact]
-    public async Task LatestEndpointReturnsDeployedArtifact()
+    public async Task EventEndpointReturnsDeployedArtifact()
     {
         var expected = CreateArtifact("customer.created", "1.1.0");
-        await using var app = await CreateApp(new CatalogService(latest: expected));
+        await using var app = await CreateApp(new CatalogService(eventArtifact: expected));
         using var http = CreateClient(app);
 
-        using var response = await http.GetAsync("/contracts/event/customer.created/latest");
+        using var response = await http.GetAsync("/contracts/events/customer.created/versions/1.1.0");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var artifact = await response.Content.ReadFromJsonAsync<ContractArtifact>();
@@ -34,20 +34,25 @@ public sealed class ControlPlaneContractCatalogEndpointTests
         await using var app = await CreateApp(new CatalogService());
         using var http = CreateClient(app);
 
-        using var response = await http.GetAsync("/contracts/event/customer.created/versions/1.0.0");
+        using var response = await http.GetAsync("/contracts/events/customer.created/versions/1.0.0");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]
-    public async Task ExactEndpointRejectsUnsupportedArtifactType()
+    public async Task CommandEndpointReturnsRequestAndOptionalReply()
     {
-        await using var app = await CreateApp(new CatalogService());
+        var request = CreateArtifact("customer.register", "1.0.0", ContractArtifactType.CommandRequest);
+        var reply = CreateArtifact("customer.register", "1.0.0", ContractArtifactType.CommandReply);
+        await using var app = await CreateApp(new CatalogService(commandArtifacts: new CommandContractArtifacts<ContractArtifact>("customer.register", "1.0.0", request, reply)));
         using var http = CreateClient(app);
 
-        using var response = await http.GetAsync("/contracts/unknown/customer.created/versions/1.0.0");
+        using var response = await http.GetAsync("/contracts/commands/customer.register/versions/1.0.0");
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var artifacts = await response.Content.ReadFromJsonAsync<CommandContractArtifacts<ContractArtifact>>();
+        Assert.Equal(request.Id, artifacts?.RequestArtifact.Id);
+        Assert.Equal(reply.Id, artifacts?.ReplyArtifact?.Id);
     }
 
     private static async Task<WebApplication> CreateApp(IControlPlaneContractCatalogService catalog)
@@ -69,12 +74,12 @@ public sealed class ControlPlaneContractCatalogEndpointTests
         return new HttpClient { BaseAddress = new Uri(addresses.Addresses.Single()) };
     }
 
-    private static ContractArtifact CreateArtifact(string topic, string version)
+    private static ContractArtifact CreateArtifact(string topic, string version, ContractArtifactType artifactType = ContractArtifactType.Event)
     {
         return new ContractArtifact
         {
             Id = Guid.NewGuid(),
-            ArtifactType = ContractArtifactType.Event,
+            ArtifactType = artifactType,
             DefinitionId = Guid.NewGuid(),
             VersionId = Guid.NewGuid(),
             Name = topic,
@@ -90,7 +95,9 @@ public sealed class ControlPlaneContractCatalogEndpointTests
     private sealed class CatalogService(
         IReadOnlyList<ContractArtifact>? all = null,
         ContractArtifact? exact = null,
-        ContractArtifact? latest = null) : IControlPlaneContractCatalogService
+        ContractArtifact? latest = null,
+        ContractArtifact? eventArtifact = null,
+        CommandContractArtifacts<ContractArtifact>? commandArtifacts = null) : IControlPlaneContractCatalogService
     {
         public Task<IReadOnlyList<ContractArtifact>> GetAll(CancellationToken cancellationToken = default)
             => Task.FromResult(all ?? []);
@@ -107,5 +114,17 @@ public sealed class ControlPlaneContractCatalogEndpointTests
             string topic,
             CancellationToken cancellationToken = default)
             => Task.FromResult(latest);
+
+        public Task<ContractArtifact?> GetEvent(
+            string eventKey,
+            string versionNumber,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(eventArtifact);
+
+        public Task<CommandContractArtifacts<ContractArtifact>?> GetCommand(
+            string commandKey,
+            string versionNumber,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(commandArtifacts);
     }
 }

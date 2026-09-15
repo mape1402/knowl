@@ -82,15 +82,14 @@ public sealed class DistributionRuntimeE2ETests
         var pushBody = await pushResponse.Content.ReadAsStringAsync();
 
         var runtimeCatalog = runtimeProvider.GetRequiredService<IRuntimeContractCatalogService>();
-        var runtimeArtifact = await runtimeCatalog.GetExact(ContractArtifactType.Event, "customer.created", "1.0.0");
+        var runtimeArtifact = await runtimeCatalog.GetEvent("customer.created", "1.0.0");
 
         var controlDb = controlProvider.GetRequiredService<KnOwlDbContext>();
         var controlTarget = await controlDb.ContractReleaseTargets.AsNoTracking().FirstAsync(x => x.Id == releaseTargetId);
         var release = await controlDb.ContractReleases.AsNoTracking().FirstAsync(x => x.Id == controlTarget.ReleaseId);
 
-        using var catalogResponse = await http.GetAsync($"{runtimeBaseUrl}/runtime/contracts/event/customer.created/versions/1.0.0");
-        using var controlCatalogResponse = await http.GetAsync($"{controlBaseUrl}/contracts/event/customer.created/versions/1.0.0");
-        using var controlLatestResponse = await http.GetAsync($"{controlBaseUrl}/contracts/event/customer.created/latest");
+        using var catalogResponse = await http.GetAsync($"{runtimeBaseUrl}/runtime/contracts/events/customer.created/versions/1.0.0");
+        using var controlCatalogResponse = await http.GetAsync($"{controlBaseUrl}/contracts/events/customer.created/versions/1.0.0");
 
         Assert.Equal(HttpStatusCode.OK, pushResponse.StatusCode);
         Assert.Contains("Runtime artifact pushed", pushBody);
@@ -101,7 +100,6 @@ public sealed class DistributionRuntimeE2ETests
         Assert.Equal("hash-e2e", runtimeArtifact.ContentHash);
         Assert.Equal(HttpStatusCode.OK, catalogResponse.StatusCode);
         Assert.Equal(HttpStatusCode.OK, controlCatalogResponse.StatusCode);
-        Assert.Equal(HttpStatusCode.OK, controlLatestResponse.StatusCode);
     }
 
     [Fact]
@@ -167,20 +165,27 @@ public sealed class DistributionRuntimeE2ETests
             $"{runtimeBaseUrl}/runtime/distribution/control-planes/knowl-control-plane/artifacts/{setup.ReleaseTargetId}/apply",
             content: null);
         var applyBody = await applyResponse.Content.ReadAsStringAsync();
+        using var applyReplyResponse = await http.PostAsync(
+            $"{runtimeBaseUrl}/runtime/distribution/control-planes/knowl-control-plane/artifacts/{setup.ReplyReleaseTargetId}/apply",
+            content: null);
+        var applyReplyBody = await applyReplyResponse.Content.ReadAsStringAsync();
 
         var runtimeCatalog = runtimeProvider.GetRequiredService<IRuntimeContractCatalogService>();
-        var runtimeArtifact = await runtimeCatalog.GetExact(ContractArtifactType.Command, "customer.register", "1.0.0");
+        var runtimeArtifacts = await runtimeCatalog.GetCommand("customer.register", "1.0.0");
 
         var controlDb = controlProvider.GetRequiredService<KnOwlDbContext>();
         var controlTarget = await controlDb.ContractReleaseTargets.AsNoTracking().FirstAsync(x => x.Id == setup.ReleaseTargetId);
         var release = await controlDb.ContractReleases.AsNoTracking().FirstAsync(x => x.Id == controlTarget.ReleaseId);
         var attempts = await controlDb.ContractReleaseAttempts.AsNoTracking().Where(x => x.ReleaseTargetId == setup.ReleaseTargetId).ToListAsync();
-        using var controlCatalogResponse = await http.GetAsync($"{controlBaseUrl}/contracts/command/customer.register/versions/1.0.0");
+        using var controlCatalogResponse = await http.GetAsync($"{controlBaseUrl}/contracts/commands/customer.register/versions/1.0.0");
 
         Assert.Equal(HttpStatusCode.OK, applyResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, applyReplyResponse.StatusCode);
         Assert.Contains("Ready", applyBody);
-        Assert.NotNull(runtimeArtifact);
-        Assert.Equal("hash-pull-e2e", runtimeArtifact.ContentHash);
+        Assert.Contains("Ready", applyReplyBody);
+        Assert.NotNull(runtimeArtifacts);
+        Assert.Equal("hash-pull-e2e", runtimeArtifacts.RequestArtifact.ContentHash);
+        Assert.Equal("hash-pull-e2e-reply", runtimeArtifacts.ReplyArtifact?.ContentHash);
         Assert.Equal(ContractReleaseTargetStatus.Activated, controlTarget.Status);
         Assert.Equal(ContractReleaseStatus.Completed, release.Status);
         Assert.Contains(attempts, x => x.Action == "Ack" && x.Succeeded);
@@ -298,7 +303,7 @@ public sealed class DistributionRuntimeE2ETests
         return target.Id;
     }
 
-    private static async Task<(Guid ReleaseTargetId, string CredentialPackageJson)> CreateControlPlanePullReleaseTarget(
+    private static async Task<(Guid ReleaseTargetId, Guid ReplyReleaseTargetId, string CredentialPackageJson)> CreateControlPlanePullReleaseTarget(
         ServiceProvider controlProvider,
         Guid runtimeNodeId,
         string controlBaseUrl)
@@ -334,7 +339,7 @@ public sealed class DistributionRuntimeE2ETests
         var artifact = new ContractArtifact
         {
             Id = Guid.NewGuid(),
-            ArtifactType = ContractArtifactType.Command,
+            ArtifactType = ContractArtifactType.CommandRequest,
             DefinitionId = Guid.NewGuid(),
             VersionId = Guid.NewGuid(),
             Name = "Register Customer",
@@ -344,11 +349,30 @@ public sealed class DistributionRuntimeE2ETests
             ContentHash = "hash-pull-e2e",
             SourceStatus = "Deployed"
         };
+        var replyArtifact = new ContractArtifact
+        {
+            Id = Guid.NewGuid(),
+            ArtifactType = ContractArtifactType.CommandReply,
+            DefinitionId = artifact.DefinitionId,
+            VersionId = artifact.VersionId,
+            Name = "Register Customer Reply",
+            Topic = "customer.register",
+            VersionNumber = "1.0.0",
+            PayloadSchemaJson = "{\"type\":\"object\",\"properties\":{\"accepted\":{\"type\":\"boolean\",\"required\":true}}}",
+            ContentHash = "hash-pull-e2e-reply",
+            SourceStatus = "Deployed"
+        };
         var item = new ContractReleaseItem
         {
             Id = Guid.NewGuid(),
             ReleaseId = release.Id,
             ArtifactId = artifact.Id
+        };
+        var replyItem = new ContractReleaseItem
+        {
+            Id = Guid.NewGuid(),
+            ReleaseId = release.Id,
+            ArtifactId = replyArtifact.Id
         };
         var target = new ContractReleaseTarget
         {
@@ -363,18 +387,34 @@ public sealed class DistributionRuntimeE2ETests
             AvailableAtUtc = DateTime.UtcNow,
             CorrelationId = Guid.NewGuid().ToString("N")
         };
+        var replyTarget = new ContractReleaseTarget
+        {
+            Id = Guid.NewGuid(),
+            ReleaseId = release.Id,
+            ReleaseItemId = replyItem.Id,
+            RuntimeNodeId = runtimeNodeId,
+            ArtifactId = replyArtifact.Id,
+            Status = ContractReleaseTargetStatus.AvailableForPull,
+            ActivationStatus = ContractReleaseActivationStatus.NotActivated,
+            RolloutGroup = "E2E",
+            AvailableAtUtc = DateTime.UtcNow,
+            CorrelationId = Guid.NewGuid().ToString("N")
+        };
 
         db.RuntimeEnvironments.Add(environment);
         db.RuntimeNodes.Add(runtimeNode);
         db.ContractArtifacts.Add(artifact);
+        db.ContractArtifacts.Add(replyArtifact);
         db.ContractReleases.Add(release);
         db.ContractReleaseItems.Add(item);
+        db.ContractReleaseItems.Add(replyItem);
         db.ContractReleaseTargets.Add(target);
+        db.ContractReleaseTargets.Add(replyTarget);
         await db.SaveChangesAsync();
 
         var connection = controlProvider.GetRequiredService<IRuntimeNodeConnectionInteractionService>();
         var credentialPackage = await connection.GenerateCredentialPackage(runtimeNodeId, controlBaseUrl);
-        return (target.Id, credentialPackage.Json);
+        return (target.Id, replyTarget.Id, credentialPackage.Json);
     }
 }
 

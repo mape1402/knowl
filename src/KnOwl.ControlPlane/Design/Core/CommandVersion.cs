@@ -20,6 +20,11 @@ public class CommandVersion
     [Required]
     public string PayloadSchemaJson { get; set; } = "{}";
 
+    /// <summary>
+    /// Optional schema returned by the command handler.
+    /// </summary>
+    public string? ReplyPayloadSchemaJson { get; set; }
+
     [MaxLength(1000)]
     public string? Comment { get; set; }
 

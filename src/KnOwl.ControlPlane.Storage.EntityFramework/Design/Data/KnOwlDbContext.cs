@@ -130,6 +130,7 @@ public class KnOwlDbContext(DbContextOptions<KnOwlDbContext> options) : DbContex
                 .HasMaxLength(32)
                 .HasDefaultValue(ContractVersionStatus.Draft)
                 .IsRequired();
+            entity.Property(x => x.PayloadSchemaJson).IsRequired();
             entity.HasOne(x => x.CommandDefinition)
                 .WithMany(x => x.Versions)
                 .HasForeignKey(x => x.CommandDefinitionId)

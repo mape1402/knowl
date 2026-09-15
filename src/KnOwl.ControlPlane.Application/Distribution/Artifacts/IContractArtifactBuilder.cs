@@ -14,7 +14,12 @@ public interface IContractArtifactBuilder
     Task<ContractArtifact> BuildEventArtifact(Guid versionId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Creates or returns an existing command artifact for the provided version.
+    /// Creates or returns existing command artifacts for the provided version.
+    /// </summary>
+    Task<IReadOnlyList<ContractArtifact>> BuildCommandArtifacts(Guid versionId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Creates or returns the command request artifact for the provided version.
     /// </summary>
     Task<ContractArtifact> BuildCommandArtifact(Guid versionId, CancellationToken cancellationToken = default);
 }

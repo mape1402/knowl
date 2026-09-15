@@ -58,6 +58,24 @@ public sealed class ControlPlaneContractCatalogServiceTests
         Assert.Equal("1.1.0", latest?.VersionNumber);
     }
 
+    [Fact]
+    public async Task GetCommandReturnsRequestAndOptionalReply()
+    {
+        ArtifactRepository artifacts = new(
+            CreateArtifact("customer.register", "1.0.0", ContractVersionStatus.Deployed, DateTime.UtcNow, ContractArtifactType.CommandRequest),
+            CreateArtifact("customer.register", "1.0.0", ContractVersionStatus.Deployed, DateTime.UtcNow, ContractArtifactType.CommandReply));
+
+        using var provider = CreateProvider(artifacts);
+        var catalog = provider.GetRequiredService<IControlPlaneContractCatalogService>();
+
+        var result = await catalog.GetCommand("customer.register", "1.0.0");
+
+        Assert.NotNull(result);
+        Assert.Equal("customer.register", result.CommandKey);
+        Assert.Equal(ContractArtifactType.CommandRequest, result.RequestArtifact.ArtifactType);
+        Assert.Equal(ContractArtifactType.CommandReply, result.ReplyArtifact?.ArtifactType);
+    }
+
     private static ServiceProvider CreateProvider(IContractArtifactRepository artifacts)
     {
         return new ServiceCollection()
@@ -66,12 +84,17 @@ public sealed class ControlPlaneContractCatalogServiceTests
             .BuildServiceProvider();
     }
 
-    private static ContractArtifact CreateArtifact(string topic, string version, ContractVersionStatus status, DateTime createdAtUtc)
+    private static ContractArtifact CreateArtifact(
+        string topic,
+        string version,
+        ContractVersionStatus status,
+        DateTime createdAtUtc,
+        ContractArtifactType artifactType = ContractArtifactType.Event)
     {
         return new ContractArtifact
         {
             Id = Guid.NewGuid(),
-            ArtifactType = ContractArtifactType.Event,
+            ArtifactType = artifactType,
             DefinitionId = Guid.NewGuid(),
             VersionId = Guid.NewGuid(),
             Name = topic,

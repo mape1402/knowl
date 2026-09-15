@@ -24,7 +24,29 @@ internal sealed class ContractSnapshotValidationService(
         var version = await commands.GetVersionById(versionId, cancellationToken);
         return version is null
             ? ContractSnapshotValidationResult.Invalid([$"Command version '{versionId}' was not found."])
-            : await ValidatePayloadSchema(version.PayloadSchemaJson, cancellationToken);
+            : await ValidateCommandPayloadSchemas(version.PayloadSchemaJson, version.ReplyPayloadSchemaJson, cancellationToken);
+    }
+
+    private async Task<ContractSnapshotValidationResult> ValidateCommandPayloadSchemas(
+        string requestSchemaJson,
+        string? replySchemaJson,
+        CancellationToken cancellationToken)
+    {
+        var requestValidation = await ValidatePayloadSchema(requestSchemaJson, cancellationToken);
+        if (!requestValidation.IsValid)
+        {
+            return requestValidation;
+        }
+
+        if (string.IsNullOrWhiteSpace(replySchemaJson))
+        {
+            return ContractSnapshotValidationResult.Valid();
+        }
+
+        var replyValidation = await ValidatePayloadSchema(replySchemaJson, cancellationToken);
+        return replyValidation.IsValid
+            ? ContractSnapshotValidationResult.Valid()
+            : ContractSnapshotValidationResult.Invalid(replyValidation.Errors.Select(x => $"Reply {x}").ToArray());
     }
 
     /// <inheritdoc />

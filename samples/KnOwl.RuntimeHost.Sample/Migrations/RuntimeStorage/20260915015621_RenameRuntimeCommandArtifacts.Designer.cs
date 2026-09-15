@@ -4,16 +4,19 @@ using KnOwl.Runtime.Storage.EntityFramework.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace KnOwl.RuntimeHost.Migrations.RuntimeStorage
+namespace KnOwl.RuntimeHost.Sample.Migrations.RuntimeStorage
 {
     [DbContext(typeof(KnOwlRuntimeDbContext))]
-    partial class KnOwlRuntimeDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260915015621_RenameRuntimeCommandArtifacts")]
+    partial class RenameRuntimeCommandArtifacts
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
