@@ -51,8 +51,6 @@ KnOwl runtime does not execute live instances. It only stores deployed contract 
 - `dotnet build KnOwl.slnx --no-restore`
 - `dotnet test KnOwl.slnx --no-build`
 - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run-knowl-distribution-e2e.ps1`
-- `docker build -f Dockerfile -t knowl-controlplane:e2e .`
-- `docker build -f Dockerfile.runtime -t knowl-runtime:e2e .`
 
 ## Delivered State
 
