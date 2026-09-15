@@ -11,7 +11,12 @@ public enum ContractArtifactType
     Event,
 
     /// <summary>
-    /// Command contract artifact.
+    /// Command request contract artifact.
     /// </summary>
-    Command
+    CommandRequest,
+
+    /// <summary>
+    /// Command reply contract artifact.
+    /// </summary>
+    CommandReply
 }

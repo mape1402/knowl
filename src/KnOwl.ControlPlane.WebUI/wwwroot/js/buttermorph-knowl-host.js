@@ -42,22 +42,19 @@
     }
 
     function initializePayloadDesigner() {
-        const button = document.querySelector("[data-buttermorph-payload-context]");
-        if (!button) {
+        const buttons = document.querySelectorAll("[data-buttermorph-payload-context]");
+        if (!buttons.length) {
             return;
         }
 
-        const contextKey = button.getAttribute("data-buttermorph-payload-context");
-        const hiddenSchema = document.getElementById("payload-schema-json");
-        const status = document.querySelector("[data-buttermorph-payload-status]");
-        const form = button.closest("form") || document.getElementById("event-editor-form");
-
-        button.addEventListener("click", function () {
-            const url = button.getAttribute("data-buttermorph-url");
-            const title = button.getAttribute("data-buttermorph-title") || "Schema Designer";
-            if (url) {
-                openDesigner(url, title);
-            }
+        buttons.forEach(function (button) {
+            button.addEventListener("click", function () {
+                const url = button.getAttribute("data-buttermorph-url");
+                const title = button.getAttribute("data-buttermorph-title") || "Schema Designer";
+                if (url) {
+                    openDesigner(url, title);
+                }
+            });
         });
 
         window.addEventListener("message", async function (event) {
@@ -65,10 +62,17 @@
                 return;
             }
 
-            if (event.data.contextKey !== contextKey) {
+            const button = Array.from(buttons).find(function (candidate) {
+                return candidate.getAttribute("data-buttermorph-payload-context") === event.data.contextKey;
+            });
+            if (!button) {
                 return;
             }
 
+            const contextKey = button.getAttribute("data-buttermorph-payload-context");
+            const targetId = button.getAttribute("data-buttermorph-payload-target") || "payload-schema-json";
+            const hiddenSchema = document.getElementById(targetId);
+            const status = (button.closest(".event-schema-block") || document).querySelector("[data-buttermorph-payload-status]");
             const schema = await loadDraftSchema(contextKey);
             if (schema && hiddenSchema) {
                 hiddenSchema.value = schema;
@@ -80,8 +84,12 @@
             }
         });
 
+        const form = buttons[0].closest("form") || document.getElementById("event-editor-form");
         if (form) {
             form.addEventListener("submit", function (event) {
+                const hiddenSchema = document.getElementById("payload-schema-json");
+                const status = (document.querySelector("[data-buttermorph-payload-target='payload-schema-json']")?.closest(".event-schema-block") || document)
+                    .querySelector("[data-buttermorph-payload-status]");
                 if (!hiddenSchema || hiddenSchema.value.trim()) {
                     return;
                 }

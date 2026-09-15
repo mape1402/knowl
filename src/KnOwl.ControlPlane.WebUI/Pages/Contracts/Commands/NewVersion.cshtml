@@ -3,6 +3,7 @@
 @{
     ViewData["Title"] = "New Command Version";
     var designerUrl = $"/buttermorph/payload-schema/designer?context={Model.ButterMorphContext}&mode=edit&popup=true";
+    var replyDesignerUrl = $"/buttermorph/payload-schema/designer?context={Model.ReplyButterMorphContext}&mode=edit&popup=true";
 }
 
 <section class="dashboard-section">
@@ -23,6 +24,7 @@
             <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
             <input asp-for="CommandId" type="hidden" />
             <input asp-for="PayloadSchemaJson" type="hidden" id="payload-schema-json" />
+            <input asp-for="ReplyPayloadSchemaJson" type="hidden" id="reply-payload-schema-json" />
 
             <div class="contract-editor-scroll">
                 <div class="collapse show" id="contract-general-data">
@@ -43,15 +45,33 @@
                 <div class="event-schema-block">
                     <div class="event-schema-header">
                         <div>
-                            <h2 class="section-heading event-schema-title">New version payload</h2>
-                            <small class="text-muted" data-buttermorph-payload-status>The previous version is loaded in ButterMorph for editing.</small>
+                            <h2 class="section-heading event-schema-title">Command request</h2>
+                            <small class="text-muted" data-buttermorph-payload-status>The previous request is loaded in ButterMorph for editing.</small>
                         </div>
                         <button type="button"
                                 class="btn btn-secondary btn-sm"
                                 data-buttermorph-url="@designerUrl"
-                                data-buttermorph-title="Schema del payload"
-                                data-buttermorph-payload-context="@Model.ButterMorphContext">
+                                data-buttermorph-title="Command request schema"
+                                data-buttermorph-payload-context="@Model.ButterMorphContext"
+                                data-buttermorph-payload-target="payload-schema-json">
                             <i class="bi bi-box-arrow-up-right"></i> Design schema
+                        </button>
+                    </div>
+                </div>
+
+                <div class="event-schema-block">
+                    <div class="event-schema-header">
+                        <div>
+                            <h2 class="section-heading event-schema-title">Command reply</h2>
+                            <small class="text-muted" data-buttermorph-payload-status>The reply schema is optional.</small>
+                        </div>
+                        <button type="button"
+                                class="btn btn-secondary btn-sm"
+                                data-buttermorph-url="@replyDesignerUrl"
+                                data-buttermorph-title="Command reply schema"
+                                data-buttermorph-payload-context="@Model.ReplyButterMorphContext"
+                                data-buttermorph-payload-target="reply-payload-schema-json">
+                            <i class="bi bi-box-arrow-up-right"></i> Design reply
                         </button>
                     </div>
                 </div>

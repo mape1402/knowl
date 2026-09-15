@@ -25,4 +25,27 @@ internal sealed class RuntimeContractCatalogService(IRuntimeContractArtifactRepo
         string topic,
         CancellationToken cancellationToken = default)
         => runtimeArtifacts.GetLatest(artifactType, topic, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<RuntimeContractArtifact?> GetEvent(
+        string eventKey,
+        string versionNumber,
+        CancellationToken cancellationToken = default)
+        => runtimeArtifacts.GetByIdentity(ContractArtifactType.Event, eventKey, versionNumber, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<CommandContractArtifacts<RuntimeContractArtifact>?> GetCommand(
+        string commandKey,
+        string versionNumber,
+        CancellationToken cancellationToken = default)
+    {
+        var request = await runtimeArtifacts.GetByIdentity(ContractArtifactType.CommandRequest, commandKey, versionNumber, cancellationToken);
+        if (request is null)
+        {
+            return null;
+        }
+
+        var reply = await runtimeArtifacts.GetByIdentity(ContractArtifactType.CommandReply, commandKey, versionNumber, cancellationToken);
+        return new CommandContractArtifacts<RuntimeContractArtifact>(commandKey, versionNumber, request, reply);
+    }
 }

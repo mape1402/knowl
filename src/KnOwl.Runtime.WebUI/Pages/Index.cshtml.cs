@@ -56,7 +56,7 @@ public sealed class IndexModel(
 
         TotalArtifacts = artifacts.Count;
         EventArtifacts = artifacts.Count(x => x.ArtifactType == ContractArtifactType.Event);
-        CommandArtifacts = artifacts.Count(x => x.ArtifactType == ContractArtifactType.Command);
+        CommandArtifacts = artifacts.Count(x => x.ArtifactType is ContractArtifactType.CommandRequest or ContractArtifactType.CommandReply);
         LatestArtifacts = artifacts.Take(5).ToList();
         ControlPlanes = nodes.Select(RuntimeControlPlaneSummary.FromNode).Take(5).ToList();
         ActiveControlPlanes = ControlPlanes.Count(x => x.IsReady);

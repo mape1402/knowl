@@ -94,6 +94,36 @@ public sealed class ContractArtifactBuilderTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => builder.BuildCommandArtifact(versionId));
     }
 
+    [Fact]
+    public async Task BuildCommandArtifactsCreatesRequestAndReplyArtifacts()
+    {
+        var versionId = Guid.NewGuid();
+        ArtifactCommandRepository commands = new()
+        {
+            Version = new CommandVersion
+            {
+                Id = versionId,
+                CommandDefinitionId = Guid.NewGuid(),
+                VersionNumber = "1.0.0",
+                Status = ContractVersionStatus.Approved,
+                PayloadSchemaJson = "{\"type\":\"object\",\"properties\":{\"customerId\":{\"type\":\"string\"}}}",
+                ReplyPayloadSchemaJson = "{\"type\":\"object\",\"properties\":{\"accepted\":{\"type\":\"boolean\"}}}",
+                CommandDefinition = new CommandDefinition { Name = "Register Customer", Topic = "customer.register" }
+            }
+        };
+        ArtifactRepository artifacts = new();
+
+        using var provider = CreateProvider(new ArtifactEventRepository(), commands, artifacts);
+        var builder = provider.GetRequiredService<IContractArtifactBuilder>();
+
+        var created = await builder.BuildCommandArtifacts(versionId);
+
+        Assert.Equal(2, created.Count);
+        Assert.Contains(created, x => x.ArtifactType == ContractArtifactType.CommandRequest && x.Topic == "customer.register");
+        Assert.Contains(created, x => x.ArtifactType == ContractArtifactType.CommandReply && x.Topic == "customer.register");
+        Assert.Equal(2, artifacts.Items.Count);
+    }
+
     private static ServiceProvider CreateProvider(IEventRepository events, ICommandRepository commands, IContractArtifactRepository artifacts)
     {
         return new ServiceCollection()

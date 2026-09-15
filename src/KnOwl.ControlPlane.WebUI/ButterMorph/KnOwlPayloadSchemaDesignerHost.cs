@@ -51,6 +51,24 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
                 ApplyCommandLoadResult(result, entity, latest);
             }
         }
+        else if (KnOwlButterMorphContext.TryReadGuid(request.ContextKey, "command-version-request:new:", out var commandRequestId))
+        {
+            var entity = await commands.GetById(commandRequestId, includeVersions: true);
+            var latest = entity?.Versions.OrderByDescending(x => x.CreatedAtUtc).FirstOrDefault();
+            if (entity is not null)
+            {
+                ApplyCommandLoadResult(result, entity, latest);
+            }
+        }
+        else if (KnOwlButterMorphContext.TryReadGuid(request.ContextKey, "command-version-reply:new:", out var commandReplyId))
+        {
+            var entity = await commands.GetById(commandReplyId, includeVersions: true);
+            var latest = entity?.Versions.OrderByDescending(x => x.CreatedAtUtc).FirstOrDefault();
+            if (entity is not null)
+            {
+                ApplyCommandReplyLoadResult(result, entity, latest);
+            }
+        }
 
         return result;
     }
@@ -85,6 +103,15 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
         result.Description = entity.Description ?? string.Empty;
         result.Version = NextVersion(latest?.VersionNumber);
         result.JsonSchema = latest?.PayloadSchemaJson ?? string.Empty;
+    }
+
+    private static void ApplyCommandReplyLoadResult(ButterMorphPayloadSchemaDesignerLoadResult result, CommandDefinition entity, CommandVersion? latest)
+    {
+        result.Key = $"{KnOwlButterMorphDefinitionMapper.NormalizeKey(entity.Name)}.reply";
+        result.Name = $"{entity.Name} Reply";
+        result.Description = entity.Description ?? string.Empty;
+        result.Version = NextVersion(latest?.VersionNumber);
+        result.JsonSchema = latest?.ReplyPayloadSchemaJson ?? string.Empty;
     }
 
     private static bool TryReadPayloadDefinition(string json, out PayloadSchemaDefinition definition)
@@ -392,7 +419,8 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
         return contextKey.StartsWith("event:new:", StringComparison.OrdinalIgnoreCase) ||
             contextKey.StartsWith("command:new:", StringComparison.OrdinalIgnoreCase) ||
             KnOwlButterMorphContext.TryReadGuid(contextKey, "event-version:new:", out _) ||
-            KnOwlButterMorphContext.TryReadGuid(contextKey, "command-version:new:", out _);
+            KnOwlButterMorphContext.TryReadGuid(contextKey, "command-version:new:", out _) ||
+            KnOwlButterMorphContext.TryReadGuid(contextKey, "command-version-request:new:", out _);
     }
 
     private static FieldMetadataCatalogItem CreateTopicMetadataCatalogItem()

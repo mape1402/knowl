@@ -167,35 +167,24 @@ public static class RuntimeEndpointRouteBuilderExtensions
             return Results.Ok(artifacts);
         });
 
-        endpoints.MapGet("/runtime/contracts/{artifactType}/{topic}/versions/{versionNumber}", async (
-            string artifactType,
-            string topic,
+        endpoints.MapGet("/runtime/contracts/events/{eventKey}/versions/{versionNumber}", async (
+            string eventKey,
             string versionNumber,
             IRuntimeContractCatalogService catalog,
             CancellationToken cancellationToken) =>
         {
-            if (!TryParseArtifactType(artifactType, out var parsedType))
-            {
-                return Results.BadRequest(new { message = $"Artifact type '{artifactType}' is not supported." });
-            }
-
-            var artifact = await catalog.GetExact(parsedType, topic, versionNumber, cancellationToken);
+            var artifact = await catalog.GetEvent(eventKey, versionNumber, cancellationToken);
             return artifact is null ? Results.NotFound() : Results.Ok(artifact);
         });
 
-        endpoints.MapGet("/runtime/contracts/{artifactType}/{topic}/latest", async (
-            string artifactType,
-            string topic,
+        endpoints.MapGet("/runtime/contracts/commands/{commandKey}/versions/{versionNumber}", async (
+            string commandKey,
+            string versionNumber,
             IRuntimeContractCatalogService catalog,
             CancellationToken cancellationToken) =>
         {
-            if (!TryParseArtifactType(artifactType, out var parsedType))
-            {
-                return Results.BadRequest(new { message = $"Artifact type '{artifactType}' is not supported." });
-            }
-
-            var artifact = await catalog.GetLatest(parsedType, topic, cancellationToken);
-            return artifact is null ? Results.NotFound() : Results.Ok(artifact);
+            var artifacts = await catalog.GetCommand(commandKey, versionNumber, cancellationToken);
+            return artifacts is null ? Results.NotFound() : Results.Ok(artifacts);
         });
 
         return endpoints;
@@ -214,9 +203,6 @@ public static class RuntimeEndpointRouteBuilderExtensions
             ? header["Bearer ".Length..].Trim()
             : string.Empty;
     }
-
-    private static bool TryParseArtifactType(string artifactType, out ContractArtifactType parsedType)
-        => Enum.TryParse(artifactType, ignoreCase: true, out parsedType);
 
     private static JsonSerializerOptions JsonOptions() => new(JsonSerializerDefaults.Web);
 }

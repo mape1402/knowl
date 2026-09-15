@@ -194,6 +194,30 @@ public sealed class ButterMorphAdapterTests
     }
 
     [Fact]
+    public async Task PayloadSchemaHostDoesNotAddTopicMetadataForCommandReplySchemas()
+    {
+        var command = new CommandDefinition
+        {
+            Id = Guid.NewGuid(),
+            Name = "Customer Register",
+            Topic = "customer.register"
+        };
+        var host = new KnOwlPayloadSchemaDesignerHost(
+            new EventInteractionStub(),
+            new CommandInteractionStub { Entity = command },
+            new SchemaTypeInteractionStub(),
+            new MetadataInteractionStub(),
+            new KnOwlButterMorphDraftStore());
+
+        var result = await host.Load(new global::ButterMorph.Web.Razor.ButterMorphPayloadSchemaDesignerLoadRequest
+        {
+            ContextKey = KnOwlButterMorphContext.CommandVersionReplyDraft(command.Id)
+        });
+
+        Assert.DoesNotContain(result.MetadataFields, x => x.Key == "topic");
+    }
+
+    [Fact]
     public async Task PayloadSchemaHostCreatesCommandUsingSchemaKeyWhenTopicMetadataIsMissing()
     {
         var commands = new CommandInteractionStub();
@@ -234,10 +258,11 @@ public sealed class ButterMorphAdapterTests
 
     private sealed class CommandInteractionStub : ICommandInteractionService
     {
+        public CommandDefinition? Entity { get; init; }
         public List<CommandDefinition> Created { get; } = [];
 
         public Task<IReadOnlyList<CommandDefinition>> GetAll(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<CommandDefinition>>([]);
-        public Task<CommandDefinition?> GetById(Guid id, bool includeVersions = false, CancellationToken cancellationToken = default) => Task.FromResult<CommandDefinition?>(null);
+        public Task<CommandDefinition?> GetById(Guid id, bool includeVersions = false, CancellationToken cancellationToken = default) => Task.FromResult(Entity?.Id == id ? Entity : null);
         public Task<bool> VersionExists(Guid commandId, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task Create(CommandDefinition commandDefinition, CancellationToken cancellationToken = default)
         {

@@ -103,6 +103,41 @@ public sealed class RuntimeContractDeploymentServiceTests
         Assert.Equal("1.1.0", latest?.VersionNumber);
     }
 
+    [Fact]
+    public async Task CatalogReturnsCommandRequestAndReplyArtifacts()
+    {
+        RuntimeArtifactRepository runtime = new();
+        runtime.Items.Add(new RuntimeContractArtifact
+        {
+            ArtifactType = ContractArtifactType.CommandRequest,
+            Topic = "customer.register",
+            VersionNumber = "1.0.0",
+            ContentHash = "hash-request",
+            Name = "Register Customer Request",
+            PayloadSchemaJson = "{}",
+            DeployedAtUtc = DateTime.UtcNow
+        });
+        runtime.Items.Add(new RuntimeContractArtifact
+        {
+            ArtifactType = ContractArtifactType.CommandReply,
+            Topic = "customer.register",
+            VersionNumber = "1.0.0",
+            ContentHash = "hash-reply",
+            Name = "Register Customer Reply",
+            PayloadSchemaJson = "{}",
+            DeployedAtUtc = DateTime.UtcNow
+        });
+
+        using var provider = CreateProvider(runtime);
+        var catalog = provider.GetRequiredService<IRuntimeContractCatalogService>();
+
+        var result = await catalog.GetCommand("customer.register", "1.0.0");
+
+        Assert.NotNull(result);
+        Assert.Equal("hash-request", result.RequestArtifact.ContentHash);
+        Assert.Equal("hash-reply", result.ReplyArtifact?.ContentHash);
+    }
+
     private static RuntimeArtifactDeliveryPackage CreatePackage(string hash)
     {
         return new RuntimeArtifactDeliveryPackage
