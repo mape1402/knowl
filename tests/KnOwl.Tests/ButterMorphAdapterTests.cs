@@ -218,6 +218,63 @@ public sealed class ButterMorphAdapterTests
     }
 
     [Fact]
+    public async Task PayloadSchemaHostAddsOptionalTopicMetadataForNewCommandRequestSchemas()
+    {
+        var host = new KnOwlPayloadSchemaDesignerHost(
+            new EventInteractionStub(),
+            new CommandInteractionStub(),
+            new SchemaTypeInteractionStub(),
+            new MetadataInteractionStub(),
+            new KnOwlButterMorphDraftStore());
+
+        var result = await host.Load(new global::ButterMorph.Web.Razor.ButterMorphPayloadSchemaDesignerLoadRequest
+        {
+            ContextKey = KnOwlButterMorphContext.CommandCreateRequestDraft(Guid.NewGuid())
+        });
+
+        Assert.Contains(result.MetadataFields, x => x.Key == "topic");
+    }
+
+    [Fact]
+    public async Task PayloadSchemaHostDoesNotAddTopicMetadataForNewCommandReplySchemas()
+    {
+        var host = new KnOwlPayloadSchemaDesignerHost(
+            new EventInteractionStub(),
+            new CommandInteractionStub(),
+            new SchemaTypeInteractionStub(),
+            new MetadataInteractionStub(),
+            new KnOwlButterMorphDraftStore());
+
+        var result = await host.Load(new global::ButterMorph.Web.Razor.ButterMorphPayloadSchemaDesignerLoadRequest
+        {
+            ContextKey = KnOwlButterMorphContext.CommandCreateReplyDraft(Guid.NewGuid())
+        });
+
+        Assert.DoesNotContain(result.MetadataFields, x => x.Key == "topic");
+    }
+
+    [Fact]
+    public async Task PayloadSchemaHostIncludesTemporalSystemTypesForDesigner()
+    {
+        var host = new KnOwlPayloadSchemaDesignerHost(
+            new EventInteractionStub(),
+            new CommandInteractionStub(),
+            new SchemaTypeInteractionStub(),
+            new MetadataInteractionStub(),
+            new KnOwlButterMorphDraftStore());
+
+        var result = await host.Load(new global::ButterMorph.Web.Razor.ButterMorphPayloadSchemaDesignerLoadRequest
+        {
+            ContextKey = KnOwlButterMorphContext.CommandCreateRequestDraft(Guid.NewGuid())
+        });
+
+        Assert.Contains(result.SchemaTypes, x => x.Name == "Date");
+        Assert.Contains(result.SchemaTypes, x => x.Name == "DateTime");
+        Assert.Contains(result.SchemaTypes, x => x.Name == "Time");
+        Assert.Contains(result.SchemaTypes, x => x.Name == "TimeSpan");
+    }
+
+    [Fact]
     public async Task PayloadSchemaHostCreatesCommandUsingSchemaKeyWhenTopicMetadataIsMissing()
     {
         var commands = new CommandInteractionStub();

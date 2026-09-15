@@ -42,6 +42,12 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
         else if (request.ContextKey.StartsWith("command:new:", StringComparison.OrdinalIgnoreCase))
         {
         }
+        else if (KnOwlButterMorphContext.TryReadGuid(request.ContextKey, "command-create-request:new:", out _))
+        {
+        }
+        else if (KnOwlButterMorphContext.TryReadGuid(request.ContextKey, "command-create-reply:new:", out _))
+        {
+        }
         else if (KnOwlButterMorphContext.TryReadGuid(request.ContextKey, "command-version:new:", out var commandId))
         {
             var entity = await commands.GetById(commandId, includeVersions: true);
@@ -383,9 +389,29 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
     {
         var versions = await schemaTypes.GetActiveVersions();
 
-        return versions
+        var persistedItems = versions
             .Where(x => x.SchemaTypeDefinition is not null)
-            .Select(x => KnOwlButterMorphDefinitionMapper.ToCatalogItem(x.SchemaTypeDefinition!, x, x.SchemaTypeDefinition!.IsSystem))
+            .Select(x => KnOwlButterMorphDefinitionMapper.ToCatalogItem(
+                x.SchemaTypeDefinition!,
+                x,
+                x.SchemaTypeDefinition!.IsSystem && !IsTemporalSystemType(x.SchemaTypeDefinition.Name)))
+            .ToList();
+
+        foreach (var systemItem in CreateTemporalSystemCatalogItems())
+        {
+            if (persistedItems.Any(x =>
+                    string.Equals(x.Name, systemItem.Name, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(x.TypeVersionId, systemItem.TypeVersionId, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            persistedItems.Add(systemItem);
+        }
+
+        return persistedItems
+            .OrderBy(x => x.IsSystem ? 0 : 1)
+            .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 
@@ -418,9 +444,43 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
     {
         return contextKey.StartsWith("event:new:", StringComparison.OrdinalIgnoreCase) ||
             contextKey.StartsWith("command:new:", StringComparison.OrdinalIgnoreCase) ||
+            KnOwlButterMorphContext.TryReadGuid(contextKey, "command-create-request:new:", out _) ||
             KnOwlButterMorphContext.TryReadGuid(contextKey, "event-version:new:", out _) ||
             KnOwlButterMorphContext.TryReadGuid(contextKey, "command-version:new:", out _) ||
             KnOwlButterMorphContext.TryReadGuid(contextKey, "command-version-request:new:", out _);
+    }
+
+    private static IReadOnlyCollection<SchemaTypeCatalogItem> CreateTemporalSystemCatalogItems()
+    {
+        return
+        [
+            CreateTemporalSystemCatalogItem("Date", "{\"type\":\"string\",\"format\":\"date\",\"pattern\":\"^\\\\d{4}-\\\\d{2}-\\\\d{2}$\"}"),
+            CreateTemporalSystemCatalogItem("DateTime", "{\"type\":\"string\",\"format\":\"date-time\",\"pattern\":\"^\\\\d{4}-\\\\d{2}-\\\\d{2}T\\\\d{2}:\\\\d{2}:\\\\d{2}(?:\\\\.\\\\d{1,7})?(?:Z|[+-]\\\\d{2}:\\\\d{2})?$\"}"),
+            CreateTemporalSystemCatalogItem("Time", "{\"type\":\"string\",\"format\":\"time\",\"pattern\":\"^\\\\d{2}:\\\\d{2}:\\\\d{2}(?:\\\\.\\\\d{1,7})?$\"}"),
+            CreateTemporalSystemCatalogItem("TimeSpan", "{\"type\":\"string\",\"pattern\":\"^(?:\\\\d+\\\\.)?\\\\d{2}:\\\\d{2}:\\\\d{2}(?:\\\\.\\\\d{1,7})?$\"}")
+        ];
+    }
+
+    private static SchemaTypeCatalogItem CreateTemporalSystemCatalogItem(string name, string jsonSchema)
+    {
+        return new SchemaTypeCatalogItem
+        {
+            TypeId = name,
+            TypeVersionId = $"{name}@1.0.0",
+            Name = name,
+            VersionNumber = "1.0.0",
+            BaseType = "string",
+            JsonSchema = jsonSchema,
+            IsSystem = false
+        };
+    }
+
+    private static bool IsTemporalSystemType(string name)
+    {
+        return string.Equals(name, "Date", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(name, "DateTime", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(name, "Time", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(name, "TimeSpan", StringComparison.OrdinalIgnoreCase);
     }
 
     private static FieldMetadataCatalogItem CreateTopicMetadataCatalogItem()

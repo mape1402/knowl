@@ -2,20 +2,15 @@
 @model KnOwl.ControlPlane.WebUI.Pages.Contracts.Commands.IndexModel
 @{
     ViewData["Title"] = "Commands";
-    var newCommandUrl = $"/buttermorph/payload-schema/designer?context={KnOwl.ControlPlane.WebUI.ButterMorph.KnOwlButterMorphContext.CommandNew()}&mode=create&popup=true";
 }
 
 <section class="dashboard-section">
     <div class="platform-card">
         <div class="platform-card-header">
             <span>Registered Commands</span>
-            <button type="button"
-                    class="btn btn-primary btn-sm"
-                    data-buttermorph-url="@newCommandUrl"
-                    data-buttermorph-title="New command"
-                    data-buttermorph-command-create="true">
+            <a class="btn btn-primary btn-sm" asp-page="/Contracts/Commands/New">
                 <i class="bi bi-plus-lg"></i> New command
-            </button>
+            </a>
         </div>
 
         <p class="event-editor-intro">Global commands and their versions.</p>
@@ -26,13 +21,9 @@
                 <i class="bi bi-inbox"></i>
                 <h3>No saved commands</h3>
                 <p>Start by creating your first command contract.</p>
-                <button type="button"
-                        class="btn btn-primary btn-sm"
-                        data-buttermorph-url="@newCommandUrl"
-                        data-buttermorph-title="New command"
-                        data-buttermorph-command-create="true">
+                <a class="btn btn-primary btn-sm" asp-page="/Contracts/Commands/New">
                     Add command
-                </button>
+                </a>
             </div>
         }
         else
