@@ -1,5 +1,5 @@
 using KnOwl.ControlPlane.Bootstrap.Configuration;
-using Microsoft.Data.SqlClient;
+using KnOwl.Runtime.Bootstrap.Configuration;
 using Microsoft.Extensions.Configuration;
 
 namespace KnOwl.Tests;
@@ -7,13 +7,12 @@ namespace KnOwl.Tests;
 public sealed class KnOwlSqlConnectionStringFactoryTests
 {
     [Fact]
-    public void CreateReturnsConfiguredConnectionStringWhenManagedIdentityIsDisabled()
+    public void ControlPlaneCreateReturnsConfiguredConnectionString()
     {
         const string connectionString = "Server=localhost;Database=KnOwl;User Id=sa;Password=password;TrustServerCertificate=True";
         var configuration = CreateConfiguration(new Dictionary<string, string?>
         {
-            ["ConnectionStrings:KnOwlDb"] = connectionString,
-            ["Database:UseManagedIdentity"] = "false"
+            ["ConnectionStrings:KnOwlDb"] = connectionString
         });
 
         var result = KnOwlSqlConnectionStringFactory.Create(configuration);
@@ -22,78 +21,58 @@ public sealed class KnOwlSqlConnectionStringFactoryTests
     }
 
     [Fact]
-    public void CreateBuildsManagedIdentityConnectionStringFromConfiguredConnectionString()
+    public void RuntimeCreateReturnsRuntimeConnectionString()
     {
-        const string managedIdentityClientId = "11111111-1111-1111-1111-111111111111";
+        const string connectionString = "Server=localhost;Database=KnOwlRuntime;User Id=sa;Password=password;TrustServerCertificate=True";
         var configuration = CreateConfiguration(new Dictionary<string, string?>
         {
-            ["ConnectionStrings:KnOwlDb"] = "Server=knowl-sql.database.windows.net;Database=SchemaRegistry;User Id=legacy;Password=secret;Encrypt=True;TrustServerCertificate=False",
-            ["Database:UseManagedIdentity"] = "true",
-            ["Database:ManagedIdentityClientId"] = managedIdentityClientId
+            ["ConnectionStrings:KnOwlRuntimeDb"] = connectionString
         });
 
-        var result = KnOwlSqlConnectionStringFactory.Create(configuration);
-        var builder = new SqlConnectionStringBuilder(result);
+        var result = KnOwlRuntimeSqlConnectionStringFactory.Create(configuration);
 
-        Assert.Equal("knowl-sql.database.windows.net", builder.DataSource);
-        Assert.Equal("SchemaRegistry", builder.InitialCatalog);
-        Assert.Equal(SqlAuthenticationMethod.ActiveDirectoryManagedIdentity, builder.Authentication);
-        Assert.Equal(managedIdentityClientId, builder.UserID);
-        Assert.True(builder.Encrypt);
-        Assert.False(builder.TrustServerCertificate);
-        Assert.Empty(builder.Password);
+        Assert.Equal(connectionString, result);
     }
 
     [Fact]
-    public void CreateCanUseManagedIdentityWithConnectionStringAsBase()
+    public void RuntimeCreateFallsBackToControlPlaneConnectionString()
     {
+        const string connectionString = "Server=localhost;Database=KnOwlShared;User Id=sa;Password=password;TrustServerCertificate=True";
         var configuration = CreateConfiguration(new Dictionary<string, string?>
         {
-            ["ConnectionStrings:KnOwlDb"] = "Server=knowl-sql.database.windows.net;Database=SchemaRegistry;User Id=legacy;Password=secret;TrustServerCertificate=True",
-            ["Database:UseManagedIdentity"] = "true"
+            ["ConnectionStrings:KnOwlDb"] = connectionString
         });
 
-        var result = KnOwlSqlConnectionStringFactory.Create(configuration);
-        var builder = new SqlConnectionStringBuilder(result);
+        var result = KnOwlRuntimeSqlConnectionStringFactory.Create(configuration);
 
-        Assert.Equal("knowl-sql.database.windows.net", builder.DataSource);
-        Assert.Equal("SchemaRegistry", builder.InitialCatalog);
-        Assert.Equal(SqlAuthenticationMethod.ActiveDirectoryManagedIdentity, builder.Authentication);
-        Assert.Empty(builder.UserID);
-        Assert.Empty(builder.Password);
+        Assert.Equal(connectionString, result);
     }
 
     [Fact]
-    public void CreateIgnoresUnresolvedTokensWhenManagedIdentityIsEnabled()
+    public void ControlPlaneCreateThrowsWhenConnectionStringIsMissing()
     {
         var configuration = CreateConfiguration(new Dictionary<string, string?>
         {
-            ["ConnectionStrings:KnOwlDb"] = "Server=knowl-sql.database.windows.net;Database=SchemaRegistry;TrustServerCertificate=True",
-            ["Database:UseManagedIdentity"] = "true",
-            ["Database:ManagedIdentityClientId"] = "#{SA_CLIENT_ID}#"
-        });
-
-        var result = KnOwlSqlConnectionStringFactory.Create(configuration);
-        var builder = new SqlConnectionStringBuilder(result);
-
-        Assert.Equal("knowl-sql.database.windows.net", builder.DataSource);
-        Assert.Equal("SchemaRegistry", builder.InitialCatalog);
-        Assert.Equal(SqlAuthenticationMethod.ActiveDirectoryManagedIdentity, builder.Authentication);
-        Assert.Empty(builder.UserID);
-    }
-
-    [Fact]
-    public void CreateThrowsWhenManagedIdentityIsEnabledWithoutConnectionString()
-    {
-        var configuration = CreateConfiguration(new Dictionary<string, string?>
-        {
-            ["ConnectionStrings:KnOwlDb"] = "#{CONNECTIONSTRINGS_ATLASDB}#",
-            ["Database:UseManagedIdentity"] = "true"
+            ["ConnectionStrings:KnOwlDb"] = "#{CONNECTIONSTRINGS_KNOWLDB}#"
         });
 
         var exception = Assert.Throws<InvalidOperationException>(() => KnOwlSqlConnectionStringFactory.Create(configuration));
 
         Assert.Contains("ConnectionStrings:KnOwlDb", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RuntimeCreateThrowsWhenConnectionStringIsMissing()
+    {
+        var configuration = CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:KnOwlRuntimeDb"] = "#{CONNECTIONSTRINGS_KNOWLRUNTIMEDB}#",
+            ["ConnectionStrings:KnOwlDb"] = "#{CONNECTIONSTRINGS_KNOWLDB}#"
+        });
+
+        var exception = Assert.Throws<InvalidOperationException>(() => KnOwlRuntimeSqlConnectionStringFactory.Create(configuration));
+
+        Assert.Contains("ConnectionStrings:KnOwlRuntimeDb", exception.Message, StringComparison.Ordinal);
     }
 
     private static IConfiguration CreateConfiguration(Dictionary<string, string?> values)
