@@ -174,6 +174,33 @@ public sealed class DistributionSecurityTests
         Assert.NotEmpty(designNode.OutboundClientId);
     }
 
+    [Fact]
+    public async Task RuntimeDesignNodeUpsertPersistsSelectedDistributionMode()
+    {
+        var repository = new RuntimeDesignNodeRepositoryFake([]);
+        using var runtime = new ServiceCollection()
+            .AddSingleton<IRuntimeDesignNodeRepository>(repository)
+            .AddKnOwlRuntimeApplication()
+            .BuildServiceProvider();
+
+        var connection = runtime.GetRequiredService<IRuntimeDesignNodeConnectionService>();
+
+        var node = await connection.UpsertDesignNode(
+            null,
+            "knowl-control-plane",
+            "KnOwl Control Plane",
+            DistributionMode.Pull,
+            "https://knowl.example.test",
+            Guid.NewGuid().ToString("N"),
+            isEnabled: false);
+
+        var stored = await repository.GetById(node.Id);
+        Assert.NotNull(stored);
+        Assert.Equal(DistributionMode.Pull, stored.DistributionMode);
+        Assert.Equal(RuntimeDesignNodeStatus.Pending, stored.Status);
+        Assert.False(stored.IsEnabled);
+    }
+
     private sealed class ControlPlaneRuntimeNodeRepositoryFake(List<RuntimeNode> nodes) : IRuntimeNodeRepository
     {
         public Task<IReadOnlyList<RuntimeNode>> GetAll(CancellationToken cancellationToken = default)

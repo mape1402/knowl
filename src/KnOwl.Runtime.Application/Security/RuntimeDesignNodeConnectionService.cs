@@ -23,6 +23,7 @@ public sealed class RuntimeDesignNodeConnectionService(
         Guid? id,
         string key,
         string name,
+        DistributionMode distributionMode,
         string endpointBaseUri,
         string remoteRuntimeNodeId,
         bool isEnabled,
@@ -47,6 +48,7 @@ public sealed class RuntimeDesignNodeConnectionService(
         node ??= new RuntimeDesignNode { Id = id.GetValueOrDefault(Guid.NewGuid()), CreatedAtUtc = DateTime.UtcNow };
         node.Key = key.Trim();
         node.Name = name.Trim();
+        node.DistributionMode = distributionMode;
         node.EndpointBaseUri = endpointBaseUri?.Trim().TrimEnd('/') ?? string.Empty;
         node.RemoteRuntimeNodeId = remoteRuntimeNodeId?.Trim() ?? string.Empty;
         node.IsEnabled = isEnabled;
