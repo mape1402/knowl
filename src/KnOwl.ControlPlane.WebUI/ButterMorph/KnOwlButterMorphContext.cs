@@ -46,6 +46,16 @@ public static class KnOwlButterMorphContext
     public static string CommandNew() => $"command:new:{Guid.NewGuid():N}";
 
     /// <summary>
+    /// Creates a draft context key for the request schema of a new command definition.
+    /// </summary>
+    public static string CommandCreateRequestDraft(Guid draftId) => $"command-create-request:new:{draftId}";
+
+    /// <summary>
+    /// Creates a draft context key for the reply schema of a new command definition.
+    /// </summary>
+    public static string CommandCreateReplyDraft(Guid draftId) => $"command-create-reply:new:{draftId}";
+
+    /// <summary>
     /// Creates a context key for adding a new version to an existing command.
     /// </summary>
     public static string CommandVersion(Guid commandId) => $"command-version:new:{commandId}";
