@@ -40,11 +40,15 @@
             <div class="events-list compact-contract-list">
                 @foreach (var item in Model.Commands)
                 {
+                    var requestVersionCount = item.Versions.Count(x => !string.IsNullOrWhiteSpace(x.PayloadSchemaJson));
+                    var replyVersionCount = item.Versions.Count(x => !string.IsNullOrWhiteSpace(x.ReplyPayloadSchemaJson));
                     <article class="event-list-card">
                         <h3 class="event-list-title">@item.Name</h3>
                         <p class="event-list-topic">@(string.IsNullOrWhiteSpace(item.Topic) ? "-" : item.Topic)</p>
                         <div class="event-list-meta">
                             <span>Versions: @item.Versions.Count</span>
+                            <span>Request schemas: @requestVersionCount</span>
+                            <span>Reply schemas: @replyVersionCount</span>
                             <span>@(item.IsActive ? "Active" : "Inactive")</span>
                             <span>Created: @item.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
                         </div>

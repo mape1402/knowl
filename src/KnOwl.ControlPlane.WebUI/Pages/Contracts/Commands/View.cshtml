@@ -59,7 +59,7 @@
             </div>
 
             <div class="mt-3 event-detail-schema">
-                <span class="event-meta-label">Command request schema (@Model.SelectedVersion?.VersionNumber)</span>
+                <span class="event-meta-label">Command version @Model.SelectedVersion?.VersionNumber</span>
                 <p class="event-meta-value"><strong>Status:</strong> @Model.SelectedVersion?.Status</p>
                 <p class="event-meta-value"><strong>Comment:</strong> @(string.IsNullOrWhiteSpace(Model.SelectedVersion?.Comment) ? "-" : Model.SelectedVersion?.Comment)</p>
                 @if (Model.SelectedVersion is not null)
@@ -76,6 +76,7 @@
                         }
                     </div>
                 }
+                <span class="event-meta-label d-block">Request schema</span>
                 <pre class="contract-json-output">@Model.FormattedPayloadSchemaJson</pre>
                 <span class="event-meta-label d-block mt-3">Command reply schema</span>
                 @if (string.IsNullOrWhiteSpace(Model.SelectedVersion?.ReplyPayloadSchemaJson))
