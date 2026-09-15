@@ -4,6 +4,7 @@ using KnOwl.ControlPlane.Storage.EntityFramework.Design.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace KnOwl.Migrations
 {
     [DbContext(typeof(KnOwlDbContext))]
-    partial class KnOwlDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260915013826_AddSystemTimeSchemaType")]
+    partial class AddSystemTimeSchemaType
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

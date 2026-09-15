@@ -7,7 +7,7 @@ namespace KnOwl.ControlPlane.WebUI.SchemaTypes;
 public static class SchemaTypeCatalog
 {
     public static readonly string[] BasicTypes = ["string", "number", "integer", "boolean", "object", "array"];
-    public static readonly string[] SystemSemanticTypes = ["Date", "DateTime", "TimeSpan"];
+    public static readonly string[] SystemSemanticTypes = ["Date", "DateTime", "Time", "TimeSpan"];
 
     public static async Task<string> GetSelectableTypesJsonAsync(ISchemaTypeInteractionService schemaTypes)
     {
