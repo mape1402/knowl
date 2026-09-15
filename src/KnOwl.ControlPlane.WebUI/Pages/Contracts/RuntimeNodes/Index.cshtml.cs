@@ -158,6 +158,18 @@ public class IndexModel(
         return RedirectToPage();
     }
 
+    public async Task<IActionResult> OnPostValidateConnectionAsync(Guid runtimeNodeId, CancellationToken cancellationToken)
+    {
+        if (runtimeNodeId == Guid.Empty)
+        {
+            return NotFound();
+        }
+
+        var result = await runtimeNodeConnections.ValidateConnection(runtimeNodeId, cancellationToken);
+        StatusMessage = result.Message;
+        return RedirectToPage();
+    }
+
     private async Task Load(CancellationToken cancellationToken)
     {
         RuntimeNodes = await runtimeNodes.GetAll(cancellationToken);

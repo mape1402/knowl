@@ -1,3 +1,4 @@
+using KnOwl.Contracts.Distribution;
 using KnOwl.Runtime.Distribution;
 
 namespace KnOwl.Runtime.Application.Security;
@@ -14,6 +15,7 @@ public interface IRuntimeDesignNodeConnectionService
         Guid? id,
         string key,
         string name,
+        DistributionMode distributionMode,
         string endpointBaseUri,
         string remoteRuntimeNodeId,
         bool isEnabled,

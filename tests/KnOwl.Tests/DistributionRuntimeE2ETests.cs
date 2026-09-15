@@ -212,6 +212,7 @@ public sealed class DistributionRuntimeE2ETests
             designNodeId,
             "knowl-control-plane",
             "KnOwl Control Plane",
+            DistributionMode.Push,
             "http://127.0.0.1:18080",
             controlRuntimeNodeId.ToString("N"),
             true);

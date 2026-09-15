@@ -1,6 +1,7 @@
 using KnOwl.Contracts.Artifacts;
 using System.Text.Json;
 using KnOwl.Contracts.ArtifactDelivery;
+using KnOwl.Contracts.Distribution;
 using KnOwl.Contracts.Security;
 using KnOwl.Runtime.Application.ArtifactDelivery;
 using KnOwl.Runtime.Application.Catalog;
@@ -126,6 +127,7 @@ public static class RuntimeEndpointRouteBuilderExtensions
                 request.Id,
                 request.Key,
                 request.Name,
+                request.DistributionMode,
                 request.EndpointBaseUri,
                 request.RemoteRuntimeNodeId,
                 request.IsEnabled,
@@ -238,6 +240,11 @@ public sealed class UpsertDesignNodeRequest
     /// Gets or sets the display name.
     /// </summary>
     public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets how artifacts move between Control Plane and Runtime.
+    /// </summary>
+    public DistributionMode DistributionMode { get; set; } = DistributionMode.Hybrid;
 
     /// <summary>
     /// Gets or sets the Control Plane endpoint base URI.

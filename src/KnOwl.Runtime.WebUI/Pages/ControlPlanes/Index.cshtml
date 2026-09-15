@@ -1,4 +1,5 @@
 @page
+@using KnOwl.Contracts.Distribution
 @model KnOwl.Runtime.WebUI.Pages.ControlPlanes.IndexModel
 @{
     ViewData["Title"] = "Control Planes";
@@ -10,12 +11,17 @@
             <p class="eyebrow">Distribution sources</p>
             <h2>Control Planes</h2>
         </div>
-        <span class="count-pill">@Model.DesignNodes.Count configured</span>
+        <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#controlPlaneModal" data-mode="new">New connection</button>
     </div>
+
+    @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+    {
+        <div class="alert alert-info mt-3">@Model.StatusMessage</div>
+    }
 
     @if (Model.DesignNodes.Count == 0)
     {
-        <div class="empty-state">No control planes are registered. Import a runtime package from the KnOwl control plane to enable distribution.</div>
+        <div class="empty-state">No control planes are registered.</div>
     }
     else
     {
@@ -30,6 +36,7 @@
                         <th>Credentials</th>
                         <th>Endpoint</th>
                         <th>Updated</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -46,11 +53,45 @@
                                 <span class="status-label @(node.IsEnabled ? "ok" : "warn")">@node.Status</span>
                             </td>
                             <td>
-                                <span class="block-muted">Inbound: @node.InboundCredentialStatus</span>
-                                <span class="block-muted">Outbound: @node.OutboundCredentialStatus</span>
+                                <span class="block-muted">Runtime package: @node.InboundCredentialStatus</span>
+                                <span class="block-muted">Control Plane package: @node.OutboundCredentialStatus</span>
                             </td>
                             <td><code class="endpoint-text">@node.EndpointBaseUri</code></td>
                             <td>@node.UpdatedAtUtc.ToString("u")</td>
+                            <td class="text-end">
+                                <button class="btn btn-secondary btn-sm" type="button"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#controlPlaneModal"
+                                        data-mode="edit"
+                                        data-id="@node.Id"
+                                        data-key="@node.Key"
+                                        data-name="@node.Name"
+                                        data-distribution-mode="@node.DistributionMode"
+                                        data-endpoint-base-uri="@node.EndpointBaseUri"
+                                        data-remote-runtime-node-id="@node.RemoteRuntimeNodeId"
+                                        data-enabled="@node.IsEnabled.ToString().ToLowerInvariant()"
+                                        data-description="@node.Description">
+                                    Configure
+                                </button>
+                                <button class="btn btn-secondary btn-sm" type="button"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#generateCredentialsModal"
+                                        data-id="@node.Id"
+                                        data-name="@node.Name">
+                                    Generate package
+                                </button>
+                                <button class="btn btn-secondary btn-sm" type="button"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#importCredentialsModal"
+                                        data-id="@node.Id"
+                                        data-name="@node.Name">
+                                    Import package
+                                </button>
+                                <form class="d-inline" method="post" asp-page-handler="ValidateConnection">
+                                    <input type="hidden" name="designNodeId" value="@node.Id" />
+                                    <button class="btn btn-secondary btn-sm" type="submit">Validate</button>
+                                </form>
+                            </td>
                         </tr>
                     }
                 </tbody>
@@ -58,3 +99,213 @@
         </div>
     }
 </section>
+
+<div class="modal fade" id="controlPlaneModal" tabindex="-1" aria-hidden="true" data-show="@Model.ShowConnectionModal.ToString().ToLowerInvariant()">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <form method="post">
+                <div class="modal-header">
+                    <h5 class="modal-title">Control Plane connection</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div asp-validation-summary="All" class="text-danger mb-3"></div>
+                    <input type="hidden" asp-for="Input.Id" />
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label" asp-for="Input.Name">Name</label>
+                            <input class="form-control" asp-for="Input.Name" />
+                            <span class="text-danger" asp-validation-for="Input.Name"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" asp-for="Input.Key">Key</label>
+                            <input class="form-control" asp-for="Input.Key" />
+                            <span class="text-danger" asp-validation-for="Input.Key"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" asp-for="Input.DistributionMode">Distribution mode</label>
+                            <select class="form-select" asp-for="Input.DistributionMode" asp-items="Html.GetEnumSelectList<DistributionMode>()"></select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" asp-for="Input.RemoteRuntimeNodeId">Control Plane runtime node id</label>
+                            <input class="form-control" asp-for="Input.RemoteRuntimeNodeId" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" asp-for="Input.EndpointBaseUri">Control Plane base URL</label>
+                            <input class="form-control" asp-for="Input.EndpointBaseUri" placeholder="https://knowl-control-plane" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" asp-for="Input.Description">Description</label>
+                            <textarea class="form-control" asp-for="Input.Description" rows="2"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" asp-for="Input.IsEnabled" />
+                                <label class="form-check-label" asp-for="Input.IsEnabled">Enabled</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save connection</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="generateCredentialsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="GenerateCredentials">
+                <div class="modal-header">
+                    <h5 class="modal-title">Generate Runtime package</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" asp-for="CredentialInput.DesignNodeId" />
+                    <p class="text-muted mb-3" data-control-plane-name></p>
+                    <label class="form-label" asp-for="CredentialInput.IssuerBaseUrl">Runtime public base URL</label>
+                    <input class="form-control" asp-for="CredentialInput.IssuerBaseUrl" placeholder="https://knowl-runtime" />
+                    <div class="form-text">The Control Plane imports this package when it will push artifacts into this Runtime.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Generate package</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="generatedCredentialsModal" tabindex="-1" aria-hidden="true" data-show="@Model.ShowGeneratedCredentialModal.ToString().ToLowerInvariant()">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Generated Runtime package</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">Copy this package now. It includes a secret and will not be shown again after closing this page.</div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <label class="form-label">Base64</label>
+                    <button type="button" class="btn btn-secondary btn-sm" data-copy-target="#generated-runtime-package-base64">Copy Base64</button>
+                </div>
+                <textarea id="generated-runtime-package-base64" class="form-control font-monospace" rows="5" readonly>@Model.GeneratedCredentialPackage?.Base64</textarea>
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <label class="form-label">JSON</label>
+                    <button type="button" class="btn btn-secondary btn-sm" data-copy-target="#generated-runtime-package-json">Copy JSON</button>
+                </div>
+                <textarea id="generated-runtime-package-json" class="form-control font-monospace" rows="12" readonly>@Model.GeneratedCredentialPackage?.Json</textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="importCredentialsModal" tabindex="-1" aria-hidden="true" data-show="@Model.ShowImportCredentialModal.ToString().ToLowerInvariant()">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="ImportCredentials">
+                <div class="modal-header">
+                    <h5 class="modal-title">Import Control Plane package</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div asp-validation-summary="All" class="text-danger mb-3"></div>
+                    <input type="hidden" asp-for="CredentialImportInput.DesignNodeId" />
+                    <p class="text-muted mb-3" data-control-plane-name></p>
+                    <label class="form-label" asp-for="CredentialImportInput.Package">Control Plane package</label>
+                    <textarea class="form-control font-monospace" asp-for="CredentialImportInput.Package" rows="10" placeholder="Paste JSON or Base64 package"></textarea>
+                    <span class="text-danger" asp-validation-for="CredentialImportInput.Package"></span>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Import package</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(() => {
+    const connectionModal = document.getElementById('controlPlaneModal');
+    const setValue = (root, name, value) => {
+        const input = root?.querySelector(`[name="${name}"]`);
+        if (!input) return;
+        if (input.type === 'checkbox') {
+            input.checked = value === true || value === 'true';
+            return;
+        }
+        input.value = value || '';
+    };
+
+    if (connectionModal?.dataset.show === 'true') {
+        bootstrap.Modal.getOrCreateInstance(connectionModal).show();
+    }
+
+    connectionModal?.addEventListener('show.bs.modal', event => {
+        const button = event.relatedTarget;
+        const isEdit = button?.dataset.mode === 'edit';
+        setValue(connectionModal, 'Input.Id', isEdit ? button.dataset.id : '');
+        setValue(connectionModal, 'Input.Name', isEdit ? button.dataset.name : '');
+        setValue(connectionModal, 'Input.Key', isEdit ? button.dataset.key : '');
+        setValue(connectionModal, 'Input.DistributionMode', isEdit ? button.dataset.distributionMode : 'Hybrid');
+        setValue(connectionModal, 'Input.EndpointBaseUri', isEdit ? button.dataset.endpointBaseUri : '');
+        setValue(connectionModal, 'Input.RemoteRuntimeNodeId', isEdit ? button.dataset.remoteRuntimeNodeId : '');
+        setValue(connectionModal, 'Input.Description', isEdit ? button.dataset.description : '');
+        setValue(connectionModal, 'Input.IsEnabled', isEdit ? button.dataset.enabled : true);
+    });
+
+    const configureCredentialModal = event => {
+        const button = event.relatedTarget;
+        const modal = event.currentTarget;
+        if (!button?.dataset.id) return;
+
+        modal.querySelectorAll('[name$=".DesignNodeId"]').forEach(input => input.value = button.dataset.id);
+        modal.querySelectorAll('[data-control-plane-name]').forEach(label => {
+            label.textContent = button.dataset.name ? `Control Plane: ${button.dataset.name}` : '';
+        });
+    };
+
+    document.getElementById('generateCredentialsModal')?.addEventListener('show.bs.modal', configureCredentialModal);
+    const importModal = document.getElementById('importCredentialsModal');
+    importModal?.addEventListener('show.bs.modal', configureCredentialModal);
+    if (importModal?.dataset.show === 'true') {
+        bootstrap.Modal.getOrCreateInstance(importModal).show();
+    }
+
+    const generated = document.getElementById('generatedCredentialsModal');
+    if (generated?.dataset.show === 'true') {
+        bootstrap.Modal.getOrCreateInstance(generated).show();
+    }
+
+    document.querySelectorAll('[data-copy-target]').forEach(button => {
+        button.addEventListener('click', async () => {
+            const target = document.querySelector(button.dataset.copyTarget || '');
+            const value = target?.value || target?.textContent || '';
+            if (!value.trim()) return;
+
+            const original = button.textContent;
+            try {
+                await navigator.clipboard.writeText(value);
+            } catch {
+                target.focus();
+                target.select?.();
+                document.execCommand('copy');
+            }
+
+            button.textContent = 'Copied';
+            window.setTimeout(() => {
+                button.textContent = original;
+            }, 1500);
+        });
+    });
+})();
+</script>
+}

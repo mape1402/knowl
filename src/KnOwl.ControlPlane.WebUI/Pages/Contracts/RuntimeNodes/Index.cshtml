@@ -62,6 +62,10 @@
                                     data-name="@node.Name">
                                 Import package
                             </button>
+                            <form class="d-inline" method="post" asp-page-handler="ValidateConnection">
+                                <input type="hidden" name="runtimeNodeId" value="@node.Id" />
+                                <button class="btn btn-secondary btn-sm" type="submit">Validate</button>
+                            </form>
                         </td>
                     </tr>
                 }
