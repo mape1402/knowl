@@ -1,5 +1,15 @@
 # Changelog
 
+## [v1.0.3]
+
+- Adds Date, DateTime, Time, and TimeSpan schema types to the Control Plane designer flow.
+- Adds Runtime-to-Control Plane connection setup in the sample Runtime host.
+- Splits command versions into required request schemas and optional reply schemas while preserving existing request definitions.
+- Separates deployed schema catalog responses for events and commands, including command request and reply artifacts.
+- Removes Helm, Kubernetes, and generated SQL deployment artifacts from the NuGet library repository.
+- Expands the README with badges, Getting Started guidance, package map, and catalog usage.
+- Keeps KnOwl bootstrap connection configuration host-agnostic by removing Managed Identity-specific connection-string rewriting.
+
 ## [v1.0.2]
 
 - Exposes deployed contract schemas from Control Plane hosts through contract catalog endpoints.
