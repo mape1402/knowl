@@ -9,6 +9,9 @@ using KnOwl.ControlPlane.Storage.EntityFramework.Design.Data;
 using KnOwl.ControlPlane.Storage.EntityFramework;
 using KnOwl.ControlPlane.Storage.EntityFramework.Distribution;
 using KnOwl.ControlPlane.WebUI;
+using KnOwl.Security;
+using KnOwl.Security.Storage.EntityFramework;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -37,6 +40,18 @@ public static class KnOwlControlPlaneBootstrapExtensions
         services.AddRazorPages();
         services.AddKnOwlControlPlaneWebUI();
         services.AddHealthChecks();
+        services.AddKnOwlSecurity(securityOptions =>
+        {
+            securityOptions.RequireKnownSubject = options.Security.RequireKnownSubject;
+            securityOptions.AllowBootstrapAdminSync = options.Security.AllowBootstrapAdminSync;
+            securityOptions.Subject.Provider = options.Security.Subject.Provider;
+            CopyList(options.Security.Subject.SubjectIdClaimTypes, securityOptions.Subject.SubjectIdClaimTypes);
+            CopyList(options.Security.Subject.DisplayNameClaimTypes, securityOptions.Subject.DisplayNameClaimTypes);
+            CopyList(options.Security.Subject.EmailClaimTypes, securityOptions.Subject.EmailClaimTypes);
+            CopyList(options.Security.Subject.GroupClaimTypes, securityOptions.Subject.GroupClaimTypes);
+            securityOptions.BootstrapAdmins.Clear();
+            securityOptions.BootstrapAdmins.AddRange(options.Security.BootstrapAdmins);
+        });
         services.AddKnOwlControlPlaneApplication();
         services.AddKnOwlControlPlaneDistributionApplication();
 
@@ -45,6 +60,9 @@ public static class KnOwlControlPlaneBootstrapExtensions
             connectionString,
             options.MigrationsAssembly ?? typeof(KnOwlDbContext).Assembly.GetName().Name!);
         services.AddKnOwlControlPlaneDistributionStorageEntityFramework();
+        services.AddKnOwlSecurityStorageEntityFramework(
+            connectionString,
+            options.MigrationsAssembly ?? typeof(KnOwlDbContext).Assembly.GetName().Name!);
 
         services.AddSingleton(options);
         return services;
@@ -63,6 +81,11 @@ public static class KnOwlControlPlaneBootstrapExtensions
 
         app.UseHttpsRedirection();
         app.UseRouting();
+        if (app.Services.GetService<IAuthenticationSchemeProvider>() is not null)
+        {
+            app.UseAuthentication();
+        }
+
         app.UseAuthorization();
 
         var options = app.Services.GetRequiredService<KnOwlControlPlaneBootstrapOptions>();
@@ -73,11 +96,17 @@ public static class KnOwlControlPlaneBootstrapExtensions
         app.MapHealthChecks("/health/live");
         app.MapHealthChecks("/health/ready");
         app.MapButterMorphDesigner(options.ButterMorphPath);
-        app.MapKnOwlControlPlaneApi(options.ApiAuthorizationPolicy);
+        app.MapKnOwlControlPlaneApi(options.Authorization);
         app.MapKnOwlControlPlaneContractCatalogEndpoints();
         app.MapKnOwlArtifactDeliveryEndpoints();
         app.MapRazorPages().WithStaticAssets();
 
         return app;
+    }
+
+    private static void CopyList(IReadOnlyCollection<string> source, List<string> target)
+    {
+        target.Clear();
+        target.AddRange(source);
     }
 }

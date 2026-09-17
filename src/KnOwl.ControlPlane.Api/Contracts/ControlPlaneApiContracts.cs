@@ -3,6 +3,7 @@ using KnOwl.Contracts.Distribution;
 using KnOwl.Contracts.Security;
 using KnOwl.ControlPlane.Design.Core;
 using KnOwl.ControlPlane.Distribution.Core;
+using KnOwl.Security.Storage;
 
 namespace KnOwl.ControlPlane.Api.Contracts;
 
@@ -288,3 +289,77 @@ public sealed record DeliveryResultResponse(
     bool Succeeded,
     string Status,
     string Message);
+
+public sealed record SecuritySubjectResponse(
+    Guid Id,
+    string Provider,
+    string SubjectId,
+    string? DisplayName,
+    string? Email,
+    bool IsEnabled,
+    DateTime CreatedAtUtc,
+    DateTime? UpdatedAtUtc);
+
+public sealed record UpsertSecuritySubjectRequest(
+    string Provider,
+    string SubjectId,
+    string? DisplayName,
+    string? Email,
+    bool IsEnabled = true);
+
+public sealed record SecurityRoleAssignmentResponse(
+    Guid Id,
+    string Provider,
+    string SubjectId,
+    string Role,
+    string ScopeType,
+    string ScopeId,
+    bool IsEnabled,
+    KnOwlSecurityAssignmentSource Source,
+    DateTime CreatedAtUtc);
+
+public sealed record AssignSecurityRoleRequest(
+    string Provider,
+    string SubjectId,
+    string Role,
+    string ScopeType,
+    string ScopeId,
+    bool IsEnabled = true);
+
+public sealed record SecurityPermissionAssignmentResponse(
+    Guid Id,
+    string Provider,
+    string SubjectId,
+    string Permission,
+    string ScopeType,
+    string ScopeId,
+    bool IsEnabled,
+    KnOwlSecurityAssignmentSource Source,
+    DateTime CreatedAtUtc);
+
+public sealed record AssignSecurityPermissionRequest(
+    string Provider,
+    string SubjectId,
+    string Permission,
+    string ScopeType,
+    string ScopeId,
+    bool IsEnabled = true);
+
+public sealed record SecurityExternalGroupRoleAssignmentResponse(
+    Guid Id,
+    string Provider,
+    string ExternalGroupId,
+    string Role,
+    string ScopeType,
+    string ScopeId,
+    bool IsEnabled,
+    KnOwlSecurityAssignmentSource Source,
+    DateTime CreatedAtUtc);
+
+public sealed record AssignSecurityExternalGroupRoleRequest(
+    string Provider,
+    string ExternalGroupId,
+    string Role,
+    string ScopeType,
+    string ScopeId,
+    bool IsEnabled = true);

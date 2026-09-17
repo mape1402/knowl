@@ -8,6 +8,7 @@
     <ProjectReference Include="..\KnOwl.Contracts\KnOwl.Contracts.csproj" />
     <ProjectReference Include="..\KnOwl.ControlPlane\KnOwl.ControlPlane.csproj" />
     <ProjectReference Include="..\KnOwl.ControlPlane.Application\KnOwl.ControlPlane.Application.csproj" />
+    <ProjectReference Include="..\KnOwl.Security\KnOwl.Security.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

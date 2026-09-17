@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>KnOwl.Security</PackageId>
+    <Title>KnOwl Security</Title>
+    <Description>Provider-agnostic security, subject resolution, permissions, roles, and authorization helpers for KnOwl hosts.</Description>
+  </PropertyGroup>
+
+</Project>

@@ -9,6 +9,8 @@
     <ProjectReference Include="..\KnOwl.Runtime.Application\KnOwl.Runtime.Application.csproj" />
     <ProjectReference Include="..\KnOwl.Runtime.Storage.EntityFramework\KnOwl.Runtime.Storage.EntityFramework.csproj" />
     <ProjectReference Include="..\KnOwl.Runtime.WebUI\KnOwl.Runtime.WebUI.csproj" />
+    <ProjectReference Include="..\KnOwl.Security\KnOwl.Security.csproj" />
+    <ProjectReference Include="..\KnOwl.Security.Storage.EntityFramework\KnOwl.Security.Storage.EntityFramework.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -3,6 +3,7 @@ using KnOwl.Contracts.Artifacts;
 using KnOwl.ControlPlane.Api.Contracts;
 using KnOwl.ControlPlane.Design.Core;
 using KnOwl.ControlPlane.Distribution.Core;
+using KnOwl.Security.Storage;
 
 namespace KnOwl.ControlPlane.Api.Mapping;
 
@@ -123,4 +124,16 @@ internal static class ControlPlaneApiMapper
 
     public static DeliveryResultResponse ToResponse(this RuntimeArtifactDeliveryResult value)
         => new(value.ReleaseTargetId, value.Succeeded, value.Status, value.Message);
+
+    public static SecuritySubjectResponse ToResponse(this KnOwlSubject value)
+        => new(value.Id, value.Provider, value.SubjectId, value.DisplayName, value.Email, value.IsEnabled, value.CreatedAtUtc, value.UpdatedAtUtc);
+
+    public static SecurityRoleAssignmentResponse ToResponse(this KnOwlRoleAssignment value)
+        => new(value.Id, value.Provider, value.SubjectId, value.Role, value.ScopeType, value.ScopeId, value.IsEnabled, value.Source, value.CreatedAtUtc);
+
+    public static SecurityPermissionAssignmentResponse ToResponse(this KnOwlPermissionAssignment value)
+        => new(value.Id, value.Provider, value.SubjectId, value.Permission, value.ScopeType, value.ScopeId, value.IsEnabled, value.Source, value.CreatedAtUtc);
+
+    public static SecurityExternalGroupRoleAssignmentResponse ToResponse(this KnOwlExternalGroupRoleAssignment value)
+        => new(value.Id, value.Provider, value.ExternalGroupId, value.Role, value.ScopeType, value.ScopeId, value.IsEnabled, value.Source, value.CreatedAtUtc);
 }

@@ -1,3 +1,6 @@
+using KnOwl.Security;
+using KnOwl.Security.Authorization;
+
 namespace KnOwl.ControlPlane.Bootstrap;
 
 /// <summary>
@@ -18,5 +21,19 @@ public sealed class KnOwlControlPlaneBootstrapOptions
     /// <summary>
     /// Gets or sets the authorization policy applied to the Control Plane REST API. Leave empty to let the host map the API without a policy.
     /// </summary>
-    public string? ApiAuthorizationPolicy { get; set; }
+    public string? ApiAuthorizationPolicy
+    {
+        get => Authorization.FallbackPolicy;
+        set => Authorization.FallbackPolicy = value;
+    }
+
+    /// <summary>
+    /// Gets security options used by provider-agnostic KnOwl authorization.
+    /// </summary>
+    public KnOwlSecurityOptions Security { get; } = new();
+
+    /// <summary>
+    /// Gets authorization policy names applied to the Control Plane REST API.
+    /// </summary>
+    public KnOwlApiAuthorizationOptions Authorization { get; } = new();
 }

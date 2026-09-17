@@ -13,6 +13,8 @@
     <Project Path="src/KnOwl.Runtime.Bootstrap/KnOwl.Runtime.Bootstrap.csproj" />
     <Project Path="src/KnOwl.Runtime.Storage.EntityFramework/KnOwl.Runtime.Storage.EntityFramework.csproj" />
     <Project Path="src/KnOwl.Runtime.WebUI/KnOwl.Runtime.WebUI.csproj" />
+    <Project Path="src/KnOwl.Security/KnOwl.Security.csproj" />
+    <Project Path="src/KnOwl.Security.Storage.EntityFramework/KnOwl.Security.Storage.EntityFramework.csproj" />
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/KnOwl.ControlPlaneHost.Sample/KnOwl.ControlPlaneHost.Sample.csproj" />

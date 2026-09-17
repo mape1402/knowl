@@ -5,6 +5,7 @@ using KnOwl.Runtime.Application.ArtifactDelivery;
 using KnOwl.Runtime.Application.Catalog;
 using KnOwl.Runtime.Application.Security;
 using KnOwl.Runtime.Storage;
+using KnOwl.Security.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -21,34 +22,43 @@ public static class KnOwlRuntimeApiEndpointRouteBuilderExtensions
     /// Maps Runtime REST endpoints under <c>/api/v1/runtime</c>.
     /// </summary>
     public static IEndpointRouteBuilder MapKnOwlRuntimeApi(this IEndpointRouteBuilder endpoints, string? authorizationPolicy = null)
+        => endpoints.MapKnOwlRuntimeApi(new KnOwlApiAuthorizationOptions { FallbackPolicy = authorizationPolicy });
+
+    /// <summary>
+    /// Maps Runtime REST endpoints under <c>/api/v1/runtime</c>.
+    /// </summary>
+    public static IEndpointRouteBuilder MapKnOwlRuntimeApi(this IEndpointRouteBuilder endpoints, KnOwlApiAuthorizationOptions? authorization)
     {
+        authorization ??= new KnOwlApiAuthorizationOptions();
         var api = endpoints.MapGroup("/api/v1/runtime")
             .WithTags("KnOwl Runtime API");
-        if (!string.IsNullOrWhiteSpace(authorizationPolicy))
+        if (!string.IsNullOrWhiteSpace(authorization.FallbackPolicy))
         {
-            api.RequireAuthorization(authorizationPolicy);
+            api.RequireAuthorization(authorization.FallbackPolicy);
         }
 
         api.MapGet("/status", () => Results.Ok(new RuntimeStatusResponse("KnOwl.Runtime", "ok")))
             .WithName("GetKnOwlRuntimeApiStatus");
 
-        MapArtifacts(api);
-        MapControlPlanes(api);
+        MapArtifacts(api, authorization);
+        MapControlPlanes(api, authorization);
 
         return endpoints;
     }
 
-    private static void MapArtifacts(RouteGroupBuilder api)
+    private static void MapArtifacts(RouteGroupBuilder api, KnOwlApiAuthorizationOptions authorization)
     {
         var group = api.MapGroup("/artifacts").WithTags("KnOwl Runtime Artifacts");
 
         group.MapGet("/", async ([FromServices] IRuntimeContractCatalogService catalog, CancellationToken cancellationToken)
-            => Results.Ok((await catalog.GetAll(cancellationToken)).Select(x => x.ToResponse())));
+            => Results.Ok((await catalog.GetAll(cancellationToken)).Select(x => x.ToResponse())))
+            .RequireKnOwlPolicy(authorization.RuntimeArtifactsReadPolicy);
 
         group.MapGet("/events/{eventKey}/versions/{versionNumber}", async (string eventKey, string versionNumber, [FromServices] IRuntimeContractCatalogService catalog, CancellationToken cancellationToken)
             => await catalog.GetEvent(eventKey, versionNumber, cancellationToken) is { } artifact
                 ? Results.Ok(artifact.ToResponse())
-                : Results.NotFound());
+                : Results.NotFound())
+            .RequireKnOwlPolicy(authorization.RuntimeArtifactsReadPolicy);
 
         group.MapGet("/commands/{commandKey}/versions/{versionNumber}", async (string commandKey, string versionNumber, [FromServices] IRuntimeContractCatalogService catalog, CancellationToken cancellationToken) =>
         {
@@ -60,20 +70,22 @@ public static class KnOwlRuntimeApiEndpointRouteBuilderExtensions
                     versionNumber,
                     artifacts.RequestArtifact.ToResponse(),
                     artifacts.ReplyArtifact?.ToResponse()));
-        });
+        }).RequireKnOwlPolicy(authorization.RuntimeArtifactsReadPolicy);
     }
 
-    private static void MapControlPlanes(RouteGroupBuilder api)
+    private static void MapControlPlanes(RouteGroupBuilder api, KnOwlApiAuthorizationOptions authorization)
     {
         var group = api.MapGroup("/control-planes").WithTags("KnOwl Runtime Control Planes");
 
         group.MapGet("/", async ([FromServices] IRuntimeDesignNodeRepository repository, CancellationToken cancellationToken)
-            => Results.Ok((await repository.GetAll(cancellationToken)).Select(x => x.ToResponse())));
+            => Results.Ok((await repository.GetAll(cancellationToken)).Select(x => x.ToResponse())))
+            .RequireKnOwlPolicy(authorization.RuntimeNodesReadPolicy);
 
         group.MapGet("/{id:guid}", async (Guid id, [FromServices] IRuntimeDesignNodeRepository repository, CancellationToken cancellationToken)
             => await repository.GetById(id, cancellationToken) is { } node
                 ? Results.Ok(node.ToResponse())
-                : Results.NotFound());
+                : Results.NotFound())
+            .RequireKnOwlPolicy(authorization.RuntimeNodesReadPolicy);
 
         group.MapPost("/", async ([FromBody] UpsertRuntimeDesignNodeRequest request, [FromServices] IRuntimeDesignNodeConnectionService service, CancellationToken cancellationToken) =>
         {
@@ -90,7 +102,7 @@ public static class KnOwlRuntimeApiEndpointRouteBuilderExtensions
             return request.Id is null
                 ? Results.Created($"/api/v1/runtime/control-planes/{node.Id}", node.ToResponse())
                 : Results.Ok(node.ToResponse());
-        });
+        }).RequireKnOwlPolicy(authorization.RuntimeConnectionsManagePolicy);
 
         group.MapPost("/{id:guid}/credentials/generate", async (Guid id, string issuerBaseUrl, [FromServices] IRuntimeDesignNodeRepository repository, [FromServices] IRuntimeDesignNodeConnectionService service, CancellationToken cancellationToken) =>
         {
@@ -101,7 +113,7 @@ public static class KnOwlRuntimeApiEndpointRouteBuilderExtensions
 
             var package = await service.GenerateCredentialPackage(id, issuerBaseUrl, cancellationToken);
             return Results.Ok(new RuntimeCredentialPackageResponse(package.Json));
-        });
+        }).RequireKnOwlPolicy(authorization.RuntimeConnectionsManagePolicy);
 
         group.MapPost("/{id:guid}/credentials/import", async (Guid id, [FromBody] ImportRuntimeDesignNodeCredentialPackageRequest request, [FromServices] IRuntimeDesignNodeRepository repository, [FromServices] IRuntimeDesignNodeConnectionService service, CancellationToken cancellationToken) =>
         {
@@ -116,7 +128,7 @@ public static class KnOwlRuntimeApiEndpointRouteBuilderExtensions
                 Package = request.CredentialPackageJson
             }, cancellationToken);
             return Results.NoContent();
-        });
+        }).RequireKnOwlPolicy(authorization.RuntimeConnectionsManagePolicy);
 
         group.MapPost("/{id:guid}/connect/validate", async (Guid id, [FromServices] IRuntimeDesignNodeRepository repository, [FromServices] IRuntimeDesignNodeConnectionService service, CancellationToken cancellationToken) =>
         {
@@ -127,10 +139,11 @@ public static class KnOwlRuntimeApiEndpointRouteBuilderExtensions
 
             var result = await service.ValidateConnection(id, cancellationToken);
             return Results.Ok(new RuntimeConnectionValidationResponse(result.Succeeded, result.Message));
-        });
+        }).RequireKnOwlPolicy(authorization.RuntimeConnectionsManagePolicy);
 
         group.MapGet("/{sourceKey}/artifacts/pending", async (string sourceKey, [FromServices] IControlPlaneArtifactPullService pull, CancellationToken cancellationToken)
-            => Results.Ok(await pull.GetPending(sourceKey, cancellationToken)));
+            => Results.Ok(await pull.GetPending(sourceKey, cancellationToken)))
+            .RequireKnOwlPolicy(authorization.RuntimeArtifactsReadPolicy);
 
         group.MapPost("/{sourceKey}/artifacts/{releaseTargetId:guid}/apply", async (string sourceKey, Guid releaseTargetId, [FromServices] IControlPlaneArtifactPullService pull, CancellationToken cancellationToken) =>
         {
@@ -140,7 +153,10 @@ public static class KnOwlRuntimeApiEndpointRouteBuilderExtensions
                 result.Accepted,
                 result.Status,
                 result.Message));
-        });
+        }).RequireKnOwlPolicy(authorization.RuntimeArtifactsApplyPolicy);
     }
+
+    private static RouteHandlerBuilder RequireKnOwlPolicy(this RouteHandlerBuilder builder, string? policy)
+        => string.IsNullOrWhiteSpace(policy) ? builder : builder.RequireAuthorization(policy);
 }
 
