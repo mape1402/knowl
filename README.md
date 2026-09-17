@@ -37,6 +37,8 @@ Install only the layer your host needs:
 | `KnOwl.Runtime.Storage.EntityFramework` | EF Core storage for Runtime state. |
 | `KnOwl.Runtime.WebUI` | Reusable Razor UI for Runtime hosts. |
 | `KnOwl.Runtime.Bootstrap` | ASP.NET Core composition for Runtime hosts. |
+| `KnOwl.Security` | Provider-agnostic subject resolution, roles, permissions, and ASP.NET Core authorization policies. |
+| `KnOwl.Security.Storage.EntityFramework` | EF Core storage for KnOwl subjects, role assignments, permission assignments, and external group mappings. |
 
 All packages target `net9.0` and `net10.0`.
 
@@ -87,7 +89,12 @@ dotnet ef migrations add InitialKnOwlControlPlane `
   --context KnOwlDbContext `
   --output-dir Migrations
 
+dotnet ef migrations add InitialKnOwlSecurity `
+  --context KnOwlSecurityDbContext `
+  --output-dir Migrations/Security
+
 dotnet ef database update --context KnOwlDbContext
+dotnet ef database update --context KnOwlSecurityDbContext
 ```
 
 Run the host and open the Control Plane UI. From there you can create data types, custom metadata fields, events, commands, versions, artifacts, runtime environments, runtime nodes, and releases.
@@ -146,7 +153,12 @@ dotnet ef migrations add InitialKnOwlRuntime `
   --context KnOwlRuntimeDbContext `
   --output-dir Migrations/RuntimeStorage
 
+dotnet ef migrations add InitialKnOwlSecurity `
+  --context KnOwlSecurityDbContext `
+  --output-dir Migrations/Security
+
 dotnet ef database update --context KnOwlRuntimeDbContext
+dotnet ef database update --context KnOwlSecurityDbContext
 ```
 
 The bootstrap package also maps the Runtime REST API at `/api/v1/runtime`.
@@ -258,7 +270,79 @@ POST /api/v1/control-plane/commands
 }
 ```
 
-Hosts remain responsible for authentication and authorization policy. The API packages do not force JWT, cookies, managed identity, or API-key infrastructure.
+Security administration endpoints are also available on the Control Plane:
+
+- `GET /api/v1/control-plane/security/subjects`
+- `PUT /api/v1/control-plane/security/subjects`
+- `GET /api/v1/control-plane/security/role-assignments`
+- `POST /api/v1/control-plane/security/role-assignments`
+- `GET /api/v1/control-plane/security/permission-assignments`
+- `POST /api/v1/control-plane/security/permission-assignments`
+- `GET /api/v1/control-plane/security/external-group-role-assignments`
+- `POST /api/v1/control-plane/security/external-group-role-assignments`
+
+Hosts remain responsible for authentication. The API packages do not force JWT, cookies, managed identity, or API-key infrastructure.
+
+## Security
+
+KnOwl keeps identity provider concerns in the host and keeps authorization rules in reusable libraries:
+
+- The host authenticates users with Entra ID, cookies, OpenID Connect, JWT bearer tokens, or any other ASP.NET Core authentication handler.
+- KnOwl resolves the authenticated principal into an external subject using configurable claims.
+- KnOwl stores known subjects, direct roles, direct permissions, and external group-to-role mappings.
+- KnOwl policies protect Web/API surfaces without depending on a specific identity provider.
+
+Typical Control Plane setup:
+
+```csharp
+using KnOwl.ControlPlane.Bootstrap;
+using KnOwl.Security.Authorization;
+using KnOwl.Security.Subjects;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services
+    .AddAuthentication(/* host-owned scheme */)
+    .AddJwtBearer(/* Entra ID, Auth0, local STS, etc. */);
+
+builder.Services.AddKnOwlControlPlane(builder.Configuration, options =>
+{
+    options.MigrationsAssembly = typeof(Program).Assembly.GetName().Name;
+
+    options.Security.RequireKnownSubject = true;
+    options.Security.Subject.Provider = "entra-id";
+    options.Security.BootstrapAdmins.Add(new KnOwlBootstrapSubject
+    {
+        Provider = "entra-id",
+        SubjectId = "<external-user-object-id>"
+    });
+
+    options.Authorization.SecurityManagePolicy = KnOwlAuthorizationPolicies.SecurityManage;
+    options.Authorization.CommandsWritePolicy = KnOwlAuthorizationPolicies.CommandsWrite;
+    options.Authorization.EventsWritePolicy = KnOwlAuthorizationPolicies.EventsWrite;
+    options.Authorization.ArtifactsBuildPolicy = KnOwlAuthorizationPolicies.ArtifactsBuild;
+    options.Authorization.ReleasesExecutePolicy = KnOwlAuthorizationPolicies.ReleasesExecute;
+});
+
+var app = builder.Build();
+
+app.MapKnOwlControlPlane();
+
+app.Run();
+```
+
+`RequireKnownSubject` blocks authenticated users until they are registered in KnOwl. Bootstrap admins are the first-run and recovery mechanism: they are matched by provider and external subject id, receive admin access, and can be synchronized into KnOwl security storage.
+
+Built-in roles:
+
+- `Reader`
+- `Designer`
+- `ReleaseManager`
+- `RuntimeOperator`
+- `SecurityAdmin`
+- `Admin`
+
+External identity groups can be mapped to KnOwl roles, so Entra ID or another provider can remain the system of record for users while KnOwl remains the system of record for product-specific access.
 
 ## Local Development
 

@@ -8,6 +8,7 @@
     <ProjectReference Include="..\KnOwl.Contracts\KnOwl.Contracts.csproj" />
     <ProjectReference Include="..\KnOwl.Runtime\KnOwl.Runtime.csproj" />
     <ProjectReference Include="..\KnOwl.Runtime.Application\KnOwl.Runtime.Application.csproj" />
+    <ProjectReference Include="..\KnOwl.Security\KnOwl.Security.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
