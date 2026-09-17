@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -54,13 +55,11 @@ public static class KnOwlRuntimeBootstrapExtensions
             configuration.GetSection("Runtime:ArtifactPull"));
         services.AddHostedService<KnOwlRuntimeArtifactPullWorker>();
 
-        var connectionString = KnOwlRuntimeSqlConnectionStringFactory.Create(configuration);
-        services.AddKnOwlRuntimeStorageEntityFramework(
-            connectionString,
+        var configureStorage = options.ConfigureStorage ?? CreateDefaultSqlServerConfiguration(
+            configuration,
             options.MigrationsAssembly ?? typeof(KnOwlRuntimeDbContext).Assembly.GetName().Name!);
-        services.AddKnOwlSecurityStorageEntityFramework(
-            connectionString,
-            options.MigrationsAssembly ?? typeof(KnOwlRuntimeDbContext).Assembly.GetName().Name!);
+        services.AddKnOwlRuntimeStorageEntityFramework(configureStorage);
+        services.AddKnOwlSecurityStorageEntityFramework(options.ConfigureSecurityStorage ?? configureStorage);
         services.AddKnOwlRuntimeApplication();
 
         services.AddSingleton(options);
@@ -105,5 +104,13 @@ public static class KnOwlRuntimeBootstrapExtensions
     {
         target.Clear();
         target.AddRange(source);
+    }
+
+    private static Action<DbContextOptionsBuilder> CreateDefaultSqlServerConfiguration(
+        IConfiguration configuration,
+        string migrationsAssembly)
+    {
+        var connectionString = KnOwlRuntimeSqlConnectionStringFactory.Create(configuration);
+        return db => db.UseSqlServer(connectionString, sql => sql.MigrationsAssembly(migrationsAssembly));
     }
 }

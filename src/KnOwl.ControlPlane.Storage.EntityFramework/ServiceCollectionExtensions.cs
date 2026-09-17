@@ -7,12 +7,12 @@ using Microsoft.Extensions.DependencyInjection;
 namespace KnOwl.ControlPlane.Storage.EntityFramework;
 
 /// <summary>
-/// Registers SQL Server storage dependencies for KnOwl async contract features.
+/// Registers EF Core storage dependencies for KnOwl async contract features.
 /// </summary>
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the KnOwl DbContext and SQL Server repository implementations using the provided DbContext configuration.
+    /// Registers the KnOwl DbContext and repository implementations using the provided DbContext configuration.
     /// </summary>
     public static IServiceCollection AddKnOwlControlPlaneStorageEntityFramework(
         this IServiceCollection services,
@@ -26,19 +26,5 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISchemaTypeRepository, SchemaTypeRepository>();
         services.AddScoped<IContractFieldMetadataRepository, ContractFieldMetadataRepository>();
         return services;
-    }
-
-    /// <summary>
-    /// Registers SQL Server storage using a connection string and explicit migrations assembly.
-    /// </summary>
-    public static IServiceCollection AddKnOwlControlPlaneStorageEntityFramework(
-        this IServiceCollection services,
-        string? connectionString,
-        string migrationsAssembly)
-    {
-        return services.AddKnOwlControlPlaneStorageEntityFramework(options =>
-            options.UseSqlServer(
-                connectionString,
-                sqlOptions => sqlOptions.MigrationsAssembly(migrationsAssembly)));
     }
 }

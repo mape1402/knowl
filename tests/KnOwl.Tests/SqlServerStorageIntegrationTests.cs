@@ -95,7 +95,9 @@ public sealed class SqlServerStorageIntegrationTests
         }
 
         var services = new ServiceCollection()
-            .AddKnOwlRuntimeStorageEntityFramework(connectionString, "KnOwl.RuntimeHost.Sample")
+            .AddKnOwlRuntimeStorageEntityFramework(db => db.UseSqlServer(
+                connectionString,
+                sql => sql.MigrationsAssembly("KnOwl.RuntimeHost.Sample")))
             .AddKnOwlRuntimeApplication()
             .BuildServiceProvider();
 

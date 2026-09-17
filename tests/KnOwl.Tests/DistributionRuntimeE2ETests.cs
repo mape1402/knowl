@@ -45,11 +45,15 @@ public sealed class DistributionRuntimeE2ETests
         Assert.Equal(HttpStatusCode.OK, controlHealthResponse.StatusCode);
 
         await using var runtimeProvider = new ServiceCollection()
-            .AddKnOwlRuntimeStorageEntityFramework(runtimeConnectionString, "KnOwl.RuntimeHost.Sample")
+            .AddKnOwlRuntimeStorageEntityFramework(db => db.UseSqlServer(
+                runtimeConnectionString,
+                sql => sql.MigrationsAssembly("KnOwl.RuntimeHost.Sample")))
             .AddKnOwlRuntimeApplication()
             .BuildServiceProvider();
         await using var controlProvider = new ServiceCollection()
-            .AddKnOwlControlPlaneStorageEntityFramework(controlConnectionString, "KnOwl.ControlPlaneHost.Sample")
+            .AddKnOwlControlPlaneStorageEntityFramework(db => db.UseSqlServer(
+                controlConnectionString,
+                sql => sql.MigrationsAssembly("KnOwl.ControlPlaneHost.Sample")))
             .AddKnOwlControlPlaneDistributionStorageEntityFramework()
             .AddKnOwlControlPlaneDistributionApplication()
             .BuildServiceProvider();
@@ -124,11 +128,15 @@ public sealed class DistributionRuntimeE2ETests
         Assert.Equal(HttpStatusCode.OK, controlHealthResponse.StatusCode);
 
         await using var runtimeProvider = new ServiceCollection()
-            .AddKnOwlRuntimeStorageEntityFramework(runtimeConnectionString, "KnOwl.RuntimeHost.Sample")
+            .AddKnOwlRuntimeStorageEntityFramework(db => db.UseSqlServer(
+                runtimeConnectionString,
+                sql => sql.MigrationsAssembly("KnOwl.RuntimeHost.Sample")))
             .AddKnOwlRuntimeApplication()
             .BuildServiceProvider();
         await using var controlProvider = new ServiceCollection()
-            .AddKnOwlControlPlaneStorageEntityFramework(controlConnectionString, "KnOwl.ControlPlaneHost.Sample")
+            .AddKnOwlControlPlaneStorageEntityFramework(db => db.UseSqlServer(
+                controlConnectionString,
+                sql => sql.MigrationsAssembly("KnOwl.ControlPlaneHost.Sample")))
             .AddKnOwlControlPlaneDistributionStorageEntityFramework()
             .AddKnOwlControlPlaneDistributionApplication()
             .BuildServiceProvider();
