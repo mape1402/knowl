@@ -28,19 +28,21 @@ Install only the layer your host needs:
 | `KnOwl.ControlPlane` | Control Plane domain model and repository contracts. |
 | `KnOwl.ControlPlane.Application` | Control Plane services for design, lifecycle, artifacts, releases, and delivery. |
 | `KnOwl.ControlPlane.Api` | Minimal API endpoints for Control Plane automation and external integrations. |
-| `KnOwl.ControlPlane.Storage.EntityFramework` | EF Core storage for Control Plane state. |
+| `KnOwl.ControlPlane.Storage.EntityFramework` | Provider-agnostic EF Core storage for Control Plane state. |
 | `KnOwl.ControlPlane.WebUI` | Reusable Razor UI for Control Plane hosts. |
 | `KnOwl.ControlPlane.Bootstrap` | ASP.NET Core composition for Control Plane hosts. |
 | `KnOwl.Runtime` | Runtime domain model and repository contracts. |
 | `KnOwl.Runtime.Application` | Runtime catalog, deployment, pull, and security services. |
 | `KnOwl.Runtime.Api` | Minimal API endpoints for Runtime administration and artifact consumption. |
-| `KnOwl.Runtime.Storage.EntityFramework` | EF Core storage for Runtime state. |
+| `KnOwl.Runtime.Storage.EntityFramework` | Provider-agnostic EF Core storage for Runtime state. |
 | `KnOwl.Runtime.WebUI` | Reusable Razor UI for Runtime hosts. |
 | `KnOwl.Runtime.Bootstrap` | ASP.NET Core composition for Runtime hosts. |
 | `KnOwl.Security` | Provider-agnostic subject resolution, roles, permissions, and ASP.NET Core authorization policies. |
-| `KnOwl.Security.Storage.EntityFramework` | EF Core storage for KnOwl subjects, role assignments, permission assignments, and external group mappings. |
+| `KnOwl.Security.Storage.EntityFramework` | Provider-agnostic EF Core storage for KnOwl subjects, role assignments, permission assignments, and external group mappings. |
 
 All packages target `net9.0` and `net10.0`.
+
+The `*.Storage.EntityFramework` packages depend on EF Core relational APIs, not on a concrete database provider. Hosts choose the provider by configuring the DbContext options. The bootstrap packages use SQL Server by default for convenience, but that default can be replaced.
 
 ## Getting Started
 
@@ -100,6 +102,26 @@ dotnet ef database update --context KnOwlSecurityDbContext
 Run the host and open the Control Plane UI. From there you can create data types, custom metadata fields, events, commands, versions, artifacts, runtime environments, runtime nodes, and releases.
 
 The bootstrap package also maps the Control Plane REST API at `/api/v1/control-plane`.
+
+To use a different EF Core provider, install that provider in the host and override storage configuration:
+
+```csharp
+using KnOwl.ControlPlane.Bootstrap;
+using Microsoft.EntityFrameworkCore;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddKnOwlControlPlane(builder.Configuration, options =>
+{
+    options.ConfigureStorage = db => db.UseNpgsql(
+        builder.Configuration.GetConnectionString("KnOwlDb"),
+        provider => provider.MigrationsAssembly(typeof(Program).Assembly.GetName().Name));
+
+    options.ConfigureSecurityStorage = db => db.UseNpgsql(
+        builder.Configuration.GetConnectionString("KnOwlSecurityDb"),
+        provider => provider.MigrationsAssembly(typeof(Program).Assembly.GetName().Name));
+});
+```
 
 ### 2. Create a Runtime host
 

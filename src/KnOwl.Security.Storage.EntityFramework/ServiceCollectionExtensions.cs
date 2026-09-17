@@ -12,16 +12,15 @@ namespace KnOwl.Security.Storage.EntityFramework;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Adds SQL Server EF Core storage for KnOwl security state.
+    /// Adds EF Core storage for KnOwl security state using the provided DbContext configuration.
     /// </summary>
     public static IServiceCollection AddKnOwlSecurityStorageEntityFramework(
         this IServiceCollection services,
-        string connectionString,
-        string migrationsAssembly)
+        Action<DbContextOptionsBuilder> configureDbContext)
     {
-        services.AddDbContext<KnOwlSecurityDbContext>(options =>
-            options.UseSqlServer(connectionString, sql => sql.MigrationsAssembly(migrationsAssembly)));
+        ArgumentNullException.ThrowIfNull(configureDbContext);
 
+        services.AddDbContext<KnOwlSecurityDbContext>(configureDbContext);
         services.AddScoped<IKnOwlSecurityStore, KnOwlSecurityStore>();
         return services;
     }

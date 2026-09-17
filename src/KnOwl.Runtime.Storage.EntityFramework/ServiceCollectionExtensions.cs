@@ -7,34 +7,25 @@ using Microsoft.Extensions.DependencyInjection;
 namespace KnOwl.Runtime.Storage.EntityFramework;
 
 /// <summary>
-/// Registers SQL Server storage for KnOwl runtime contract artifacts.
+/// Registers EF Core storage for KnOwl runtime contract artifacts.
 /// </summary>
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Adds the KnOwl Runtime EF Core context and SQL Server repositories.
+    /// Adds the KnOwl Runtime EF Core context and repository implementations using the provided DbContext configuration.
     /// </summary>
     public static IServiceCollection AddKnOwlRuntimeStorageEntityFramework(
         this IServiceCollection services,
-        string connectionString,
-        string? migrationsAssembly = null)
+        Action<DbContextOptionsBuilder> configureDbContext)
     {
-        services.AddDbContext<KnOwlRuntimeDbContext>(options =>
-        {
-            options.UseSqlServer(connectionString, sqlOptions =>
-            {
-                if (!string.IsNullOrWhiteSpace(migrationsAssembly))
-                {
-                    sqlOptions.MigrationsAssembly(migrationsAssembly);
-                }
-            });
-        });
+        ArgumentNullException.ThrowIfNull(configureDbContext);
 
+        services.AddDbContext<KnOwlRuntimeDbContext>(configureDbContext);
         return services.AddKnOwlRuntimeStorageEntityFramework();
     }
 
     /// <summary>
-    /// Adds SQL Server repositories used by KnOwl runtime storage.
+    /// Adds repositories used by KnOwl runtime storage.
     /// </summary>
     public static IServiceCollection AddKnOwlRuntimeStorageEntityFramework(this IServiceCollection services)
     {
