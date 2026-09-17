@@ -27,11 +27,13 @@ Install only the layer your host needs:
 | `KnOwl.Contracts` | Shared DTOs for artifacts, delivery, catalog responses, and security. |
 | `KnOwl.ControlPlane` | Control Plane domain model and repository contracts. |
 | `KnOwl.ControlPlane.Application` | Control Plane services for design, lifecycle, artifacts, releases, and delivery. |
+| `KnOwl.ControlPlane.Api` | Minimal API endpoints for Control Plane automation and external integrations. |
 | `KnOwl.ControlPlane.Storage.EntityFramework` | EF Core storage for Control Plane state. |
 | `KnOwl.ControlPlane.WebUI` | Reusable Razor UI for Control Plane hosts. |
 | `KnOwl.ControlPlane.Bootstrap` | ASP.NET Core composition for Control Plane hosts. |
 | `KnOwl.Runtime` | Runtime domain model and repository contracts. |
 | `KnOwl.Runtime.Application` | Runtime catalog, deployment, pull, and security services. |
+| `KnOwl.Runtime.Api` | Minimal API endpoints for Runtime administration and artifact consumption. |
 | `KnOwl.Runtime.Storage.EntityFramework` | EF Core storage for Runtime state. |
 | `KnOwl.Runtime.WebUI` | Reusable Razor UI for Runtime hosts. |
 | `KnOwl.Runtime.Bootstrap` | ASP.NET Core composition for Runtime hosts. |
@@ -90,6 +92,8 @@ dotnet ef database update --context KnOwlDbContext
 
 Run the host and open the Control Plane UI. From there you can create data types, custom metadata fields, events, commands, versions, artifacts, runtime environments, runtime nodes, and releases.
 
+The bootstrap package also maps the Control Plane REST API at `/api/v1/control-plane`.
+
 ### 2. Create a Runtime host
 
 ```powershell
@@ -145,6 +149,8 @@ dotnet ef migrations add InitialKnOwlRuntime `
 dotnet ef database update --context KnOwlRuntimeDbContext
 ```
 
+The bootstrap package also maps the Runtime REST API at `/api/v1/runtime`.
+
 ### 3. Connect Runtime to Control Plane
 
 1. In the Runtime UI, create a Control Plane connection.
@@ -190,6 +196,69 @@ Event responses return one artifact. Command responses return both sides of the 
 ```
 
 `replyArtifact` is optional. Request artifacts are required.
+
+## REST API
+
+KnOwl includes Minimal API packages for automation, CI tooling, portals, and custom hosts that need to drive KnOwl without using the Razor UI.
+
+Control Plane hosts expose:
+
+- `GET /api/v1/control-plane/schema-types`
+- `POST /api/v1/control-plane/schema-types`
+- `GET /api/v1/control-plane/metadata-fields`
+- `POST /api/v1/control-plane/metadata-fields`
+- `GET /api/v1/control-plane/events`
+- `POST /api/v1/control-plane/events`
+- `POST /api/v1/control-plane/events/{id}/versions`
+- `POST /api/v1/control-plane/events/{id}/versions/{versionId}/transition`
+- `GET /api/v1/control-plane/commands`
+- `POST /api/v1/control-plane/commands`
+- `POST /api/v1/control-plane/commands/{id}/versions`
+- `POST /api/v1/control-plane/commands/{id}/versions/{versionId}/transition`
+- `GET /api/v1/control-plane/artifacts`
+- `POST /api/v1/control-plane/artifacts/events/{versionId}/build`
+- `POST /api/v1/control-plane/artifacts/commands/{versionId}/build`
+- `GET /api/v1/control-plane/runtime-environments`
+- `GET /api/v1/control-plane/runtime-nodes`
+- `POST /api/v1/control-plane/runtime-nodes/{id}/credentials/generate`
+- `POST /api/v1/control-plane/runtime-nodes/{id}/credentials/import`
+- `POST /api/v1/control-plane/runtime-nodes/{id}/connect/validate`
+- `GET /api/v1/control-plane/releases`
+- `POST /api/v1/control-plane/releases`
+- `POST /api/v1/control-plane/releases/{id}/plan`
+- `POST /api/v1/control-plane/releases/{id}/execute`
+
+Runtime hosts expose:
+
+- `GET /api/v1/runtime/status`
+- `GET /api/v1/runtime/artifacts`
+- `GET /api/v1/runtime/artifacts/events/{eventKey}/versions/{versionNumber}`
+- `GET /api/v1/runtime/artifacts/commands/{commandKey}/versions/{versionNumber}`
+- `GET /api/v1/runtime/control-planes`
+- `POST /api/v1/runtime/control-planes`
+- `POST /api/v1/runtime/control-planes/{id}/credentials/generate`
+- `POST /api/v1/runtime/control-planes/{id}/credentials/import`
+- `POST /api/v1/runtime/control-planes/{id}/connect/validate`
+- `GET /api/v1/runtime/control-planes/{sourceKey}/artifacts/pending`
+- `POST /api/v1/runtime/control-planes/{sourceKey}/artifacts/{releaseTargetId}/apply`
+
+Creating a command through the API captures both schemas in the first version:
+
+```json
+POST /api/v1/control-plane/commands
+
+{
+  "name": "Reserve Inventory",
+  "topic": "inventories.reserve",
+  "description": "Reserve stock before checkout.",
+  "versionNumber": "1.0.0",
+  "requestDefinitionJson": "{\"type\":\"object\",\"properties\":{\"sku\":{\"type\":\"string\"}}}",
+  "replyDefinitionJson": "{\"type\":\"object\",\"properties\":{\"accepted\":{\"type\":\"boolean\"}}}",
+  "comment": "Initial command contract."
+}
+```
+
+Hosts remain responsible for authentication and authorization policy. The API packages do not force JWT, cookies, managed identity, or API-key infrastructure.
 
 ## Local Development
 

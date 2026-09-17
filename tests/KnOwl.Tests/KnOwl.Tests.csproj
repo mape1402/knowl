@@ -21,11 +21,13 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\KnOwl.Contracts\KnOwl.Contracts.csproj" />
     <ProjectReference Include="..\..\src\KnOwl.ControlPlane\KnOwl.ControlPlane.csproj" />
+    <ProjectReference Include="..\..\src\KnOwl.ControlPlane.Api\KnOwl.ControlPlane.Api.csproj" />
     <ProjectReference Include="..\..\src\KnOwl.ControlPlane.Application\KnOwl.ControlPlane.Application.csproj" />
     <ProjectReference Include="..\..\src\KnOwl.ControlPlane.Bootstrap\KnOwl.ControlPlane.Bootstrap.csproj" />
     <ProjectReference Include="..\..\src\KnOwl.ControlPlane.Storage.EntityFramework\KnOwl.ControlPlane.Storage.EntityFramework.csproj" />
     <ProjectReference Include="..\..\src\KnOwl.ControlPlane.WebUI\KnOwl.ControlPlane.WebUI.csproj" />
     <ProjectReference Include="..\..\src\KnOwl.Runtime\KnOwl.Runtime.csproj" />
+    <ProjectReference Include="..\..\src\KnOwl.Runtime.Api\KnOwl.Runtime.Api.csproj" />
     <ProjectReference Include="..\..\src\KnOwl.Runtime.Application\KnOwl.Runtime.Application.csproj" />
     <ProjectReference Include="..\..\src\KnOwl.Runtime.Bootstrap\KnOwl.Runtime.Bootstrap.csproj" />
     <ProjectReference Include="..\..\src\KnOwl.Runtime.Storage.EntityFramework\KnOwl.Runtime.Storage.EntityFramework.csproj" />

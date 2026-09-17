@@ -14,4 +14,9 @@ public sealed class KnOwlControlPlaneBootstrapOptions
     /// Gets or sets the ButterMorph designer path.
     /// </summary>
     public string ButterMorphPath { get; set; } = "/buttermorph";
+
+    /// <summary>
+    /// Gets or sets the authorization policy applied to the Control Plane REST API. Leave empty to let the host map the API without a policy.
+    /// </summary>
+    public string? ApiAuthorizationPolicy { get; set; }
 }
