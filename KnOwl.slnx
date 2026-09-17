@@ -2,11 +2,13 @@
   <Folder Name="/src/">
     <Project Path="src/KnOwl.Contracts/KnOwl.Contracts.csproj" />
     <Project Path="src/KnOwl.ControlPlane/KnOwl.ControlPlane.csproj" />
+    <Project Path="src/KnOwl.ControlPlane.Api/KnOwl.ControlPlane.Api.csproj" />
     <Project Path="src/KnOwl.ControlPlane.Application/KnOwl.ControlPlane.Application.csproj" />
     <Project Path="src/KnOwl.ControlPlane.Bootstrap/KnOwl.ControlPlane.Bootstrap.csproj" />
     <Project Path="src/KnOwl.ControlPlane.Storage.EntityFramework/KnOwl.ControlPlane.Storage.EntityFramework.csproj" />
     <Project Path="src/KnOwl.ControlPlane.WebUI/KnOwl.ControlPlane.WebUI.csproj" />
     <Project Path="src/KnOwl.Runtime/KnOwl.Runtime.csproj" />
+    <Project Path="src/KnOwl.Runtime.Api/KnOwl.Runtime.Api.csproj" />
     <Project Path="src/KnOwl.Runtime.Application/KnOwl.Runtime.Application.csproj" />
     <Project Path="src/KnOwl.Runtime.Bootstrap/KnOwl.Runtime.Bootstrap.csproj" />
     <Project Path="src/KnOwl.Runtime.Storage.EntityFramework/KnOwl.Runtime.Storage.EntityFramework.csproj" />

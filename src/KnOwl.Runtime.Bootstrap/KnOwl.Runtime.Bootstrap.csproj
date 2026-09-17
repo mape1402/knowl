@@ -5,6 +5,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\KnOwl.Runtime.Api\KnOwl.Runtime.Api.csproj" />
     <ProjectReference Include="..\KnOwl.Runtime.Application\KnOwl.Runtime.Application.csproj" />
     <ProjectReference Include="..\KnOwl.Runtime.Storage.EntityFramework\KnOwl.Runtime.Storage.EntityFramework.csproj" />
     <ProjectReference Include="..\KnOwl.Runtime.WebUI\KnOwl.Runtime.WebUI.csproj" />

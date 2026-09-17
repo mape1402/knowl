@@ -1,3 +1,4 @@
+using KnOwl.Runtime.Api;
 using KnOwl.Runtime.Application;
 using KnOwl.Runtime.Bootstrap.Configuration;
 using KnOwl.Runtime.Bootstrap.Grpc;
@@ -66,6 +67,8 @@ public static class KnOwlRuntimeBootstrapExtensions
         app.MapHealthChecks("/healthz");
         app.MapHealthChecks("/health/live");
         app.MapHealthChecks("/health/ready");
+        var options = app.Services.GetRequiredService<KnOwlRuntimeBootstrapOptions>();
+        app.MapKnOwlRuntimeApi(options.ApiAuthorizationPolicy);
         app.MapKnOwlRuntimeEndpoints();
         app.MapGrpcService<RuntimeContractsGrpcService>();
         app.MapGet("/runtime/status", () => Results.Ok(new { service = "KnOwl.Runtime", status = "ok" }));
