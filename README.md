@@ -288,4 +288,4 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-knowl-distributi
 
 The release workflow builds, tests, packs, creates the GitHub release, and publishes NuGet packages. Production releases are driven by `.release` and `CHANGELOG.md`.
 
-Current release: `1.0.0`
+Current release: `1.0.4`

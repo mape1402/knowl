@@ -1,5 +1,14 @@
 # Changelog
 
+## [v1.0.4]
+
+- Adds packable `KnOwl.ControlPlane.Api` and `KnOwl.Runtime.Api` libraries for host-agnostic Minimal API exposure.
+- Exposes Control Plane REST endpoints for schema types, metadata fields, events, commands, artifacts, runtime environments, runtime nodes, credentials, and releases.
+- Exposes Runtime REST endpoints for status, deployed artifacts, command request/reply artifacts, Control Plane connections, pending pull artifacts, and artifact application.
+- Adds optional `ApiAuthorizationPolicy` bootstrap configuration so hosts can secure REST endpoints without KnOwl choosing an authentication provider.
+- Updates README documentation with the REST API package map, route catalog, and command request/reply creation example.
+- Adds endpoint tests for Control Plane command request/reply creation and Runtime command artifact responses.
+
 ## [v1.0.3]
 
 - Adds Date, DateTime, Time, and TimeSpan schema types to the Control Plane designer flow.
