@@ -447,7 +447,7 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
 ═══════════════════════════════════════════════════════════ */
 .btn:focus-visible,
 .form-check-input:focus {
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--knowl-primary, #7c3aed) 25%, transparent);
     outline: none;
 }
 .alert { font-size: 0.875rem; border-radius: 8px; }
@@ -466,7 +466,13 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
    Hero banner
 ═══════════════════════════════════════════════════════════ */
 .hero-banner {
-    background: linear-gradient(135deg, #1a1a2e 0%, #2d2b55 50%, #1a1a2e 100%);
+    background:
+        linear-gradient(
+            135deg,
+            color-mix(in srgb, var(--knowl-primary, #7c3aed) 22%, #101820) 0%,
+            color-mix(in srgb, var(--knowl-primary, #7c3aed) 38%, #101820) 50%,
+            color-mix(in srgb, var(--knowl-primary, #7c3aed) 22%, #101820) 100%
+        );
     border-radius: var(--radius);
     padding: 2.5rem 2rem;
     margin-bottom: 2rem;
@@ -478,8 +484,8 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
     position: absolute;
     inset: 0;
     background:
-        radial-gradient(ellipse at 20% 50%, rgba(99,102,241,0.15) 0%, transparent 60%),
-        radial-gradient(ellipse at 80% 50%, rgba(124,58,237,0.12) 0%, transparent 60%);
+        radial-gradient(ellipse at 20% 50%, color-mix(in srgb, var(--knowl-primary, #7c3aed) 28%, transparent) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 50%, color-mix(in srgb, var(--knowl-primary-hover, #6d28d9) 22%, transparent) 0%, transparent 60%);
     pointer-events: none;
 }
 .hero-content { position: relative; z-index: 1; }
@@ -494,7 +500,7 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
 }
 .hero-icon {
     font-size: 1.5rem;
-    background: linear-gradient(135deg, #0078d4, var(--knowl-primary, #7c3aed));
+    background: linear-gradient(135deg, var(--knowl-primary, #7c3aed), var(--knowl-primary-hover, #6d28d9));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -543,7 +549,7 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
 }
 .hub-card:hover {
     border-color: var(--sb-active-border);
-    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.1);
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--knowl-primary, #7c3aed) 14%, transparent);
     transform: translateY(-2px);
     text-decoration: none;
     color: inherit;
