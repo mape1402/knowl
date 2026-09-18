@@ -43,6 +43,7 @@ public static class KnOwlControlPlaneBootstrapExtensions
         services.AddKnOwlControlPlaneWebUI(theme =>
         {
             theme.Title = options.Theme.Title;
+            theme.Mode = options.Theme.Mode;
             theme.IconCssClass = options.Theme.IconCssClass;
             theme.IconImageUrl = options.Theme.IconImageUrl;
             theme.PrimaryColor = options.Theme.PrimaryColor;
