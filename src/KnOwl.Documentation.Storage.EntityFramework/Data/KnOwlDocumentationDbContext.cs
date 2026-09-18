@@ -62,6 +62,10 @@ public sealed class KnOwlDocumentationDbContext(DbContextOptions<KnOwlDocumentat
         modelBuilder.Entity<DocumentationContentBlob>(entity =>
         {
             entity.ToTable("ContentBlobs");
+            entity.HasKey(x => x.StorageKey);
+            entity.Property(x => x.StorageKey)
+                .HasMaxLength(500)
+                .HasAnnotation("Mongo:ElementName", "_id");
             entity.Property(x => x.Content).IsRequired();
         });
     }

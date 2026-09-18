@@ -68,28 +68,38 @@ public sealed class DocumentationRepository(KnOwlDocumentationDbContext db) : ID
 
     public async Task<DocumentationPage?> GetPage(Guid id, bool includeVersions = false, CancellationToken cancellationToken = default)
     {
-        var query = db.Pages.AsQueryable();
-        if (includeVersions)
+        var query = includeVersions ? db.Pages.AsNoTracking() : db.Pages.AsQueryable();
+        var page = await query.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (page is not null && includeVersions)
         {
-            query = query.Include(x => x.Versions).ThenInclude(x => x.Assets);
+            await LoadVersions(page, cancellationToken);
         }
 
-        return await query.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        return page;
     }
 
     public async Task<DocumentationPage?> GetPageByPath(string spaceKey, string topicKey, string pageKey, bool includeVersions = false, CancellationToken cancellationToken = default)
     {
-        var query = db.Pages
-            .Include(x => x.Topic)!.ThenInclude(x => x!.Space)
-            .AsQueryable();
-        if (includeVersions)
+        var space = await db.Spaces.AsNoTracking().SingleOrDefaultAsync(x => x.Key == spaceKey, cancellationToken);
+        if (space is null)
         {
-            query = query.Include(x => x.Versions).ThenInclude(x => x.Assets);
+            return null;
         }
 
-        return await query.SingleOrDefaultAsync(
-            x => x.Key == pageKey && x.Topic!.Key == topicKey && x.Topic.Space!.Key == spaceKey,
-            cancellationToken);
+        var topic = await db.Topics.AsNoTracking().SingleOrDefaultAsync(x => x.SpaceId == space.Id && x.Key == topicKey, cancellationToken);
+        if (topic is null)
+        {
+            return null;
+        }
+
+        var query = includeVersions ? db.Pages.AsNoTracking() : db.Pages.AsQueryable();
+        var page = await query.SingleOrDefaultAsync(x => x.TopicId == topic.Id && x.Key == pageKey, cancellationToken);
+        if (page is not null && includeVersions)
+        {
+            await LoadVersions(page, cancellationToken);
+        }
+
+        return page;
     }
 
     public async Task<DocumentationPage> UpsertPage(DocumentationPage page, CancellationToken cancellationToken = default)
@@ -112,44 +122,52 @@ public sealed class DocumentationRepository(KnOwlDocumentationDbContext db) : ID
 
     public async Task<DocumentationPageVersion?> GetVersion(Guid id, bool includeAssets = false, CancellationToken cancellationToken = default)
     {
-        var query = db.PageVersions.AsQueryable();
-        if (includeAssets)
+        var query = includeAssets ? db.PageVersions.AsNoTracking() : db.PageVersions.AsQueryable();
+        var version = await query.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (version is not null && includeAssets)
         {
-            query = query.Include(x => x.Assets).Include(x => x.Page)!.ThenInclude(x => x!.Topic)!.ThenInclude(x => x!.Space);
+            await LoadAssets(version, cancellationToken);
         }
 
-        return await query.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        return version;
     }
 
     public async Task<DocumentationPageVersion?> GetVersionByPath(string spaceKey, string topicKey, string pageKey, string versionNumber, bool includeAssets = false, CancellationToken cancellationToken = default)
     {
-        var query = db.PageVersions
-            .Include(x => x.Page)!.ThenInclude(x => x!.Topic)!.ThenInclude(x => x!.Space)
-            .AsQueryable();
-        if (includeAssets)
+        var page = await GetPageByPath(spaceKey, topicKey, pageKey, cancellationToken: cancellationToken);
+        if (page is null)
         {
-            query = query.Include(x => x.Assets);
+            return null;
         }
 
-        return await query.SingleOrDefaultAsync(
-            x => x.VersionNumber == versionNumber && x.Page!.Key == pageKey && x.Page.Topic!.Key == topicKey && x.Page.Topic.Space!.Key == spaceKey,
-            cancellationToken);
+        var query = includeAssets ? db.PageVersions.AsNoTracking() : db.PageVersions.AsQueryable();
+        var version = await query.SingleOrDefaultAsync(x => x.PageId == page.Id && x.VersionNumber == versionNumber, cancellationToken);
+        if (version is not null && includeAssets)
+        {
+            await LoadAssets(version, cancellationToken);
+        }
+
+        return version;
     }
 
     public async Task<DocumentationPageVersion?> GetLatestPublishedVersion(string spaceKey, string topicKey, string pageKey, bool includeAssets = false, CancellationToken cancellationToken = default)
     {
-        var query = db.PageVersions
-            .Include(x => x.Page)!.ThenInclude(x => x!.Topic)!.ThenInclude(x => x!.Space)
-            .Where(x => x.Status == DocPageVersionStatus.Published &&
-                        x.Page!.Key == pageKey &&
-                        x.Page.Topic!.Key == topicKey &&
-                        x.Page.Topic.Space!.Key == spaceKey);
-        if (includeAssets)
+        var page = await GetPageByPath(spaceKey, topicKey, pageKey, cancellationToken: cancellationToken);
+        if (page is null)
         {
-            query = query.Include(x => x.Assets);
+            return null;
         }
 
-        return await query.OrderByDescending(x => x.PublishedAtUtc ?? x.CreatedAtUtc).FirstOrDefaultAsync(cancellationToken);
+        var query = (includeAssets ? db.PageVersions.AsNoTracking() : db.PageVersions.AsQueryable())
+            .Where(x => x.PageId == page.Id && x.Status == DocPageVersionStatus.Published);
+
+        var version = await query.OrderByDescending(x => x.PublishedAtUtc ?? x.CreatedAtUtc).FirstOrDefaultAsync(cancellationToken);
+        if (version is not null && includeAssets)
+        {
+            await LoadAssets(version, cancellationToken);
+        }
+
+        return version;
     }
 
     public async Task<DocumentationPageVersion> AddVersion(DocumentationPageVersion version, CancellationToken cancellationToken = default)
@@ -176,5 +194,31 @@ public sealed class DocumentationRepository(KnOwlDocumentationDbContext db) : ID
         db.Assets.Add(asset);
         await db.SaveChangesAsync(cancellationToken);
         return asset;
+    }
+
+    private async Task LoadVersions(DocumentationPage page, CancellationToken cancellationToken)
+    {
+        var versions = await db.PageVersions
+            .AsNoTracking()
+            .Where(x => x.PageId == page.Id)
+            .OrderByDescending(x => x.PublishedAtUtc ?? x.CreatedAtUtc)
+            .ToArrayAsync(cancellationToken);
+
+        foreach (var version in versions)
+        {
+            await LoadAssets(version, cancellationToken);
+            page.Versions.Add(version);
+        }
+    }
+
+    private async Task LoadAssets(DocumentationPageVersion version, CancellationToken cancellationToken)
+    {
+        var assets = await db.Assets
+            .AsNoTracking()
+            .Where(x => x.PageVersionId == version.Id)
+            .OrderBy(x => x.LogicalPath)
+            .ToArrayAsync(cancellationToken);
+
+        version.Assets.AddRange(assets);
     }
 }
