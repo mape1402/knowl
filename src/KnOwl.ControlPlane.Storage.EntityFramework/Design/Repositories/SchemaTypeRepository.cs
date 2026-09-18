@@ -11,44 +11,76 @@ public sealed class SchemaTypeRepository(KnOwlDbContext db) : ISchemaTypeReposit
     /// <inheritdoc />
     public async Task<IReadOnlyList<SchemaTypeDefinition>> GetAllWithVersions(CancellationToken cancellationToken = default)
     {
-        return await db.SchemaTypes
+        var schemaTypes = await db.SchemaTypes
             .AsNoTracking()
-            .Include(x => x.Versions)
             .OrderBy(x => x.Name)
             .ToListAsync(cancellationToken);
+
+        await HydrateVersions(schemaTypes, cancellationToken);
+        return schemaTypes;
     }
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<SchemaTypeVersion>> GetActiveVersionsWithDefinitions(CancellationToken cancellationToken = default)
     {
-        return await db.SchemaTypeVersions
+        var activeDefinitions = await db.SchemaTypes
             .AsNoTracking()
-            .Include(x => x.SchemaTypeDefinition)
-            .Where(x => x.IsActive && x.SchemaTypeDefinition != null && x.SchemaTypeDefinition.IsActive)
-            .OrderBy(x => x.SchemaTypeDefinition!.Name)
-            .ThenByDescending(x => x.CreatedAtUtc)
+            .Where(x => x.IsActive)
             .ToListAsync(cancellationToken);
+
+        var definitionIds = activeDefinitions.Select(x => x.Id).ToArray();
+        if (definitionIds.Length == 0)
+        {
+            return [];
+        }
+
+        var definitions = activeDefinitions.ToDictionary(x => x.Id);
+        var versions = await db.SchemaTypeVersions
+            .AsNoTracking()
+            .Where(x => x.IsActive && definitionIds.Contains(x.SchemaTypeDefinitionId))
+            .ToListAsync(cancellationToken);
+
+        foreach (var version in versions)
+        {
+            if (definitions.TryGetValue(version.SchemaTypeDefinitionId, out var definition))
+            {
+                version.SchemaTypeDefinition = definition;
+            }
+        }
+
+        return versions
+            .OrderBy(x => x.SchemaTypeDefinition?.Name)
+            .ThenByDescending(x => x.CreatedAtUtc)
+            .ToArray();
     }
 
     /// <inheritdoc />
     public async Task<SchemaTypeDefinition?> GetById(Guid id, bool includeVersions = false, CancellationToken cancellationToken = default)
     {
-        var query = db.SchemaTypes.AsQueryable();
+        var schemaType = await db.SchemaTypes.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (includeVersions)
         {
-            query = query.Include(x => x.Versions);
+            await HydrateVersions([schemaType], cancellationToken);
         }
 
-        return await query.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        return schemaType;
     }
 
     /// <inheritdoc />
     public async Task<SchemaTypeVersion?> GetVersionById(Guid versionId, CancellationToken cancellationToken = default)
     {
-        return await db.SchemaTypeVersions
+        var version = await db.SchemaTypeVersions
             .AsNoTracking()
-            .Include(x => x.SchemaTypeDefinition)
             .FirstOrDefaultAsync(x => x.Id == versionId, cancellationToken);
+
+        if (version is not null)
+        {
+            version.SchemaTypeDefinition = await db.SchemaTypes
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == version.SchemaTypeDefinitionId, cancellationToken);
+        }
+
+        return version;
     }
 
     /// <inheritdoc />
@@ -103,11 +135,17 @@ public sealed class SchemaTypeRepository(KnOwlDbContext db) : ISchemaTypeReposit
     /// <inheritdoc />
     public async Task SetVersionActive(Guid typeId, Guid versionId, bool isActive, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
     {
+        var schemaType = await db.SchemaTypes
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == typeId, cancellationToken);
+        if (schemaType is null || schemaType.IsSystem)
+        {
+            throw new KeyNotFoundException($"Schema type version '{versionId}' was not found.");
+        }
+
         var rows = await db.SchemaTypeVersions
             .Where(x => x.Id == versionId &&
-                        x.SchemaTypeDefinitionId == typeId &&
-                        x.SchemaTypeDefinition != null &&
-                        !x.SchemaTypeDefinition.IsSystem)
+                        x.SchemaTypeDefinitionId == typeId)
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(x => x.IsActive, isActive)
                 .SetProperty(x => x.UpdatedAtUtc, updatedAtUtc), cancellationToken);
@@ -115,6 +153,31 @@ public sealed class SchemaTypeRepository(KnOwlDbContext db) : ISchemaTypeReposit
         if (rows == 0)
         {
             throw new KeyNotFoundException($"Schema type version '{versionId}' was not found.");
+        }
+    }
+
+    private async Task HydrateVersions(IReadOnlyCollection<SchemaTypeDefinition?> schemaTypes, CancellationToken cancellationToken)
+    {
+        var definitions = schemaTypes
+            .Where(x => x is not null)
+            .Cast<SchemaTypeDefinition>()
+            .ToArray();
+        var definitionIds = definitions.Select(x => x.Id).ToArray();
+        if (definitionIds.Length == 0)
+        {
+            return;
+        }
+
+        var versions = await db.SchemaTypeVersions
+            .AsNoTracking()
+            .Where(x => definitionIds.Contains(x.SchemaTypeDefinitionId))
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+        var versionsByDefinition = versions.ToLookup(x => x.SchemaTypeDefinitionId);
+
+        foreach (var definition in definitions)
+        {
+            definition.Versions = versionsByDefinition[definition.Id].ToList();
         }
     }
 }

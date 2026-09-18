@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="ButterMorph.Web.Razor" Version="1.0.2" />
+    <PackageReference Include="ButterMorph.Web.Razor" Version="1.1.1" />
   </ItemGroup>
 
   <PropertyGroup>
