@@ -1,6 +1,6 @@
 # Changelog
 
-## [v1.0.5]
+## [v2.0.0]
 
 - Adds host-configurable UI branding for Control Plane and Runtime bootstrap options, including title, sidebar icon, and theme colors.
 - Keeps the default KnOwl Web UI purple and white while allowing hosts to override the theme without modifying library assets.
