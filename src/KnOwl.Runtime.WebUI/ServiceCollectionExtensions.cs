@@ -10,8 +10,16 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// Adds Runtime Web UI services.
     /// </summary>
-    public static IServiceCollection AddKnOwlRuntimeWebUI(this IServiceCollection services)
+    public static IServiceCollection AddKnOwlRuntimeWebUI(
+        this IServiceCollection services,
+        Action<KnOwlRuntimeThemeOptions>? configure = null)
     {
+        services.AddOptions<KnOwlRuntimeThemeOptions>();
+        if (configure is not null)
+        {
+            services.Configure(configure);
+        }
+
         return services;
     }
 }

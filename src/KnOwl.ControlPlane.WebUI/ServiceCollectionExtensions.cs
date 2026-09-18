@@ -12,8 +12,16 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// Adds the Control Plane Web UI module and its ButterMorph designer adapters.
     /// </summary>
-    public static IServiceCollection AddKnOwlControlPlaneWebUI(this IServiceCollection services)
+    public static IServiceCollection AddKnOwlControlPlaneWebUI(
+        this IServiceCollection services,
+        Action<KnOwlControlPlaneThemeOptions>? configure = null)
     {
+        services.AddOptions<KnOwlControlPlaneThemeOptions>();
+        if (configure is not null)
+        {
+            services.Configure(configure);
+        }
+
         services.AddScoped<IMenuService, MenuService>();
         services.AddKnOwlButterMorphDesigner();
         return services;

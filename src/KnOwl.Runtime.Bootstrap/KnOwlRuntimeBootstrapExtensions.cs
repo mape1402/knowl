@@ -33,7 +33,21 @@ public static class KnOwlRuntimeBootstrapExtensions
         configure?.Invoke(options);
 
         services.AddRazorPages();
-        services.AddKnOwlRuntimeWebUI();
+        services.AddKnOwlRuntimeWebUI(theme =>
+        {
+            theme.Title = options.Theme.Title;
+            theme.Subtitle = options.Theme.Subtitle;
+            theme.IconCssClass = options.Theme.IconCssClass;
+            theme.IconImageUrl = options.Theme.IconImageUrl;
+            theme.PrimaryColor = options.Theme.PrimaryColor;
+            theme.PrimaryHoverColor = options.Theme.PrimaryHoverColor;
+            theme.SidebarBackgroundColor = options.Theme.SidebarBackgroundColor;
+            theme.SidebarTextColor = options.Theme.SidebarTextColor;
+            theme.SidebarMutedTextColor = options.Theme.SidebarMutedTextColor;
+            theme.ContentBackgroundColor = options.Theme.ContentBackgroundColor;
+            theme.SurfaceColor = options.Theme.SurfaceColor;
+            theme.TextColor = options.Theme.TextColor;
+        });
         services.AddHealthChecks();
         services.AddKnOwlSecurity(securityOptions =>
         {

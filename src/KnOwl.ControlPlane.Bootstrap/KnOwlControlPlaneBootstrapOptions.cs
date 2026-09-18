@@ -1,3 +1,4 @@
+using KnOwl.ControlPlane.WebUI;
 using KnOwl.Security;
 using KnOwl.Security.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -33,6 +34,11 @@ public sealed class KnOwlControlPlaneBootstrapOptions
     /// Gets or sets the ButterMorph designer path.
     /// </summary>
     public string ButterMorphPath { get; set; } = "/buttermorph";
+
+    /// <summary>
+    /// Gets visual theme and branding options used by the Control Plane Web UI.
+    /// </summary>
+    public KnOwlControlPlaneThemeOptions Theme { get; } = new();
 
     /// <summary>
     /// Gets or sets the authorization policy applied to the Control Plane REST API. Leave empty to let the host map the API without a policy.

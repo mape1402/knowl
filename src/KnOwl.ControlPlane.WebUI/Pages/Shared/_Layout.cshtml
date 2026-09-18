@@ -1,28 +1,41 @@
 @inject IMenuService MenuService
+@inject Microsoft.Extensions.Options.IOptions<KnOwl.ControlPlane.WebUI.KnOwlControlPlaneThemeOptions> ThemeOptions
 @{
     var menuItems = MenuService.Items;
-    var pageTitle = ViewData["Title"]?.ToString() ?? "KnOwl";
+    var theme = ThemeOptions.Value;
+    var appTitle = string.IsNullOrWhiteSpace(theme.Title) ? "KnOwl" : theme.Title;
+    var pageTitle = ViewData["Title"]?.ToString() ?? appTitle;
+    var iconCssClass = string.IsNullOrWhiteSpace(theme.IconCssClass) ? "bi bi-hexagon-fill" : theme.IconCssClass;
 }
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@pageTitle - KnOwl</title>
+    <title>@pageTitle - @appTitle</title>
     <script type="importmap"></script>
     <link rel="stylesheet" href="~/_content/KnOwl.ControlPlane.WebUI/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="~/_content/KnOwl.ControlPlane.WebUI/css/site.css" asp-append-version="true" />
 </head>
-<body>
+<body style="@theme.ToCssVariables()">
     <div class="app-shell">
 
         <!-- ── Sidebar ──────────────────────────────── -->
         <nav id="sidebar" class="sidebar">
             <div class="sidebar-brand">
                 <a class="brand-link" asp-area="" asp-page="/Index">
-                    <span class="brand-icon"><i class="bi bi-hexagon-fill"></i></span>
-                    <span class="brand-name">KnOwl</span>
+                    <span class="brand-icon">
+                        @if (!string.IsNullOrWhiteSpace(theme.IconImageUrl))
+                        {
+                            <img src="@theme.IconImageUrl" alt="" />
+                        }
+                        else
+                        {
+                            <i class="@iconCssClass"></i>
+                        }
+                    </span>
+                    <span class="brand-name">@appTitle</span>
                 </a>
             </div>
 
@@ -84,15 +97,12 @@
                     </button>
                     <span class="topbar-title">@pageTitle</span>
                 </div>
-                <div class="topbar-actions">
-                    <span class="topbar-badge">Development</span>
-                </div>
             </header>
             <main class="content-body">
                 @RenderBody()
             </main>
             <footer class="content-footer">
-                &copy; 2026 KnOwl &middot; <a asp-area="" asp-page="/Privacy">Privacy</a>
+                &copy; 2026 @appTitle &middot; <a asp-area="" asp-page="/Privacy">Privacy</a>
             </footer>
         </div>
 
