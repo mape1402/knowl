@@ -13,6 +13,17 @@ if (string.IsNullOrWhiteSpace(connectionString))
 builder.Services.AddKnOwlControlPlane(builder.Configuration, options =>
 {
     options.MigrationsAssembly = migrationsAssembly;
+    options.Theme.Title = "Sample KnOwl";
+    options.Theme.IconImageUrl = "/_content/KnOwl.ControlPlane.WebUI/img/knowl-icon.png";
+    options.Theme.PrimaryColor = "#2563eb";
+    options.Theme.PrimaryHoverColor = "#1d4ed8";
+    options.Theme.SidebarBackgroundColor = "#0f2f5f";
+    options.Theme.SidebarBrandBackgroundColor = "#0b2347";
+    options.Theme.SidebarTextColor = "#ffffff";
+    options.Theme.SidebarMutedTextColor = "#bfdbfe";
+    options.Theme.ContentBackgroundColor = "#f5f9ff";
+    options.Theme.SurfaceColor = "#ffffff";
+    options.Theme.TextColor = "#102033";
     options.ConfigureStorage = db => db.UseSqlServer(
         connectionString,
         sql => sql.MigrationsAssembly(migrationsAssembly));

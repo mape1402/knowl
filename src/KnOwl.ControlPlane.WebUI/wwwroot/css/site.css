@@ -3,24 +3,24 @@
 ═══════════════════════════════════════════════════════════ */
 :root {
     --sb-width:           256px;
-    --sb-bg:              #1a1a2e;
-    --sb-brand-bg:        #141428;
-    --sb-border:          #2c2c50;
-    --sb-text:            #d0d3e8;
-    --sb-muted:           #9094b3;
-    --sb-hover-bg:        rgba(99, 102, 241, 0.08);
-    --sb-active-bg:       rgba(99, 102, 241, 0.15);
-    --sb-active-text:     #a5b4fc;
-    --sb-active-border:   #6366f1;
-    --sb-icon-color:      #6e72a0;
+    --sb-bg:              var(--knowl-sidebar-bg, #4c1d95);
+    --sb-brand-bg:        var(--knowl-sidebar-brand-bg, #3b0764);
+    --sb-border:          color-mix(in srgb, var(--knowl-sidebar-text, #ffffff) 16%, transparent);
+    --sb-text:            var(--knowl-sidebar-text, #ffffff);
+    --sb-muted:           var(--knowl-sidebar-muted, #ddd6fe);
+    --sb-hover-bg:        color-mix(in srgb, var(--knowl-sidebar-text, #ffffff) 10%, transparent);
+    --sb-active-bg:       color-mix(in srgb, var(--knowl-sidebar-text, #ffffff) 18%, transparent);
+    --sb-active-text:     var(--knowl-sidebar-text, #ffffff);
+    --sb-active-border:   var(--knowl-primary, #7c3aed);
+    --sb-icon-color:      var(--knowl-sidebar-muted, #ddd6fe);
 
     --topbar-h:           52px;
-    --topbar-bg:          #ffffff;
+    --topbar-bg:          var(--knowl-surface, #ffffff);
     --topbar-border:      #e2e3ef;
-    --topbar-text:        #1a1a2e;
+    --topbar-text:        var(--knowl-text, #1f1433);
     --topbar-muted:       #6b6e8c;
 
-    --content-bg:         #f4f4fb;
+    --content-bg:         var(--knowl-content-bg, #f8f7ff);
     --radius-sm:          6px;
     --radius:             8px;
 }
@@ -36,8 +36,8 @@ body {
                  Helvetica, Arial, sans-serif;
     font-size: 0.875rem;
     line-height: 1.6;
-    color: #1a1a2e;
-    background-color: #f4f4fb;
+    color: var(--knowl-text, #1f1433);
+    background-color: var(--content-bg);
     -webkit-font-smoothing: antialiased;
 }
 
@@ -45,15 +45,15 @@ body {
    Typography
 ═══════════════════════════════════════════════════════════ */
 h1, h2, h3, h4, h5, h6 {
-    font-weight: 600; line-height: 1.25; color: #1a1a2e; margin-top: 0;
+    font-weight: 600; line-height: 1.25; color: var(--knowl-text, #1f1433); margin-top: 0;
 }
 h1 { font-size: 1.75rem; }
 h2 { font-size: 1.375rem; }
 h3 { font-size: 1.125rem; }
 p  { margin-top: 0; }
 
-a                { color: #4f46e5; text-decoration: none; }
-a:hover          { text-decoration: underline; color: #4338ca; }
+a                { color: var(--knowl-primary, #7c3aed); text-decoration: none; }
+a:hover          { text-decoration: underline; color: var(--knowl-primary-hover, #6d28d9); }
 
 .release-step-indicator {
     display: flex;
@@ -71,7 +71,7 @@ a:hover          { text-decoration: underline; color: #4338ca; }
 
 .release-step-indicator span.active {
     color: #fff;
-    background: #4f46e5;
+    background: var(--knowl-primary, #7c3aed);
 }
 
 .release-picker-table {
@@ -128,7 +128,7 @@ a:hover          { text-decoration: underline; color: #4338ca; }
     padding: 0 1.125rem;
     width: 100%;
     height: 100%;
-    color: #e0e2f0;
+    color: var(--sb-text);
     text-decoration: none;
     font-weight: 600;
     font-size: 0.9375rem;
@@ -143,9 +143,9 @@ a:hover          { text-decoration: underline; color: #4338ca; }
     justify-content: center;
     width: 28px;
     height: 28px;
-    background: linear-gradient(135deg, #0078d4, #7c3aed);
+    background: var(--knowl-surface, #ffffff);
     border-radius: var(--radius-sm);
-    color: #fff;
+    color: var(--knowl-primary, #7c3aed);
     font-size: 0.875rem;
     flex-shrink: 0;
 }
@@ -153,6 +153,12 @@ a:hover          { text-decoration: underline; color: #4338ca; }
 .brand-name {
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.brand-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
 }
 
 /* ── Nav scroll area ───────────────────────────────────── */
@@ -325,19 +331,6 @@ a:hover          { text-decoration: underline; color: #4338ca; }
 }
 .hamburger-btn:active { background-color: #e2e4f4; }
 
-.topbar-badge {
-    display: inline-flex;
-    align-items: center;
-    font-size: 0.75rem;
-    font-weight: 500;
-    padding: 0.2rem 0.65rem;
-    border-radius: 2rem;
-    background-color: #eef2ff;
-    color: #4f46e5;
-    border: 1px solid rgba(99, 102, 241, 0.3);
-    line-height: 1.4;
-}
-
 /* ── Content body ──────────────────────────────────────── */
 .content-body {
     flex: 1;
@@ -360,13 +353,13 @@ a:hover          { text-decoration: underline; color: #4338ca; }
     background-color: var(--topbar-bg);
 }
 .content-footer a       { color: var(--topbar-muted); text-decoration: none; }
-.content-footer a:hover { color: #4f46e5; text-decoration: underline; }
+.content-footer a:hover { color: var(--knowl-primary, #7c3aed); text-decoration: underline; }
 
 /* ═══════════════════════════════════════════════════════════
    Cards
 ═══════════════════════════════════════════════════════════ */
 .platform-card {
-    background-color: #ffffff;
+    background-color: var(--knowl-surface, #ffffff);
     border: 1px solid #e2e3ef;
     border-radius: 8px;
     padding: 1.25rem 1.5rem;
@@ -384,7 +377,7 @@ a:hover          { text-decoration: underline; color: #4338ca; }
     margin-bottom: 1rem;
     font-weight: 600;
     font-size: 0.9375rem;
-    color: #1a1a2e;
+    color: var(--knowl-text, #1f1433);
 }
 
 .platform-card-footer {
@@ -411,18 +404,18 @@ a:hover          { text-decoration: underline; color: #4338ca; }
     transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
 }
 .btn-primary {
-    background-color: #4f46e5;
+    background-color: var(--knowl-primary, #7c3aed);
     border-color: rgba(26, 26, 46, 0.15);
     color: #fff;
     box-shadow: 0 1px 0 rgba(26,26,46,0.1), inset 0 1px 0 rgba(255,255,255,0.1);
 }
-.btn-primary:hover  { background-color: #4338ca; }
+.btn-primary:hover  { background-color: var(--knowl-primary-hover, #6d28d9); }
 .btn-primary:active { background-color: #3730a3; box-shadow: inset 0 1px 0 rgba(26,26,46,0.2); }
 
 .btn-secondary {
     background-color: #f4f4fb;
     border-color: rgba(26, 26, 46, 0.12);
-    color: #1a1a2e;
+    color: var(--knowl-text, #1f1433);
     box-shadow: 0 1px 0 rgba(26,26,46,0.04), inset 0 1px 0 rgba(255,255,255,0.25);
 }
 .btn-secondary:hover { background-color: #eef0fb; }
@@ -438,14 +431,14 @@ a:hover          { text-decoration: underline; color: #4338ca; }
     transition: border-color 0.15s, box-shadow 0.15s;
 }
 .form-control:focus {
-    border-color: #6366f1;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+    border-color: var(--knowl-primary, #7c3aed);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--knowl-primary, #7c3aed) 25%, transparent);
     outline: none;
 }
 .form-label {
     font-weight: 600;
     font-size: 0.875rem;
-    color: #1a1a2e;
+    color: var(--knowl-text, #1f1433);
     margin-bottom: 0.375rem;
 }
 
@@ -501,7 +494,7 @@ a:hover          { text-decoration: underline; color: #4338ca; }
 }
 .hero-icon {
     font-size: 1.5rem;
-    background: linear-gradient(135deg, #0078d4, #7c3aed);
+    background: linear-gradient(135deg, #0078d4, var(--knowl-primary, #7c3aed));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -563,8 +556,8 @@ a:hover          { text-decoration: underline; color: #4338ca; }
     width: 44px;
     height: 44px;
     border-radius: 10px;
-    background: color-mix(in srgb, var(--hc-accent, #4f46e5) 10%, transparent);
-    color: var(--hc-accent, #4f46e5);
+    background: color-mix(in srgb, var(--hc-accent, var(--knowl-primary, #7c3aed)) 10%, transparent);
+    color: var(--hc-accent, var(--knowl-primary, #7c3aed));
     font-size: 1.25rem;
     flex-shrink: 0;
 }
@@ -614,7 +607,7 @@ a:hover          { text-decoration: underline; color: #4338ca; }
     display: block;
     font-size: 1.75rem;
     font-weight: 700;
-    color: #4f46e5;
+    color: var(--knowl-primary, #7c3aed);
     line-height: 1.2;
     margin-bottom: 0.25rem;
 }
@@ -886,7 +879,7 @@ a:hover          { text-decoration: underline; color: #4338ca; }
 }
 
 .object-schema-breadcrumb button.active {
-    background: #4f46e5;
+    background: var(--knowl-primary, #7c3aed);
     color: #fff;
 }
 
@@ -1042,7 +1035,7 @@ a:hover          { text-decoration: underline; color: #4338ca; }
 
 .event-list-topic {
     margin: 0;
-    color: #4f46e5;
+    color: var(--knowl-primary, #7c3aed);
     font-family: ui-monospace, "Cascadia Mono", "Segoe UI Mono", "SFMono-Regular", Menlo, Consolas, monospace;
     font-size: 0.75rem;
     overflow: hidden;

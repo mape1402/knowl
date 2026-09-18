@@ -40,7 +40,21 @@ public static class KnOwlControlPlaneBootstrapExtensions
         configure?.Invoke(options);
 
         services.AddRazorPages();
-        services.AddKnOwlControlPlaneWebUI();
+        services.AddKnOwlControlPlaneWebUI(theme =>
+        {
+            theme.Title = options.Theme.Title;
+            theme.IconCssClass = options.Theme.IconCssClass;
+            theme.IconImageUrl = options.Theme.IconImageUrl;
+            theme.PrimaryColor = options.Theme.PrimaryColor;
+            theme.PrimaryHoverColor = options.Theme.PrimaryHoverColor;
+            theme.SidebarBackgroundColor = options.Theme.SidebarBackgroundColor;
+            theme.SidebarBrandBackgroundColor = options.Theme.SidebarBrandBackgroundColor;
+            theme.SidebarTextColor = options.Theme.SidebarTextColor;
+            theme.SidebarMutedTextColor = options.Theme.SidebarMutedTextColor;
+            theme.ContentBackgroundColor = options.Theme.ContentBackgroundColor;
+            theme.SurfaceColor = options.Theme.SurfaceColor;
+            theme.TextColor = options.Theme.TextColor;
+        });
         services.AddKnOwlDocumentationWebUI();
         services.AddHealthChecks();
         services.AddKnOwlSecurity(securityOptions =>

@@ -1,3 +1,4 @@
+using KnOwl.Runtime.WebUI;
 using KnOwl.Security;
 using KnOwl.Security.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -23,6 +24,11 @@ public sealed class KnOwlRuntimeBootstrapOptions
     /// Gets or sets the EF Core provider configuration used by security storage. When omitted, the bootstrap uses the Runtime storage configuration.
     /// </summary>
     public Action<DbContextOptionsBuilder>? ConfigureSecurityStorage { get; set; }
+
+    /// <summary>
+    /// Gets visual theme and branding options used by the Runtime Web UI.
+    /// </summary>
+    public KnOwlRuntimeThemeOptions Theme { get; } = new();
 
     /// <summary>
     /// Gets or sets the authorization policy applied to the Runtime REST API. Leave empty to let the host map the API without a policy.

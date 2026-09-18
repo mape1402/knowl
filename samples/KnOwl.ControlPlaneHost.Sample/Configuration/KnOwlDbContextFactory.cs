@@ -12,12 +12,12 @@ public sealed class KnOwlDbContextFactory : IDesignTimeDbContextFactory<KnOwlDbC
     /// <inheritdoc />
     public KnOwlDbContext CreateDbContext(string[] args)
     {
-        const string designTimeConnectionString =
-            "Server=(localdb)\\mssqllocaldb;Database=KnOwlControlPlaneDesignTime;Trusted_Connection=True;TrustServerCertificate=True";
+        const string sampleConnectionString =
+            "Server=(localdb)\\mssqllocaldb;Database=KnOwlControlPlaneSample;Trusted_Connection=True;TrustServerCertificate=True";
 
         var options = new DbContextOptionsBuilder<KnOwlDbContext>()
             .UseSqlServer(
-                designTimeConnectionString,
+                sampleConnectionString,
                 sql => sql.MigrationsAssembly(typeof(Program).Assembly.GetName().Name))
             .Options;
 
