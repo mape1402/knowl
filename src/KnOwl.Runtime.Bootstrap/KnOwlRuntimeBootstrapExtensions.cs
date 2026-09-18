@@ -40,14 +40,8 @@ public static class KnOwlRuntimeBootstrapExtensions
             theme.Subtitle = options.Theme.Subtitle;
             theme.IconCssClass = options.Theme.IconCssClass;
             theme.IconImageUrl = options.Theme.IconImageUrl;
-            theme.PrimaryColor = options.Theme.PrimaryColor;
-            theme.PrimaryHoverColor = options.Theme.PrimaryHoverColor;
-            theme.SidebarBackgroundColor = options.Theme.SidebarBackgroundColor;
-            theme.SidebarTextColor = options.Theme.SidebarTextColor;
-            theme.SidebarMutedTextColor = options.Theme.SidebarMutedTextColor;
-            theme.ContentBackgroundColor = options.Theme.ContentBackgroundColor;
-            theme.SurfaceColor = options.Theme.SurfaceColor;
-            theme.TextColor = options.Theme.TextColor;
+            CopyThemePalette(options.Theme.Light, theme.Light);
+            CopyThemePalette(options.Theme.Dark, theme.Dark);
         });
         services.AddHealthChecks();
         services.AddKnOwlSecurity(securityOptions =>
@@ -114,6 +108,26 @@ public static class KnOwlRuntimeBootstrapExtensions
     {
         target.Clear();
         target.AddRange(source);
+    }
+
+    private static void CopyThemePalette(
+        KnOwlRuntimeThemePaletteOptions source,
+        KnOwlRuntimeThemePaletteOptions target)
+    {
+        target.PrimaryColor = source.PrimaryColor;
+        target.PrimaryHoverColor = source.PrimaryHoverColor;
+        target.SidebarBackgroundColor = source.SidebarBackgroundColor;
+        target.SidebarTextColor = source.SidebarTextColor;
+        target.SidebarMutedTextColor = source.SidebarMutedTextColor;
+        target.ContentBackgroundColor = source.ContentBackgroundColor;
+        target.SurfaceColor = source.SurfaceColor;
+        target.TextColor = source.TextColor;
+        target.MutedTextColor = source.MutedTextColor;
+        target.BorderColor = source.BorderColor;
+        target.SubtleBackgroundColor = source.SubtleBackgroundColor;
+        target.CodeBackgroundColor = source.CodeBackgroundColor;
+        target.CodeTextColor = source.CodeTextColor;
+        target.ShadowColor = source.ShadowColor;
     }
 
     private static Action<Microsoft.EntityFrameworkCore.DbContextOptionsBuilder> ThrowMissingStorageConfiguration(string storageName)
