@@ -11,30 +11,38 @@ public sealed class RuntimeNodeRepository(KnOwlDbContext db) : IRuntimeNodeRepos
     /// <inheritdoc />
     public async Task<IReadOnlyList<RuntimeNode>> GetAll(CancellationToken cancellationToken = default)
     {
-        return await db.RuntimeNodes
+        var nodes = await db.RuntimeNodes
             .AsNoTracking()
-            .Include(x => x.Environment)
-            .OrderBy(x => x.Environment != null ? x.Environment.Name : x.EnvironmentName)
-            .ThenBy(x => x.Name)
             .ToListAsync(cancellationToken);
+
+        await HydrateEnvironments(nodes, cancellationToken);
+        return OrderByEnvironment(nodes);
     }
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<RuntimeNode>> GetActiveEnabled(CancellationToken cancellationToken = default)
     {
-        return await db.RuntimeNodes
+        var nodes = await db.RuntimeNodes
             .AsNoTracking()
-            .Include(x => x.Environment)
             .Where(x => x.IsEnabled && x.Status == RuntimeNodeStatus.Active)
-            .OrderBy(x => x.Environment != null ? x.Environment.Name : x.EnvironmentName)
-            .ThenBy(x => x.Name)
             .ToListAsync(cancellationToken);
+
+        await HydrateEnvironments(nodes, cancellationToken);
+        return OrderByEnvironment(nodes);
     }
 
     /// <inheritdoc />
     public async Task<RuntimeNode?> GetById(Guid id, CancellationToken cancellationToken = default)
     {
-        return await db.RuntimeNodes.Include(x => x.Environment).FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        var runtimeNode = await db.RuntimeNodes.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (runtimeNode?.EnvironmentId is not null)
+        {
+            runtimeNode.Environment = await db.RuntimeEnvironments
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == runtimeNode.EnvironmentId.Value, cancellationToken);
+        }
+
+        return runtimeNode;
     }
 
     /// <inheritdoc />
@@ -79,5 +87,40 @@ public sealed class RuntimeNodeRepository(KnOwlDbContext db) : IRuntimeNodeRepos
         {
             throw new KeyNotFoundException($"Runtime node '{id}' was not found.");
         }
+    }
+
+    private async Task HydrateEnvironments(IReadOnlyCollection<RuntimeNode> nodes, CancellationToken cancellationToken)
+    {
+        var environmentIds = nodes
+            .Select(x => x.EnvironmentId)
+            .OfType<Guid>()
+            .Distinct()
+            .ToArray();
+
+        if (environmentIds.Length == 0)
+        {
+            return;
+        }
+
+        var environments = await db.RuntimeEnvironments
+            .AsNoTracking()
+            .Where(x => environmentIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, cancellationToken);
+
+        foreach (var node in nodes)
+        {
+            if (node.EnvironmentId is Guid environmentId && environments.TryGetValue(environmentId, out var environment))
+            {
+                node.Environment = environment;
+            }
+        }
+    }
+
+    private static IReadOnlyList<RuntimeNode> OrderByEnvironment(IEnumerable<RuntimeNode> nodes)
+    {
+        return nodes
+            .OrderBy(x => x.Environment?.Name ?? x.EnvironmentName)
+            .ThenBy(x => x.Name)
+            .ToArray();
     }
 }

@@ -18,12 +18,15 @@ public class MenuService : IMenuService
         contracts.Add("Custom Fields", "/contracts/metadatafields", "ui-checks")
                  .Add("Data Types", "/contracts/types", "tag")
                  .Add("Events", "/contracts/events", "broadcast")
-                 .Add("Commands", "/contracts/commands", "terminal")
-                 .Add("Artifacts", "/contracts/contractartifacts", "box")
-                 .Add("Environments", "/contracts/runtimeenvironments", "diagram-3")
-                 .Add("Runtime Nodes", "/contracts/runtimenodes", "hdd-network")
-                 .Add("Releases", "/contracts/contractreleases", "rocket");
+                 .Add("Commands", "/contracts/commands", "terminal");
         Items.Add(contracts);
+
+        var distribution = new MenuItem { Text = "Distribution", Icon = "diagram-3" };
+        distribution.Add("Artifacts", "/contracts/contractartifacts", "box")
+                    .Add("Environments", "/contracts/runtimeenvironments", "diagram-3")
+                    .Add("Runtime Nodes", "/contracts/runtimenodes", "hdd-network")
+                    .Add("Releases", "/contracts/contractreleases", "rocket");
+        Items.Add(distribution);
 
         var nuget = new MenuItem { Text = "NuGet Feeds", Icon = "box-seam" };
         nuget.Add("Packages", "/nuget/packages", "archive")
