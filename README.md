@@ -73,6 +73,13 @@ builder.Services.AddKnOwlControlPlane(builder.Configuration, options =>
     options.ConfigureStorage = db => db.UseSqlServer(
         connectionString,
         sql => sql.MigrationsAssembly(migrationsAssembly));
+
+    options.Theme.Title = "My Contracts";
+    options.Theme.IconImageUrl = "/img/company-icon.png";
+    options.Theme.PrimaryColor = "#2563eb";
+    options.Theme.PrimaryHoverColor = "#1d4ed8";
+    options.Theme.SidebarBackgroundColor = "#0f2a44";
+    options.Theme.SidebarBrandBackgroundColor = "#0b1f33";
 });
 
 var app = builder.Build();
@@ -110,6 +117,8 @@ dotnet ef database update --context KnOwlSecurityDbContext
 Run the host and open the Control Plane UI. From there you can create data types, custom metadata fields, events, commands, versions, artifacts, runtime environments, runtime nodes, and releases.
 
 The bootstrap package also maps the Control Plane REST API at `/api/v1/control-plane`.
+
+Theme configuration is optional. When omitted, the reusable Web UI uses KnOwl's default purple and white theme. Hosts can override the title, icon, and colors from `AddKnOwlControlPlane` without changing package assets.
 
 To use a different EF Core provider, install that provider in the host and configure storage with that provider:
 
@@ -159,6 +168,13 @@ builder.Services.AddKnOwlRuntime(builder.Configuration, options =>
     options.ConfigureStorage = db => db.UseSqlServer(
         connectionString,
         sql => sql.MigrationsAssembly(migrationsAssembly));
+
+    options.Theme.Title = "My Runtime";
+    options.Theme.Subtitle = "Contract cache";
+    options.Theme.IconImageUrl = "/img/company-icon.png";
+    options.Theme.PrimaryColor = "#2563eb";
+    options.Theme.PrimaryHoverColor = "#1d4ed8";
+    options.Theme.SidebarBackgroundColor = "#0f2a44";
 });
 
 var app = builder.Build();
@@ -202,6 +218,8 @@ dotnet ef database update --context KnOwlSecurityDbContext
 
 The bootstrap package also maps the Runtime REST API at `/api/v1/runtime`.
 
+Runtime theme configuration is optional and follows the same host-owned pattern as the Control Plane. Hosts can set the sidebar title, subtitle, icon, and colors directly on `options.Theme`.
+
 ### 3. Connect Runtime to Control Plane
 
 1. In the Runtime UI, create a Control Plane connection.
@@ -214,6 +232,8 @@ The sample hosts show the intended shape:
 
 - `samples/KnOwl.ControlPlaneHost.Sample`
 - `samples/KnOwl.RuntimeHost.Sample`
+
+The sample design-time DbContext factories target the same sample databases used at runtime. This keeps `dotnet ef database update` aligned with the hosts you run locally.
 
 ## Contract Catalog
 
