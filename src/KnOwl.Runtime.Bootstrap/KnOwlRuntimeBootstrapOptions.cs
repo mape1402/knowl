@@ -15,7 +15,7 @@ public sealed class KnOwlRuntimeBootstrapOptions
     public string? MigrationsAssembly { get; set; }
 
     /// <summary>
-    /// Gets or sets the EF Core provider configuration used by Runtime storage. When omitted, the bootstrap uses SQL Server.
+    /// Gets or sets the EF Core provider configuration used by Runtime storage.
     /// </summary>
     public Action<DbContextOptionsBuilder>? ConfigureStorage { get; set; }
 

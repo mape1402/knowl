@@ -42,7 +42,7 @@ Install only the layer your host needs:
 
 All packages target `net9.0` and `net10.0`.
 
-The `*.Storage.EntityFramework` packages depend on EF Core relational APIs, not on a concrete database provider. Hosts choose the provider by configuring the DbContext options. The bootstrap packages use SQL Server by default for convenience, but that default can be replaced.
+The `*.Storage.EntityFramework` and bootstrap packages depend on EF Core relational APIs, not on a concrete database provider. Hosts choose the provider by configuring the DbContext options, the same way they would configure EF Core directly.
 
 ## Getting Started
 
@@ -54,18 +54,26 @@ cd MyCompany.Contracts.ControlPlane
 
 dotnet add package KnOwl.ControlPlane.Bootstrap
 dotnet add package KnOwl.ControlPlane.Storage.EntityFramework
+dotnet add package Microsoft.EntityFrameworkCore.SqlServer
 ```
 
 Use the bootstrap package in `Program.cs`:
 
 ```csharp
 using KnOwl.ControlPlane.Bootstrap;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+var migrationsAssembly = typeof(Program).Assembly.GetName().Name!;
+var connectionString = builder.Configuration.GetConnectionString("KnOwlDb");
 
-builder.Services.AddKnOwlControlPlane(
-    builder.Configuration,
-    options => options.MigrationsAssembly = typeof(Program).Assembly.GetName().Name);
+builder.Services.AddKnOwlControlPlane(builder.Configuration, options =>
+{
+    options.MigrationsAssembly = migrationsAssembly;
+    options.ConfigureStorage = db => db.UseSqlServer(
+        connectionString,
+        sql => sql.MigrationsAssembly(migrationsAssembly));
+});
 
 var app = builder.Build();
 
@@ -103,7 +111,7 @@ Run the host and open the Control Plane UI. From there you can create data types
 
 The bootstrap package also maps the Control Plane REST API at `/api/v1/control-plane`.
 
-To use a different EF Core provider, install that provider in the host and override storage configuration:
+To use a different EF Core provider, install that provider in the host and configure storage with that provider:
 
 ```csharp
 using KnOwl.ControlPlane.Bootstrap;
@@ -131,18 +139,27 @@ cd MyCompany.Contracts.Runtime
 
 dotnet add package KnOwl.Runtime.Bootstrap
 dotnet add package KnOwl.Runtime.Storage.EntityFramework
+dotnet add package Microsoft.EntityFrameworkCore.SqlServer
 ```
 
 Use the runtime bootstrap in `Program.cs`:
 
 ```csharp
 using KnOwl.Runtime.Bootstrap;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+var migrationsAssembly = typeof(Program).Assembly.GetName().Name!;
+var connectionString = builder.Configuration.GetConnectionString("KnOwlRuntimeDb")
+    ?? builder.Configuration.GetConnectionString("KnOwlDb");
 
-builder.Services.AddKnOwlRuntime(
-    builder.Configuration,
-    options => options.MigrationsAssembly = typeof(Program).Assembly.GetName().Name);
+builder.Services.AddKnOwlRuntime(builder.Configuration, options =>
+{
+    options.MigrationsAssembly = migrationsAssembly;
+    options.ConfigureStorage = db => db.UseSqlServer(
+        connectionString,
+        sql => sql.MigrationsAssembly(migrationsAssembly));
+});
 
 var app = builder.Build();
 
