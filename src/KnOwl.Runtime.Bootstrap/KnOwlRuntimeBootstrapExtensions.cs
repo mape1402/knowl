@@ -1,9 +1,7 @@
 using KnOwl.Runtime.Api;
 using KnOwl.Runtime.Application;
-using KnOwl.Runtime.Bootstrap.Configuration;
 using KnOwl.Runtime.Bootstrap.Grpc;
 using KnOwl.Runtime.Bootstrap.Runtime;
-using KnOwl.Runtime.Storage.EntityFramework.Data;
 using KnOwl.Runtime.Storage.EntityFramework;
 using KnOwl.Runtime.WebUI;
 using KnOwl.Security;
@@ -12,7 +10,6 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -55,11 +52,9 @@ public static class KnOwlRuntimeBootstrapExtensions
             configuration.GetSection("Runtime:ArtifactPull"));
         services.AddHostedService<KnOwlRuntimeArtifactPullWorker>();
 
-        var configureStorage = options.ConfigureStorage ?? CreateDefaultSqlServerConfiguration(
-            configuration,
-            options.MigrationsAssembly ?? typeof(KnOwlRuntimeDbContext).Assembly.GetName().Name!);
-        services.AddKnOwlRuntimeStorageEntityFramework(configureStorage);
-        services.AddKnOwlSecurityStorageEntityFramework(options.ConfigureSecurityStorage ?? configureStorage);
+        services.AddKnOwlRuntimeStorageEntityFramework(options.ConfigureStorage ?? ThrowMissingStorageConfiguration("Runtime"));
+        services.AddKnOwlSecurityStorageEntityFramework(
+            options.ConfigureSecurityStorage ?? options.ConfigureStorage ?? ThrowMissingStorageConfiguration("Runtime security"));
         services.AddKnOwlRuntimeApplication();
 
         services.AddSingleton(options);
@@ -106,11 +101,7 @@ public static class KnOwlRuntimeBootstrapExtensions
         target.AddRange(source);
     }
 
-    private static Action<DbContextOptionsBuilder> CreateDefaultSqlServerConfiguration(
-        IConfiguration configuration,
-        string migrationsAssembly)
-    {
-        var connectionString = KnOwlRuntimeSqlConnectionStringFactory.Create(configuration);
-        return db => db.UseSqlServer(connectionString, sql => sql.MigrationsAssembly(migrationsAssembly));
-    }
+    private static Action<Microsoft.EntityFrameworkCore.DbContextOptionsBuilder> ThrowMissingStorageConfiguration(string storageName)
+        => _ => throw new InvalidOperationException(
+            $"KnOwl {storageName} storage requires an EF Core provider configuration. Set ConfigureStorage or ConfigureSecurityStorage in the bootstrap options.");
 }

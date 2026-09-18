@@ -15,7 +15,7 @@ public sealed class KnOwlControlPlaneBootstrapOptions
     public string? MigrationsAssembly { get; set; }
 
     /// <summary>
-    /// Gets or sets the EF Core provider configuration used by Control Plane storage. When omitted, the bootstrap uses SQL Server.
+    /// Gets or sets the EF Core provider configuration used by Control Plane storage.
     /// </summary>
     public Action<DbContextOptionsBuilder>? ConfigureStorage { get; set; }
 
