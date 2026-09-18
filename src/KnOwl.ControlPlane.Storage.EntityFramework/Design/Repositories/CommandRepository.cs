@@ -11,23 +11,25 @@ public sealed class CommandRepository(KnOwlDbContext db) : ICommandRepository
     /// <inheritdoc />
     public async Task<IReadOnlyList<CommandDefinition>> GetAllWithVersions(CancellationToken cancellationToken = default)
     {
-        return await db.Commands
+        var commands = await db.Commands
             .AsNoTracking()
-            .Include(x => x.Versions)
             .OrderByDescending(x => x.CreatedAtUtc)
             .ToListAsync(cancellationToken);
+
+        await HydrateVersions(commands, cancellationToken);
+        return commands;
     }
 
     /// <inheritdoc />
     public async Task<CommandDefinition?> GetById(Guid id, bool includeVersions = false, CancellationToken cancellationToken = default)
     {
-        var query = db.Commands.AsQueryable();
+        var command = await db.Commands.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (includeVersions)
         {
-            query = query.Include(x => x.Versions);
+            await HydrateVersions([command], cancellationToken);
         }
 
-        return await query.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        return command;
     }
 
     /// <inheritdoc />
@@ -39,10 +41,18 @@ public sealed class CommandRepository(KnOwlDbContext db) : ICommandRepository
     /// <inheritdoc />
     public async Task<CommandVersion?> GetVersionById(Guid versionId, CancellationToken cancellationToken = default)
     {
-        return await db.CommandVersions
+        var version = await db.CommandVersions
             .AsNoTracking()
-            .Include(x => x.CommandDefinition)
             .FirstOrDefaultAsync(x => x.Id == versionId, cancellationToken);
+
+        if (version is not null)
+        {
+            version.CommandDefinition = await db.Commands
+                .AsNoTracking()
+                .FirstAsync(x => x.Id == version.CommandDefinitionId, cancellationToken);
+        }
+
+        return version;
     }
 
     /// <inheritdoc />
@@ -133,5 +143,29 @@ public sealed class CommandRepository(KnOwlDbContext db) : ICommandRepository
         }
     }
 
+    private async Task HydrateVersions(IReadOnlyCollection<CommandDefinition?> commands, CancellationToken cancellationToken)
+    {
+        var definitions = commands
+            .Where(x => x is not null)
+            .Cast<CommandDefinition>()
+            .ToArray();
+        var commandIds = definitions.Select(x => x.Id).ToArray();
+        if (commandIds.Length == 0)
+        {
+            return;
+        }
+
+        var versions = await db.CommandVersions
+            .AsNoTracking()
+            .Where(x => commandIds.Contains(x.CommandDefinitionId))
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+        var versionsByCommand = versions.ToLookup(x => x.CommandDefinitionId);
+
+        foreach (var command in definitions)
+        {
+            command.Versions = versionsByCommand[command.Id].ToList();
+        }
+    }
 }
 
