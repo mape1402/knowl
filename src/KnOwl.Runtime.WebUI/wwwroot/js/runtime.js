@@ -64,43 +64,12 @@
     const STORAGE_KEY = 'knowlThemeMode';
     const root = document.documentElement;
     const toggle = document.getElementById('theme-toggle');
-    const palettes = {
-        light: {
-            '--knowl-color-scheme': 'light',
-            '--knowl-content-bg': '#f8fafc',
-            '--knowl-surface': '#ffffff',
-            '--knowl-text': '#102033',
-            '--knowl-muted-text': '#64748b',
-            '--knowl-border': '#d8e0ea',
-            '--knowl-subtle-bg': '#f1f5f9',
-            '--knowl-code-bg': '#f8fafc',
-            '--knowl-code-text': '#0f172a',
-            '--knowl-shadow-color': 'rgba(15, 23, 42, 0.12)'
-        },
-        dark: {
-            '--knowl-color-scheme': 'dark',
-            '--knowl-content-bg': '#0f172a',
-            '--knowl-surface': '#1e293b',
-            '--knowl-text': '#e5e7eb',
-            '--knowl-muted-text': '#94a3b8',
-            '--knowl-border': '#334155',
-            '--knowl-subtle-bg': '#172033',
-            '--knowl-code-bg': '#020617',
-            '--knowl-code-text': '#dbeafe',
-            '--knowl-shadow-color': 'rgba(2, 6, 23, 0.48)'
-        }
-    };
 
     const applyMode = mode => {
         const selected = mode === 'light' ? 'light' : 'dark';
         root.dataset.bsTheme = selected;
         root.dataset.knowlTheme = selected;
         root.style.colorScheme = selected;
-
-        Object.entries(palettes[selected]).forEach(([name, value]) => root.style.setProperty(name, value));
-        root.style.setProperty('--bs-body-bg', palettes[selected]['--knowl-content-bg']);
-        root.style.setProperty('--bs-body-color', palettes[selected]['--knowl-text']);
-        root.style.setProperty('--bs-border-color', palettes[selected]['--knowl-border']);
 
         if (toggle) {
             const icon = toggle.querySelector('i');

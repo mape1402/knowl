@@ -8,7 +8,7 @@
     var iconCssClass = string.IsNullOrWhiteSpace(theme.IconCssClass) ? "bi bi-hexagon-fill" : theme.IconCssClass;
 }
 <!DOCTYPE html>
-<html lang="en" data-bs-theme="@theme.CssMode" data-knowl-theme="@theme.CssMode" style="@theme.ToCssVariables() color-scheme: var(--knowl-color-scheme);">
+<html lang="en" data-bs-theme="@theme.CssMode" data-knowl-theme="@theme.CssMode" style="color-scheme: var(--knowl-color-scheme);">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -16,6 +16,9 @@
     <script type="importmap"></script>
     <link rel="stylesheet" href="~/_content/KnOwl.ControlPlane.WebUI/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <style>
+        @Html.Raw(theme.ToCssThemeRules())
+    </style>
     <link rel="stylesheet" href="~/_content/KnOwl.ControlPlane.WebUI/css/site.css" asp-append-version="true" />
 </head>
 <body>

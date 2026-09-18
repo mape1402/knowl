@@ -19,11 +19,16 @@ builder.Services.AddKnOwlRuntime(builder.Configuration, options =>
     options.Theme.Mode = KnOwl.Runtime.WebUI.KnOwlThemeMode.Dark;
     options.Theme.Subtitle = "Contract storage";
     options.Theme.IconImageUrl = "/_content/KnOwl.Runtime.WebUI/img/knowl-icon.png";
-    options.Theme.PrimaryColor = "#2563eb";
-    options.Theme.PrimaryHoverColor = "#1d4ed8";
-    options.Theme.SidebarBackgroundColor = "#0f2f5f";
-    options.Theme.SidebarTextColor = "#ffffff";
-    options.Theme.SidebarMutedTextColor = "#bfdbfe";
+    options.Theme.Light.PrimaryColor = "#2563eb";
+    options.Theme.Light.PrimaryHoverColor = "#1d4ed8";
+    options.Theme.Light.SidebarBackgroundColor = "#0f2f5f";
+    options.Theme.Light.SidebarTextColor = "#ffffff";
+    options.Theme.Light.SidebarMutedTextColor = "#bfdbfe";
+    options.Theme.Dark.PrimaryColor = "#60a5fa";
+    options.Theme.Dark.PrimaryHoverColor = "#93c5fd";
+    options.Theme.Dark.SidebarBackgroundColor = "#0f172a";
+    options.Theme.Dark.SidebarTextColor = "#f8fafc";
+    options.Theme.Dark.SidebarMutedTextColor = "#bfdbfe";
     options.ConfigureStorage = db => db.UseMongoDB(connectionString, databaseName);
 });
 
