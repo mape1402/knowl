@@ -23,6 +23,8 @@
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/KnOwl.ControlPlaneHost.Sample/KnOwl.ControlPlaneHost.Sample.csproj" />
+    <Project Path="samples/KnOwl.ControlPlaneHost.Mongo.Sample/KnOwl.ControlPlaneHost.Mongo.Sample.csproj" />
+    <Project Path="samples/KnOwl.RuntimeHost.Mongo.Sample/KnOwl.RuntimeHost.Mongo.Sample.csproj" />
     <Project Path="samples/KnOwl.RuntimeHost.Sample/KnOwl.RuntimeHost.Sample.csproj" />
   </Folder>
   <Folder Name="/tests/">
