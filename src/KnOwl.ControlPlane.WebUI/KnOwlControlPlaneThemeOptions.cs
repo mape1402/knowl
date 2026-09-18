@@ -71,24 +71,60 @@ public sealed partial class KnOwlControlPlaneThemeOptions
     /// Gets a CSS variable declaration block for the configured theme.
     /// </summary>
     public string ToCssVariables()
-        => string.Join(' ', new[]
+    {
+        var primaryColor = NormalizeColor(PrimaryColor);
+        var primaryHoverColor = NormalizeColor(PrimaryHoverColor);
+        var primaryRgb = ToRgb(primaryColor);
+        var primaryHoverRgb = ToRgb(primaryHoverColor);
+
+        return string.Join(' ', new[]
         {
-            CssVar("--knowl-primary", PrimaryColor),
-            CssVar("--knowl-primary-hover", PrimaryHoverColor),
+            CssVar("--knowl-primary", primaryColor),
+            CssVar("--knowl-primary-hover", primaryHoverColor),
             CssVar("--knowl-sidebar-bg", SidebarBackgroundColor),
             CssVar("--knowl-sidebar-brand-bg", SidebarBrandBackgroundColor),
             CssVar("--knowl-sidebar-text", SidebarTextColor),
             CssVar("--knowl-sidebar-muted", SidebarMutedTextColor),
             CssVar("--knowl-content-bg", ContentBackgroundColor),
             CssVar("--knowl-surface", SurfaceColor),
-            CssVar("--knowl-text", TextColor)
+            CssVar("--knowl-text", TextColor),
+            CssVar("--bs-primary", primaryColor),
+            CssVarRaw("--bs-primary-rgb", primaryRgb),
+            CssVar("--bs-link-color", primaryColor),
+            CssVarRaw("--bs-link-color-rgb", primaryRgb),
+            CssVar("--bs-link-hover-color", primaryHoverColor),
+            CssVarRaw("--bs-link-hover-color-rgb", primaryHoverRgb),
+            CssVarRaw("--bs-focus-ring-color", $"rgba({primaryRgb}, 0.25)")
         });
+    }
 
     private static string CssVar(string name, string value)
         => $"{name}: {NormalizeColor(value)};";
 
+    private static string CssVarRaw(string name, string value)
+        => $"{name}: {value};";
+
     private static string NormalizeColor(string value)
         => CssColorRegex().IsMatch(value) ? value : "#7c3aed";
+
+    private static string ToRgb(string color)
+    {
+        var hex = color.TrimStart('#');
+        if (hex.Length == 3)
+        {
+            hex = string.Concat(hex.Select(character => $"{character}{character}"));
+        }
+
+        if (hex.Length == 8)
+        {
+            hex = hex[..6];
+        }
+
+        var red = Convert.ToInt32(hex[..2], 16);
+        var green = Convert.ToInt32(hex.Substring(2, 2), 16);
+        var blue = Convert.ToInt32(hex.Substring(4, 2), 16);
+        return $"{red}, {green}, {blue}";
+    }
 
     [GeneratedRegex("^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")]
     private static partial Regex CssColorRegex();
