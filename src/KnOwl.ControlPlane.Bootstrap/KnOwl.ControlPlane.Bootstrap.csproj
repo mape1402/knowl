@@ -9,6 +9,10 @@
     <ProjectReference Include="..\KnOwl.ControlPlane.Application\KnOwl.ControlPlane.Application.csproj" />
     <ProjectReference Include="..\KnOwl.ControlPlane.Storage.EntityFramework\KnOwl.ControlPlane.Storage.EntityFramework.csproj" />
     <ProjectReference Include="..\KnOwl.ControlPlane.WebUI\KnOwl.ControlPlane.WebUI.csproj" />
+    <ProjectReference Include="..\KnOwl.Documentation.Api\KnOwl.Documentation.Api.csproj" />
+    <ProjectReference Include="..\KnOwl.Documentation.Application\KnOwl.Documentation.Application.csproj" />
+    <ProjectReference Include="..\KnOwl.Documentation.Storage.EntityFramework\KnOwl.Documentation.Storage.EntityFramework.csproj" />
+    <ProjectReference Include="..\KnOwl.Documentation.WebUI\KnOwl.Documentation.WebUI.csproj" />
     <ProjectReference Include="..\KnOwl.Security\KnOwl.Security.csproj" />
     <ProjectReference Include="..\KnOwl.Security.Storage.EntityFramework\KnOwl.Security.Storage.EntityFramework.csproj" />
   </ItemGroup>

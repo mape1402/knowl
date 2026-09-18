@@ -13,6 +13,9 @@ using KnOwl.Runtime.Application.Catalog;
 using KnOwl.Runtime.Application.Deployments;
 using KnOwl.Runtime.Storage.EntityFramework;
 using KnOwl.Runtime.Storage.EntityFramework.Data;
+using KnOwl.Documentation;
+using KnOwl.Documentation.Storage.EntityFramework.Data;
+using KnOwl.Documentation.Storage.EntityFramework.Storage;
 using KnOwl.ControlPlane.Storage.EntityFramework.Design.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -154,6 +157,43 @@ public sealed class SqlServerStorageIntegrationTests
         Assert.True(result.Accepted);
         Assert.NotNull(stored);
         Assert.Equal(package.ContentHash, stored.ContentHash);
+    }
+
+    [Fact]
+    public async Task DocumentationSqlServerMigrationPersistsSpacesTopicsPagesAndVersions()
+    {
+        var connectionString = Environment.GetEnvironmentVariable("KNOWL_CONTROL_SQL_INTEGRATION_CONNECTION");
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return;
+        }
+
+        var options = new DbContextOptionsBuilder<KnOwlDocumentationDbContext>()
+            .UseSqlServer(connectionString, sql => sql.MigrationsAssembly("KnOwl.ControlPlaneHost.Sample"))
+            .Options;
+
+        await using var db = new KnOwlDocumentationDbContext(options);
+        await db.Database.EnsureDeletedAsync();
+        await db.Database.MigrateAsync();
+
+        var repository = new DocumentationRepository(db);
+        var space = await repository.UpsertSpace(new DocumentationSpace { Key = "orchestrator", Name = "Orchestrator" });
+        var topic = await repository.UpsertTopic(new DocumentationTopic { SpaceId = space.Id, Key = "guides", Name = "Guides" });
+        var page = await repository.UpsertPage(new DocumentationPage { TopicId = topic.Id, Key = "setup", Title = "Setup" });
+        var version = await repository.AddVersion(new DocumentationPageVersion
+        {
+            PageId = page.Id,
+            VersionNumber = "1.0.0",
+            EntryPath = "index.md",
+            ContentHash = "hash",
+            Status = DocPageVersionStatus.Published
+        });
+
+        var loaded = await repository.GetVersionByPath("orchestrator", "guides", "setup", "1.0.0");
+
+        Assert.NotNull(loaded);
+        Assert.Equal(version.Id, loaded.Id);
+        Assert.Equal(DocPageVersionStatus.Published, loaded.Status);
     }
 }
 

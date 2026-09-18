@@ -25,6 +25,11 @@ public sealed class KnOwlControlPlaneBootstrapOptions
     public Action<DbContextOptionsBuilder>? ConfigureSecurityStorage { get; set; }
 
     /// <summary>
+    /// Gets or sets the EF Core provider configuration used by documentation storage. When omitted, the bootstrap uses the Control Plane storage configuration.
+    /// </summary>
+    public Action<DbContextOptionsBuilder>? ConfigureDocumentationStorage { get; set; }
+
+    /// <summary>
     /// Gets or sets the ButterMorph designer path.
     /// </summary>
     public string ButterMorphPath { get; set; } = "/buttermorph";

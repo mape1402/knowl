@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>KnOwl.Documentation</PackageId>
+    <Title>KnOwl Documentation</Title>
+    <Description>Domain model and storage contracts for KnOwl documentation spaces, topics, pages, versions, and assets.</Description>
+  </PropertyGroup>
+
+</Project>

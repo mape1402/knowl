@@ -7,6 +7,11 @@
     <Project Path="src/KnOwl.ControlPlane.Bootstrap/KnOwl.ControlPlane.Bootstrap.csproj" />
     <Project Path="src/KnOwl.ControlPlane.Storage.EntityFramework/KnOwl.ControlPlane.Storage.EntityFramework.csproj" />
     <Project Path="src/KnOwl.ControlPlane.WebUI/KnOwl.ControlPlane.WebUI.csproj" />
+    <Project Path="src/KnOwl.Documentation/KnOwl.Documentation.csproj" />
+    <Project Path="src/KnOwl.Documentation.Api/KnOwl.Documentation.Api.csproj" />
+    <Project Path="src/KnOwl.Documentation.Application/KnOwl.Documentation.Application.csproj" />
+    <Project Path="src/KnOwl.Documentation.Storage.EntityFramework/KnOwl.Documentation.Storage.EntityFramework.csproj" />
+    <Project Path="src/KnOwl.Documentation.WebUI/KnOwl.Documentation.WebUI.csproj" />
     <Project Path="src/KnOwl.Runtime/KnOwl.Runtime.csproj" />
     <Project Path="src/KnOwl.Runtime.Api/KnOwl.Runtime.Api.csproj" />
     <Project Path="src/KnOwl.Runtime.Application/KnOwl.Runtime.Application.csproj" />

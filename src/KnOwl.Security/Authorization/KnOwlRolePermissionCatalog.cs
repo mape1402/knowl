@@ -17,7 +17,9 @@ public static class KnOwlRolePermissionCatalog
                 KnOwlPermissions.ArtifactsRead,
                 KnOwlPermissions.ReleasesRead,
                 KnOwlPermissions.RuntimeNodesRead,
-                KnOwlPermissions.RuntimeArtifactsRead),
+                KnOwlPermissions.RuntimeArtifactsRead,
+                KnOwlPermissions.DocumentationRead,
+                KnOwlPermissions.DocumentationDownload),
 
             [KnOwlRoles.Designer] = PermissionSet(
                 KnOwlPermissions.PortalAccess,
@@ -29,7 +31,10 @@ public static class KnOwlRolePermissionCatalog
                 KnOwlPermissions.EventsWrite,
                 KnOwlPermissions.CommandsRead,
                 KnOwlPermissions.CommandsWrite,
-                KnOwlPermissions.ArtifactsRead),
+                KnOwlPermissions.ArtifactsRead,
+                KnOwlPermissions.DocumentationRead,
+                KnOwlPermissions.DocumentationWrite,
+                KnOwlPermissions.DocumentationDownload),
 
             [KnOwlRoles.ReleaseManager] = PermissionSet(
                 KnOwlPermissions.PortalAccess,
@@ -38,7 +43,10 @@ public static class KnOwlRolePermissionCatalog
                 KnOwlPermissions.ReleasesRead,
                 KnOwlPermissions.ReleasesCreate,
                 KnOwlPermissions.ReleasesExecute,
-                KnOwlPermissions.RuntimeNodesRead),
+                KnOwlPermissions.RuntimeNodesRead,
+                KnOwlPermissions.DocumentationRead,
+                KnOwlPermissions.DocumentationPublish,
+                KnOwlPermissions.DocumentationDownload),
 
             [KnOwlRoles.RuntimeOperator] = PermissionSet(
                 KnOwlPermissions.PortalAccess,

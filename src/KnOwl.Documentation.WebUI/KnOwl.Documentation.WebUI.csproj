@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\KnOwl.Documentation.Application\KnOwl.Documentation.Application.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFrameworks>net9.0;net10.0</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
+    <IsPackable>true</IsPackable>
+    <PackageId>KnOwl.Documentation.WebUI</PackageId>
+    <Title>KnOwl Documentation Web UI</Title>
+    <Description>Reusable Razor Pages for managing and browsing KnOwl documentation in control plane hosts.</Description>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,107 @@
+@page "/documentation"
+@model KnOwl.Documentation.WebUI.Pages.Documentation.IndexModel
+@{
+    ViewData["Title"] = "Documentation";
+}
+
+<section class="dashboard-section">
+    <div class="platform-card">
+        <div class="platform-card-header">
+            <span>Documentation Spaces</span>
+            <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#newSpaceModal">
+                <i class="bi bi-plus-lg"></i> New space
+            </button>
+        </div>
+
+        <form method="get" class="row g-2 mb-3">
+            <div class="col-md-6 col-lg-4">
+                <label for="space-search" class="form-label">Search spaces</label>
+                <input id="space-search" name="search" value="@Model.Search" class="form-control" placeholder="Name, key, or description" />
+            </div>
+            <div class="col-auto d-flex align-items-end">
+                <button type="submit" class="btn btn-secondary"><i class="bi bi-search"></i> Search</button>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(Model.Search))
+            {
+                <div class="col-auto d-flex align-items-end">
+                    <a class="btn btn-secondary" asp-page="/Documentation/Index">Clear</a>
+                </div>
+            }
+        </form>
+
+        @if (Model.Spaces.Count == 0)
+        {
+            <div class="events-empty-state">
+                <i class="bi bi-journal-richtext"></i>
+                <h3>@(string.IsNullOrWhiteSpace(Model.Search) ? "No documentation spaces" : "No matching spaces")</h3>
+                <p>@(string.IsNullOrWhiteSpace(Model.Search) ? "Create a space to group product, service, or platform documentation." : "Try a different name, key, or description.")</p>
+            </div>
+        }
+        else
+        {
+            <div class="events-list compact-contract-list">
+                @foreach (var space in Model.Spaces)
+                {
+                    <article class="event-list-card">
+                        <h3 class="event-list-title">@space.Name</h3>
+                        <p class="event-list-topic">@space.Key</p>
+                        <div class="event-list-meta">
+                            <span>@(space.IsActive ? "Active" : "Inactive")</span>
+                            <span>Created: @space.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                        </div>
+                        <div class="event-list-actions">
+                            <a class="btn btn-secondary btn-sm" asp-page="/Documentation/Space" asp-route-id="@space.Id">Open</a>
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </div>
+</section>
+
+<div class="modal fade" id="newSpaceModal" tabindex="-1" aria-labelledby="newSpaceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="CreateSpace">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="newSpaceModalLabel">New documentation space</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label asp-for="NewSpace.Key" class="form-label"></label>
+                            <input asp-for="NewSpace.Key" class="form-control" maxlength="120" />
+                            <span asp-validation-for="NewSpace.Key" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="NewSpace.Name" class="form-label"></label>
+                            <input asp-for="NewSpace.Name" class="form-control" maxlength="200" />
+                            <span asp-validation-for="NewSpace.Name" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-12">
+                            <label asp-for="NewSpace.Description" class="form-label"></label>
+                            <textarea asp-for="NewSpace.Description" class="form-control" maxlength="1000" rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save space</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@if (Model.ShowNewSpaceModal)
+{
+    <script>
+        document.addEventListener('DOMContentLoaded', () => bootstrap.Modal.getOrCreateInstance(document.getElementById('newSpaceModal')).show());
+    </script>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

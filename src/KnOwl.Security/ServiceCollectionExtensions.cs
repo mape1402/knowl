@@ -57,6 +57,10 @@ public static class ServiceCollectionExtensions
         AddPolicy(builder, KnOwlAuthorizationPolicies.RuntimeConnectionsManage, KnOwlPermissions.RuntimeConnectionsManage);
         AddPolicy(builder, KnOwlAuthorizationPolicies.RuntimeArtifactsRead, KnOwlPermissions.RuntimeArtifactsRead);
         AddPolicy(builder, KnOwlAuthorizationPolicies.RuntimeArtifactsApply, KnOwlPermissions.RuntimeArtifactsApply);
+        AddPolicy(builder, KnOwlAuthorizationPolicies.DocumentationRead, KnOwlPermissions.DocumentationRead);
+        AddPolicy(builder, KnOwlAuthorizationPolicies.DocumentationWrite, KnOwlPermissions.DocumentationWrite);
+        AddPolicy(builder, KnOwlAuthorizationPolicies.DocumentationPublish, KnOwlPermissions.DocumentationPublish);
+        AddPolicy(builder, KnOwlAuthorizationPolicies.DocumentationDownload, KnOwlPermissions.DocumentationDownload);
         return builder;
     }
 

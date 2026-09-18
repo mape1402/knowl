@@ -1,0 +1,124 @@
+@page "/documentation/pages/{id:guid}"
+@model KnOwl.Documentation.WebUI.Pages.Documentation.DocumentationPageModel
+@{
+    ViewData["Title"] = Model.PageItem?.Title ?? "Documentation Page";
+}
+
+<section class="dashboard-section">
+    <div class="platform-card">
+        <div class="platform-card-header">
+            <span>@Model.PageItem?.Title</span>
+            <div class="event-list-actions">
+                @if (Model.PageItem is not null)
+                {
+                    <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#newVersionModal">
+                        <i class="bi bi-upload"></i> Upload version
+                    </button>
+                }
+                @if (Model.Topic is not null)
+                {
+                    <a class="btn btn-secondary btn-sm" asp-page="/Documentation/Topic" asp-route-id="@Model.Topic.Id"><i class="bi bi-arrow-left"></i> Back</a>
+                }
+            </div>
+        </div>
+
+        <form method="get" class="row g-2 mb-3">
+            <div class="col-md-6 col-lg-4">
+                <label for="version-search" class="form-label">Search versions</label>
+                <input id="version-search" name="search" value="@Model.Search" class="form-control" placeholder="Version, entry path, or hash" />
+            </div>
+            <div class="col-auto d-flex align-items-end">
+                <button type="submit" class="btn btn-secondary"><i class="bi bi-search"></i> Search</button>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(Model.Search))
+            {
+                <div class="col-auto d-flex align-items-end">
+                    <a class="btn btn-secondary" asp-page="/Documentation/Page" asp-route-id="@Model.PageItem?.Id">Clear</a>
+                </div>
+            }
+        </form>
+
+        @if (Model.Versions.Count == 0)
+        {
+            <div class="events-empty-state">
+                <i class="bi bi-file-earmark-text"></i>
+                <h3>@(string.IsNullOrWhiteSpace(Model.Search) ? "No versions" : "No matching versions")</h3>
+                <p>@(string.IsNullOrWhiteSpace(Model.Search) ? "Upload a Markdown file or ZIP package to add the first version." : "Try a different version, entry path, or hash.")</p>
+            </div>
+        }
+        else
+        {
+            <div class="events-list compact-contract-list">
+                @foreach (var version in Model.Versions)
+                {
+                    <article class="event-list-card">
+                        <h3 class="event-list-title">@version.VersionNumber</h3>
+                        <p class="event-list-topic">@version.EntryPath</p>
+                        <div class="event-list-meta">
+                            <span>Assets: @version.Assets.Count</span>
+                            <span>Uploaded: @version.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                        </div>
+                        <div class="event-list-actions">
+                            @if (Model.Space is not null && Model.Topic is not null && Model.PageItem is not null)
+                            {
+                                <a class="btn btn-secondary btn-sm" asp-page="/Documentation/View" asp-route-spaceKey="@Model.Space.Key" asp-route-topicKey="@Model.Topic.Key" asp-route-pageKey="@Model.PageItem.Key" asp-route-version="@version.VersionNumber">Browse</a>
+                                <a class="btn btn-secondary btn-sm" href="/docs/@Model.Space.Key/@Model.Topic.Key/@Model.PageItem.Key/@version.VersionNumber/source.md">MD</a>
+                                <a class="btn btn-secondary btn-sm" href="/docs/@Model.Space.Key/@Model.Topic.Key/@Model.PageItem.Key/@version.VersionNumber/package.zip">ZIP</a>
+                            }
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </div>
+</section>
+
+@if (Model.PageItem is not null)
+{
+    <div class="modal fade" id="newVersionModal" tabindex="-1" aria-labelledby="newVersionModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <form method="post" enctype="multipart/form-data" asp-page-handler="UploadVersion" asp-route-id="@Model.PageItem.Id">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="newVersionModalLabel">Upload version for @Model.PageItem.Title</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label asp-for="NewVersion.VersionNumber" class="form-label"></label>
+                                <input asp-for="NewVersion.VersionNumber" class="form-control" placeholder="1.0.0" />
+                                <span asp-validation-for="NewVersion.VersionNumber" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-4">
+                                <label asp-for="NewVersion.EntryPath" class="form-label"></label>
+                                <input asp-for="NewVersion.EntryPath" class="form-control" placeholder="index.md" />
+                            </div>
+                            <div class="col-md-8">
+                                <label asp-for="NewVersion.File" class="form-label"></label>
+                                <input asp-for="NewVersion.File" class="form-control" type="file" accept=".md,.zip,text/markdown,application/zip" />
+                                <span asp-validation-for="NewVersion.File" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-upload"></i> Upload version</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+@if (Model.ShowNewVersionModal)
+{
+    <script>
+        document.addEventListener('DOMContentLoaded', () => bootstrap.Modal.getOrCreateInstance(document.getElementById('newVersionModal')).show());
+    </script>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

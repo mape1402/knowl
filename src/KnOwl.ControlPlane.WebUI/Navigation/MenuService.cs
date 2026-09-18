@@ -30,11 +30,9 @@ public class MenuService : IMenuService
              .Add("Feed Config", "/nuget/config", "gear");
         Items.Add(nuget);
 
-        var guides = new MenuItem { Text = "Guides", Icon = "book" };
-        guides.Add("Architecture", "/guides/architecture", "diagram-3")
-              .Add("Standards", "/guides/standards", "check2-square")
-              .Add("Runbooks", "/guides/runbooks", "play-circle");
-        Items.Add(guides);
+        var documentation = new MenuItem { Text = "Documentation", Icon = "book" };
+        documentation.Add("Spaces", "/documentation", "journal-richtext");
+        Items.Add(documentation);
 
         Items.Add(new MenuItem { Text = "Privacy", Url = "/Privacy", Icon = "shield-check" });
     }

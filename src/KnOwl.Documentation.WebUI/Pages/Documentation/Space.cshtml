@@ -1,0 +1,115 @@
+@page "/documentation/{id:guid}"
+@model KnOwl.Documentation.WebUI.Pages.Documentation.SpaceModel
+@{
+    ViewData["Title"] = Model.Space?.Name ?? "Documentation Space";
+}
+
+<section class="dashboard-section">
+    <div class="platform-card">
+        <div class="platform-card-header">
+            <span>@Model.Space?.Name</span>
+            <div class="event-list-actions">
+                @if (Model.Space is not null)
+                {
+                    <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#newTopicModal">
+                        <i class="bi bi-plus-lg"></i> New topic
+                    </button>
+                }
+                <a class="btn btn-secondary btn-sm" asp-page="/Documentation/Index"><i class="bi bi-arrow-left"></i> Back</a>
+            </div>
+        </div>
+
+        <form method="get" class="row g-2 mb-3">
+            <div class="col-md-6 col-lg-4">
+                <label for="topic-search" class="form-label">Search topics</label>
+                <input id="topic-search" name="search" value="@Model.Search" class="form-control" placeholder="Name, key, or description" />
+            </div>
+            <div class="col-auto d-flex align-items-end">
+                <button type="submit" class="btn btn-secondary"><i class="bi bi-search"></i> Search</button>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(Model.Search))
+            {
+                <div class="col-auto d-flex align-items-end">
+                    <a class="btn btn-secondary" asp-page="/Documentation/Space" asp-route-id="@Model.Space?.Id">Clear</a>
+                </div>
+            }
+        </form>
+
+        @if (Model.Topics.Count == 0)
+        {
+            <div class="events-empty-state">
+                <i class="bi bi-journal-text"></i>
+                <h3>@(string.IsNullOrWhiteSpace(Model.Search) ? "No topics" : "No matching topics")</h3>
+                <p>@(string.IsNullOrWhiteSpace(Model.Search) ? "Create a topic for this documentation space." : "Try a different name, key, or description.")</p>
+            </div>
+        }
+        else
+        {
+            <div class="events-list compact-contract-list">
+                @foreach (var topic in Model.Topics)
+                {
+                    <article class="event-list-card">
+                        <h3 class="event-list-title">@topic.Name</h3>
+                        <p class="event-list-topic">@topic.Key</p>
+                        <div class="event-list-meta">
+                            <span>@(topic.IsActive ? "Active" : "Inactive")</span>
+                        </div>
+                        <div class="event-list-actions">
+                            <a class="btn btn-secondary btn-sm" asp-page="/Documentation/Topic" asp-route-id="@topic.Id">Open</a>
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </div>
+</section>
+
+@if (Model.Space is not null)
+{
+    <div class="modal fade" id="newTopicModal" tabindex="-1" aria-labelledby="newTopicModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <form method="post" asp-page-handler="CreateTopic" asp-route-id="@Model.Space.Id">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="newTopicModalLabel">New topic for @Model.Space.Name</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label asp-for="NewTopic.Key" class="form-label"></label>
+                                <input asp-for="NewTopic.Key" class="form-control" maxlength="120" />
+                                <span asp-validation-for="NewTopic.Key" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-4">
+                                <label asp-for="NewTopic.Name" class="form-label"></label>
+                                <input asp-for="NewTopic.Name" class="form-control" maxlength="200" />
+                                <span asp-validation-for="NewTopic.Name" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-12">
+                                <label asp-for="NewTopic.Description" class="form-label"></label>
+                                <textarea asp-for="NewTopic.Description" class="form-control" maxlength="1000" rows="3"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save topic</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+@if (Model.ShowNewTopicModal)
+{
+    <script>
+        document.addEventListener('DOMContentLoaded', () => bootstrap.Modal.getOrCreateInstance(document.getElementById('newTopicModal')).show());
+    </script>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

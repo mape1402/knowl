@@ -1,0 +1,95 @@
+@page "/documentation/topics/{id:guid}"
+@model KnOwl.Documentation.WebUI.Pages.Documentation.TopicModel
+@{
+    ViewData["Title"] = Model.Topic?.Name ?? "Documentation Topic";
+}
+
+<section class="dashboard-section">
+    <div class="platform-card">
+        <div class="platform-card-header">
+            <span>@Model.Topic?.Name</span>
+            <div class="event-list-actions">
+                @if (Model.Topic is not null)
+                {
+                    <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#newPageModal">
+                        <i class="bi bi-plus-lg"></i> New page
+                    </button>
+                }
+                @if (Model.Space is not null)
+                {
+                    <a class="btn btn-secondary btn-sm" asp-page="/Documentation/Space" asp-route-id="@Model.Space.Id"><i class="bi bi-arrow-left"></i> Back</a>
+                }
+            </div>
+        </div>
+
+        <div class="events-list compact-contract-list">
+            @foreach (var docPage in Model.Pages)
+            {
+                <article class="event-list-card">
+                    <h3 class="event-list-title">@docPage.Title</h3>
+                    <p class="event-list-topic">@docPage.Key</p>
+                    <div class="event-list-meta">
+                        <span>@(docPage.IsActive ? "Active" : "Inactive")</span>
+                    </div>
+                    <div class="event-list-actions">
+                        <a class="btn btn-secondary btn-sm" asp-page="/Documentation/Page" asp-route-id="@docPage.Id">Versions</a>
+                        @if (Model.Space is not null && Model.Topic is not null)
+                        {
+                            <a class="btn btn-secondary btn-sm" asp-page="/Documentation/View" asp-route-spaceKey="@Model.Space.Key" asp-route-topicKey="@Model.Topic.Key" asp-route-pageKey="@docPage.Key">Browse</a>
+                        }
+                    </div>
+                </article>
+            }
+        </div>
+    </div>
+</section>
+
+@if (Model.Topic is not null)
+{
+    <div class="modal fade" id="newPageModal" tabindex="-1" aria-labelledby="newPageModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <form method="post" asp-page-handler="CreatePage" asp-route-id="@Model.Topic.Id">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="newPageModalLabel">New page for @Model.Topic.Name</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label asp-for="NewPage.Key" class="form-label"></label>
+                                <input asp-for="NewPage.Key" class="form-control" maxlength="120" />
+                                <span asp-validation-for="NewPage.Key" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-4">
+                                <label asp-for="NewPage.Title" class="form-label"></label>
+                                <input asp-for="NewPage.Title" class="form-control" maxlength="200" />
+                                <span asp-validation-for="NewPage.Title" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-12">
+                                <label asp-for="NewPage.Description" class="form-label"></label>
+                                <textarea asp-for="NewPage.Description" class="form-control" maxlength="1000" rows="3"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save page</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+@if (Model.ShowNewPageModal)
+{
+    <script>
+        document.addEventListener('DOMContentLoaded', () => bootstrap.Modal.getOrCreateInstance(document.getElementById('newPageModal')).show());
+    </script>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
