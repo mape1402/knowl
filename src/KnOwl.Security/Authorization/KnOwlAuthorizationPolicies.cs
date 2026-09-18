@@ -25,4 +25,8 @@ public static class KnOwlAuthorizationPolicies
     public const string RuntimeConnectionsManage = "KnOwl.RuntimeConnections.Manage";
     public const string RuntimeArtifactsRead = "KnOwl.RuntimeArtifacts.Read";
     public const string RuntimeArtifactsApply = "KnOwl.RuntimeArtifacts.Apply";
+    public const string DocumentationRead = "KnOwl.Documentation.Read";
+    public const string DocumentationWrite = "KnOwl.Documentation.Write";
+    public const string DocumentationPublish = "KnOwl.Documentation.Publish";
+    public const string DocumentationDownload = "KnOwl.Documentation.Download";
 }

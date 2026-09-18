@@ -26,6 +26,10 @@
     <ProjectReference Include="..\..\src\KnOwl.ControlPlane.Bootstrap\KnOwl.ControlPlane.Bootstrap.csproj" />
     <ProjectReference Include="..\..\src\KnOwl.ControlPlane.Storage.EntityFramework\KnOwl.ControlPlane.Storage.EntityFramework.csproj" />
     <ProjectReference Include="..\..\src\KnOwl.ControlPlane.WebUI\KnOwl.ControlPlane.WebUI.csproj" />
+    <ProjectReference Include="..\..\src\KnOwl.Documentation\KnOwl.Documentation.csproj" />
+    <ProjectReference Include="..\..\src\KnOwl.Documentation.Api\KnOwl.Documentation.Api.csproj" />
+    <ProjectReference Include="..\..\src\KnOwl.Documentation.Application\KnOwl.Documentation.Application.csproj" />
+    <ProjectReference Include="..\..\src\KnOwl.Documentation.Storage.EntityFramework\KnOwl.Documentation.Storage.EntityFramework.csproj" />
     <ProjectReference Include="..\..\src\KnOwl.Runtime\KnOwl.Runtime.csproj" />
     <ProjectReference Include="..\..\src\KnOwl.Runtime.Api\KnOwl.Runtime.Api.csproj" />
     <ProjectReference Include="..\..\src\KnOwl.Runtime.Application\KnOwl.Runtime.Application.csproj" />

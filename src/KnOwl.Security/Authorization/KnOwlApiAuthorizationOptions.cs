@@ -26,4 +26,8 @@ public sealed class KnOwlApiAuthorizationOptions
     public string? RuntimeConnectionsManagePolicy { get; set; }
     public string? RuntimeArtifactsReadPolicy { get; set; }
     public string? RuntimeArtifactsApplyPolicy { get; set; }
+    public string? DocumentationReadPolicy { get; set; }
+    public string? DocumentationWritePolicy { get; set; }
+    public string? DocumentationPublishPolicy { get; set; }
+    public string? DocumentationDownloadPolicy { get; set; }
 }

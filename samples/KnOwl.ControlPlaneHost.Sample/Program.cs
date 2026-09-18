@@ -1,10 +1,14 @@
 using KnOwl.ControlPlane.Bootstrap;
+using KnOwl.ControlPlaneHost.Sample.Documentation;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 var migrationsAssembly = typeof(Program).Assembly.GetName().Name!;
-var connectionString = builder.Configuration.GetConnectionString("KnOwlDb")
-    ?? throw new InvalidOperationException("ConnectionStrings:KnOwlDb is required.");
+var connectionString = builder.Configuration.GetConnectionString("KnOwlDb");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException("ConnectionStrings:KnOwlDb is required.");
+}
 
 builder.Services.AddKnOwlControlPlane(builder.Configuration, options =>
 {
@@ -15,6 +19,8 @@ builder.Services.AddKnOwlControlPlane(builder.Configuration, options =>
 });
 
 var app = builder.Build();
+
+await SampleDocumentationSeeder.Initialize(app);
 
 app.MapKnOwlControlPlane();
 

@@ -1,0 +1,44 @@
+@page "/documentation/view/{spaceKey}/{topicKey}/{pageKey}/{version?}"
+@model KnOwl.Documentation.WebUI.Pages.Documentation.ViewModel
+@{
+    ViewData["Title"] = Model.PageTitle;
+}
+
+<section class="dashboard-section">
+    <div class="platform-card">
+        <div class="platform-card-header">
+            <span>@Model.PageTitle</span>
+            <div class="event-list-actions">
+                @if (Model.Rendered is not null)
+                {
+                    <a class="btn btn-secondary btn-sm" href="/docs/@Model.SpaceKey/@Model.TopicKey/@Model.PageKey/@Model.Rendered.Version.VersionNumber/source.md">MD</a>
+                    <a class="btn btn-secondary btn-sm" href="/docs/@Model.SpaceKey/@Model.TopicKey/@Model.PageKey/@Model.Rendered.Version.VersionNumber/package.zip">ZIP</a>
+                    <a class="btn btn-secondary btn-sm" asp-page="/Documentation/Page" asp-route-id="@Model.Rendered.Version.PageId">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </a>
+                }
+                else
+                {
+                    <a class="btn btn-secondary btn-sm" asp-page="/Documentation/Index">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </a>
+                }
+            </div>
+        </div>
+
+        @if (Model.Rendered is null)
+        {
+            <div class="events-empty-state">
+                <i class="bi bi-file-earmark-x"></i>
+                <h3>Documentation not found</h3>
+                <p>No published version is available for this page.</p>
+            </div>
+        }
+        else
+        {
+            <article class="documentation-reader">
+                @Html.Raw(Model.Rendered.Html)
+            </article>
+        }
+    </div>
+</section>

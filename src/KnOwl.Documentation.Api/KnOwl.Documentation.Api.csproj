@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\KnOwl.Documentation.Application\KnOwl.Documentation.Application.csproj" />
+    <ProjectReference Include="..\KnOwl.Security\KnOwl.Security.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>KnOwl.Documentation.Api</PackageId>
+    <Title>KnOwl Documentation API</Title>
+    <Description>Reusable Minimal API endpoints for KnOwl documentation administration and browsing.</Description>
+  </PropertyGroup>
+
+</Project>

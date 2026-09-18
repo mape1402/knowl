@@ -7,6 +7,10 @@ using KnOwl.ControlPlane.Bootstrap.Distribution;
 using KnOwl.ControlPlane.Storage.EntityFramework;
 using KnOwl.ControlPlane.Storage.EntityFramework.Distribution;
 using KnOwl.ControlPlane.WebUI;
+using KnOwl.Documentation.Api;
+using KnOwl.Documentation.Application;
+using KnOwl.Documentation.Storage.EntityFramework;
+using KnOwl.Documentation.WebUI;
 using KnOwl.Security;
 using KnOwl.Security.Storage.EntityFramework;
 using Microsoft.AspNetCore.Authentication;
@@ -37,6 +41,7 @@ public static class KnOwlControlPlaneBootstrapExtensions
 
         services.AddRazorPages();
         services.AddKnOwlControlPlaneWebUI();
+        services.AddKnOwlDocumentationWebUI();
         services.AddHealthChecks();
         services.AddKnOwlSecurity(securityOptions =>
         {
@@ -52,9 +57,12 @@ public static class KnOwlControlPlaneBootstrapExtensions
         });
         services.AddKnOwlControlPlaneApplication();
         services.AddKnOwlControlPlaneDistributionApplication();
+        services.AddKnOwlDocumentationApplication();
 
         services.AddKnOwlControlPlaneStorageEntityFramework(options.ConfigureStorage ?? ThrowMissingStorageConfiguration("Control Plane"));
         services.AddKnOwlControlPlaneDistributionStorageEntityFramework();
+        services.AddKnOwlDocumentationStorageEntityFramework(
+            options.ConfigureDocumentationStorage ?? options.ConfigureStorage ?? ThrowMissingStorageConfiguration("Control Plane documentation"));
         services.AddKnOwlSecurityStorageEntityFramework(
             options.ConfigureSecurityStorage ?? options.ConfigureStorage ?? ThrowMissingStorageConfiguration("Control Plane security"));
 
@@ -93,6 +101,7 @@ public static class KnOwlControlPlaneBootstrapExtensions
         app.MapKnOwlControlPlaneApi(options.Authorization);
         app.MapKnOwlControlPlaneContractCatalogEndpoints();
         app.MapKnOwlArtifactDeliveryEndpoints();
+        app.MapKnOwlDocumentationApi(options.Authorization);
         app.MapRazorPages().WithStaticAssets();
 
         return app;

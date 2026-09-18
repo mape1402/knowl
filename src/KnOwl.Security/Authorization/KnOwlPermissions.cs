@@ -64,4 +64,16 @@ public static class KnOwlPermissions
 
     /// <summary>Allows applying pending runtime artifacts.</summary>
     public const string RuntimeArtifactsApply = "knowl.runtime-artifacts.apply";
+
+    /// <summary>Allows reading published documentation.</summary>
+    public const string DocumentationRead = "knowl.documentation.read";
+
+    /// <summary>Allows creating and updating documentation drafts.</summary>
+    public const string DocumentationWrite = "knowl.documentation.write";
+
+    /// <summary>Allows publishing and archiving documentation versions.</summary>
+    public const string DocumentationPublish = "knowl.documentation.publish";
+
+    /// <summary>Allows downloading documentation source and generated files.</summary>
+    public const string DocumentationDownload = "knowl.documentation.download";
 }
