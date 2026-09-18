@@ -13,6 +13,7 @@ builder.Services.AddKnOwlRuntime(builder.Configuration, options =>
 {
     options.MigrationsAssembly = migrationsAssembly;
     options.Theme.Title = "Sample KnOwl";
+    options.Theme.Mode = KnOwl.Runtime.WebUI.KnOwlThemeMode.Dark;
     options.Theme.Subtitle = "Contract storage";
     options.Theme.IconImageUrl = "/_content/KnOwl.Runtime.WebUI/img/knowl-icon.png";
     options.Theme.PrimaryColor = "#2563eb";
@@ -20,9 +21,6 @@ builder.Services.AddKnOwlRuntime(builder.Configuration, options =>
     options.Theme.SidebarBackgroundColor = "#0f2f5f";
     options.Theme.SidebarTextColor = "#ffffff";
     options.Theme.SidebarMutedTextColor = "#bfdbfe";
-    options.Theme.ContentBackgroundColor = "#f5f9ff";
-    options.Theme.SurfaceColor = "#ffffff";
-    options.Theme.TextColor = "#102033";
     options.ConfigureStorage = db => db.UseSqlServer(
         connectionString,
         sql => sql.MigrationsAssembly(migrationsAssembly));

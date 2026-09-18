@@ -36,6 +36,7 @@ public static class KnOwlRuntimeBootstrapExtensions
         services.AddKnOwlRuntimeWebUI(theme =>
         {
             theme.Title = options.Theme.Title;
+            theme.Mode = options.Theme.Mode;
             theme.Subtitle = options.Theme.Subtitle;
             theme.IconCssClass = options.Theme.IconCssClass;
             theme.IconImageUrl = options.Theme.IconImageUrl;

@@ -11,7 +11,7 @@
     var overviewActive = !artifactsActive && !controlPlanesActive;
 }
 <!DOCTYPE html>
-<html lang="en" style="@theme.ToCssVariables()">
+<html lang="en" data-bs-theme="@theme.CssMode" data-knowl-theme="@theme.CssMode" style="@theme.ToCssVariables() color-scheme: var(--knowl-color-scheme);">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -54,7 +54,13 @@
                     <span class="eyebrow">Runtime host</span>
                     <h1>@pageTitle</h1>
                 </div>
-                <a class="status-pill" href="/health">Health</a>
+                <div class="runtime-topbar-actions">
+                    <button id="theme-toggle" class="theme-toggle-btn" type="button" aria-label="Switch color mode" title="Switch color mode">
+                        <i class="bi bi-moon-stars"></i>
+                        <span>Dark</span>
+                    </button>
+                    <a class="status-pill" href="/health">Health</a>
+                </div>
             </header>
             <main class="runtime-content">
                 @RenderBody()

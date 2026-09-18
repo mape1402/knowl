@@ -7,10 +7,47 @@ namespace KnOwl.ControlPlane.WebUI;
 /// </summary>
 public sealed partial class KnOwlControlPlaneThemeOptions
 {
+    private const string LightPrimaryColor = "#7c3aed";
+    private const string LightPrimaryHoverColor = "#6d28d9";
+    private const string LightSidebarBackgroundColor = "#4c1d95";
+    private const string LightSidebarBrandBackgroundColor = "#3b0764";
+    private const string LightSidebarTextColor = "#ffffff";
+    private const string LightSidebarMutedTextColor = "#ddd6fe";
+    private const string LightContentBackgroundColor = "#f8f7ff";
+    private const string LightSurfaceColor = "#ffffff";
+    private const string LightTextColor = "#1f1433";
+    private const string LightMutedTextColor = "#6b6e8c";
+    private const string LightBorderColor = "#e2e3ef";
+    private const string LightSubtleBackgroundColor = "#f4f4fb";
+    private const string LightCodeBackgroundColor = "#141428";
+    private const string LightCodeTextColor = "#e9ebff";
+    private const string LightShadowColor = "rgba(26, 26, 46, 0.12)";
+
+    private const string DarkPrimaryColor = "#8b5cf6";
+    private const string DarkPrimaryHoverColor = "#a78bfa";
+    private const string DarkSidebarBackgroundColor = "#111827";
+    private const string DarkSidebarBrandBackgroundColor = "#0b1120";
+    private const string DarkSidebarTextColor = "#f8fafc";
+    private const string DarkSidebarMutedTextColor = "#c4b5fd";
+    private const string DarkContentBackgroundColor = "#0f172a";
+    private const string DarkSurfaceColor = "#1e293b";
+    private const string DarkTextColor = "#e5e7eb";
+    private const string DarkMutedTextColor = "#94a3b8";
+    private const string DarkBorderColor = "#334155";
+    private const string DarkSubtleBackgroundColor = "#172033";
+    private const string DarkCodeBackgroundColor = "#020617";
+    private const string DarkCodeTextColor = "#dbeafe";
+    private const string DarkShadowColor = "rgba(2, 6, 23, 0.48)";
+
     /// <summary>
     /// Gets or sets the product title rendered in the sidebar brand and browser title.
     /// </summary>
     public string Title { get; set; } = "KnOwl";
+
+    /// <summary>
+    /// Gets or sets the configured color mode.
+    /// </summary>
+    public KnOwlThemeMode Mode { get; set; } = KnOwlThemeMode.Light;
 
     /// <summary>
     /// Gets or sets the Bootstrap Icons class used for the sidebar brand icon when <see cref="IconImageUrl"/> is not set.
@@ -25,71 +62,99 @@ public sealed partial class KnOwlControlPlaneThemeOptions
     /// <summary>
     /// Gets or sets the primary accent color used by buttons, links, and active states.
     /// </summary>
-    public string PrimaryColor { get; set; } = "#7c3aed";
+    public string PrimaryColor { get; set; } = LightPrimaryColor;
 
     /// <summary>
     /// Gets or sets the primary accent hover color.
     /// </summary>
-    public string PrimaryHoverColor { get; set; } = "#6d28d9";
+    public string PrimaryHoverColor { get; set; } = LightPrimaryHoverColor;
 
     /// <summary>
     /// Gets or sets the sidebar background color.
     /// </summary>
-    public string SidebarBackgroundColor { get; set; } = "#4c1d95";
+    public string SidebarBackgroundColor { get; set; } = LightSidebarBackgroundColor;
 
     /// <summary>
     /// Gets or sets the sidebar brand background color.
     /// </summary>
-    public string SidebarBrandBackgroundColor { get; set; } = "#3b0764";
+    public string SidebarBrandBackgroundColor { get; set; } = LightSidebarBrandBackgroundColor;
 
     /// <summary>
     /// Gets or sets the sidebar text color.
     /// </summary>
-    public string SidebarTextColor { get; set; } = "#ffffff";
+    public string SidebarTextColor { get; set; } = LightSidebarTextColor;
 
     /// <summary>
     /// Gets or sets the sidebar muted text color.
     /// </summary>
-    public string SidebarMutedTextColor { get; set; } = "#ddd6fe";
+    public string SidebarMutedTextColor { get; set; } = LightSidebarMutedTextColor;
 
     /// <summary>
     /// Gets or sets the main content background color.
     /// </summary>
-    public string ContentBackgroundColor { get; set; } = "#f8f7ff";
+    public string ContentBackgroundColor { get; set; } = LightContentBackgroundColor;
 
     /// <summary>
     /// Gets or sets the surface color used by top bars, cards, and forms.
     /// </summary>
-    public string SurfaceColor { get; set; } = "#ffffff";
+    public string SurfaceColor { get; set; } = LightSurfaceColor;
 
     /// <summary>
     /// Gets or sets the main text color.
     /// </summary>
-    public string TextColor { get; set; } = "#1f1433";
+    public string TextColor { get; set; } = LightTextColor;
+
+    /// <summary>
+    /// Gets the CSS color mode value used by Bootstrap and browser form controls.
+    /// </summary>
+    public string CssMode => Mode == KnOwlThemeMode.Dark ? "dark" : "light";
 
     /// <summary>
     /// Gets a CSS variable declaration block for the configured theme.
     /// </summary>
     public string ToCssVariables()
     {
-        var primaryColor = NormalizeColor(PrimaryColor);
-        var primaryHoverColor = NormalizeColor(PrimaryHoverColor);
+        var primaryColor = ResolveColor(PrimaryColor, LightPrimaryColor, DarkPrimaryColor);
+        var primaryHoverColor = ResolveColor(PrimaryHoverColor, LightPrimaryHoverColor, DarkPrimaryHoverColor);
+        var sidebarBackgroundColor = ResolveColor(SidebarBackgroundColor, LightSidebarBackgroundColor, DarkSidebarBackgroundColor);
+        var sidebarBrandBackgroundColor = ResolveColor(SidebarBrandBackgroundColor, LightSidebarBrandBackgroundColor, DarkSidebarBrandBackgroundColor);
+        var sidebarTextColor = ResolveColor(SidebarTextColor, LightSidebarTextColor, DarkSidebarTextColor);
+        var sidebarMutedTextColor = ResolveColor(SidebarMutedTextColor, LightSidebarMutedTextColor, DarkSidebarMutedTextColor);
+        var contentBackgroundColor = ResolveColor(ContentBackgroundColor, LightContentBackgroundColor, DarkContentBackgroundColor);
+        var surfaceColor = ResolveColor(SurfaceColor, LightSurfaceColor, DarkSurfaceColor);
+        var textColor = ResolveColor(TextColor, LightTextColor, DarkTextColor);
+        var mutedTextColor = Mode == KnOwlThemeMode.Dark ? DarkMutedTextColor : LightMutedTextColor;
+        var borderColor = Mode == KnOwlThemeMode.Dark ? DarkBorderColor : LightBorderColor;
+        var subtleBackgroundColor = Mode == KnOwlThemeMode.Dark ? DarkSubtleBackgroundColor : LightSubtleBackgroundColor;
+        var codeBackgroundColor = Mode == KnOwlThemeMode.Dark ? DarkCodeBackgroundColor : LightCodeBackgroundColor;
+        var codeTextColor = Mode == KnOwlThemeMode.Dark ? DarkCodeTextColor : LightCodeTextColor;
+        var shadowColor = Mode == KnOwlThemeMode.Dark ? DarkShadowColor : LightShadowColor;
         var primaryRgb = ToRgb(primaryColor);
         var primaryHoverRgb = ToRgb(primaryHoverColor);
 
         return string.Join(' ', new[]
         {
+            CssVarRaw("--knowl-color-scheme", CssMode),
             CssVar("--knowl-primary", primaryColor),
             CssVar("--knowl-primary-hover", primaryHoverColor),
-            CssVar("--knowl-sidebar-bg", SidebarBackgroundColor),
-            CssVar("--knowl-sidebar-brand-bg", SidebarBrandBackgroundColor),
-            CssVar("--knowl-sidebar-text", SidebarTextColor),
-            CssVar("--knowl-sidebar-muted", SidebarMutedTextColor),
-            CssVar("--knowl-content-bg", ContentBackgroundColor),
-            CssVar("--knowl-surface", SurfaceColor),
-            CssVar("--knowl-text", TextColor),
+            CssVar("--knowl-sidebar-bg", sidebarBackgroundColor),
+            CssVar("--knowl-sidebar-brand-bg", sidebarBrandBackgroundColor),
+            CssVar("--knowl-sidebar-text", sidebarTextColor),
+            CssVar("--knowl-sidebar-muted", sidebarMutedTextColor),
+            CssVar("--knowl-content-bg", contentBackgroundColor),
+            CssVar("--knowl-surface", surfaceColor),
+            CssVar("--knowl-text", textColor),
+            CssVar("--knowl-muted-text", mutedTextColor),
+            CssVar("--knowl-border", borderColor),
+            CssVar("--knowl-subtle-bg", subtleBackgroundColor),
+            CssVar("--knowl-code-bg", codeBackgroundColor),
+            CssVar("--knowl-code-text", codeTextColor),
+            CssVarRaw("--knowl-shadow-color", shadowColor),
             CssVar("--bs-primary", primaryColor),
             CssVarRaw("--bs-primary-rgb", primaryRgb),
+            CssVar("--bs-body-bg", contentBackgroundColor),
+            CssVar("--bs-body-color", textColor),
+            CssVar("--bs-border-color", borderColor),
             CssVar("--bs-link-color", primaryColor),
             CssVarRaw("--bs-link-color-rgb", primaryRgb),
             CssVar("--bs-link-hover-color", primaryHoverColor),
@@ -104,8 +169,22 @@ public sealed partial class KnOwlControlPlaneThemeOptions
     private static string CssVarRaw(string name, string value)
         => $"{name}: {value};";
 
+    private string ResolveColor(string value, string lightDefault, string darkDefault)
+    {
+        var normalized = NormalizeColor(value, lightDefault);
+        if (Mode == KnOwlThemeMode.Dark && string.Equals(normalized, lightDefault, StringComparison.OrdinalIgnoreCase))
+        {
+            return darkDefault;
+        }
+
+        return normalized;
+    }
+
     private static string NormalizeColor(string value)
-        => CssColorRegex().IsMatch(value) ? value : "#7c3aed";
+        => NormalizeColor(value, LightPrimaryColor);
+
+    private static string NormalizeColor(string value, string fallback)
+        => CssColorRegex().IsMatch(value) ? value : fallback;
 
     private static string ToRgb(string color)
     {

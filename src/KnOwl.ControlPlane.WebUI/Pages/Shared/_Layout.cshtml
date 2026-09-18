@@ -8,7 +8,7 @@
     var iconCssClass = string.IsNullOrWhiteSpace(theme.IconCssClass) ? "bi bi-hexagon-fill" : theme.IconCssClass;
 }
 <!DOCTYPE html>
-<html lang="en" style="@theme.ToCssVariables()">
+<html lang="en" data-bs-theme="@theme.CssMode" data-knowl-theme="@theme.CssMode" style="@theme.ToCssVariables() color-scheme: var(--knowl-color-scheme);">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -96,6 +96,12 @@
                         <i class="bi bi-list"></i>
                     </button>
                     <span class="topbar-title">@pageTitle</span>
+                </div>
+                <div class="topbar-actions">
+                    <button id="theme-toggle" class="theme-toggle-btn" type="button" aria-label="Switch color mode" title="Switch color mode">
+                        <i class="bi bi-moon-stars"></i>
+                        <span>Dark</span>
+                    </button>
                 </div>
             </header>
             <main class="content-body">
