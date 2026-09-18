@@ -11,41 +11,48 @@ public sealed class ContractReleaseTargetRepository(KnOwlDbContext db) : IContra
     /// <inheritdoc />
     public async Task<IReadOnlyList<ContractReleaseTarget>> GetByRelease(Guid releaseId, CancellationToken cancellationToken = default)
     {
-        return await db.ContractReleaseTargets
+        var targets = await db.ContractReleaseTargets
             .AsNoTracking()
-            .Include(x => x.RuntimeNode)
-            .Include(x => x.Artifact)
-            .Include(x => x.Attempts)
             .Where(x => x.ReleaseId == releaseId)
-            .OrderBy(x => x.RuntimeNode!.EnvironmentName)
-            .ThenBy(x => x.RuntimeNode!.Name)
-            .ThenBy(x => x.Artifact!.Topic)
             .ToListAsync(cancellationToken);
+
+        await Hydrate(targets, includeArtifact: true, includeRuntimeNode: true, includeAttempts: true, cancellationToken);
+        return targets
+            .OrderBy(x => x.RuntimeNode?.Environment?.Name ?? x.RuntimeNode?.EnvironmentName)
+            .ThenBy(x => x.RuntimeNode?.Name)
+            .ThenBy(x => x.Artifact?.Topic)
+            .ToArray();
     }
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<ContractReleaseTarget>> GetPendingForRuntimeNode(Guid runtimeNodeId, CancellationToken cancellationToken = default)
     {
-        return await db.ContractReleaseTargets
+        var targets = await db.ContractReleaseTargets
             .AsNoTracking()
-            .Include(x => x.Artifact)
-            .Include(x => x.RuntimeNode)
             .Where(x => x.RuntimeNodeId == runtimeNodeId &&
                 (x.Status == ContractReleaseTargetStatus.AvailableForPull || x.Status == ContractReleaseTargetStatus.PushScheduled))
             .OrderBy(x => x.AssignedAtUtc)
             .ToListAsync(cancellationToken);
+
+        await Hydrate(targets, includeArtifact: true, includeRuntimeNode: true, includeAttempts: false, cancellationToken);
+        return targets;
     }
 
     /// <inheritdoc />
     public async Task<ContractReleaseTarget?> GetById(Guid id, bool includeArtifact = false, CancellationToken cancellationToken = default)
     {
-        var query = db.ContractReleaseTargets.AsQueryable();
-        if (includeArtifact)
+        var target = await db.ContractReleaseTargets.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (target is null)
         {
-            query = query.Include(x => x.Artifact).Include(x => x.RuntimeNode);
+            return null;
         }
 
-        return await query.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (includeArtifact)
+        {
+            await Hydrate([target], includeArtifact: true, includeRuntimeNode: true, includeAttempts: false, cancellationToken);
+        }
+
+        return target;
     }
 
     /// <inheritdoc />
@@ -67,5 +74,98 @@ public sealed class ContractReleaseTargetRepository(KnOwlDbContext db) : IContra
     {
         db.ContractReleaseAttempts.Add(attempt);
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task Hydrate(
+        IReadOnlyCollection<ContractReleaseTarget> targets,
+        bool includeArtifact,
+        bool includeRuntimeNode,
+        bool includeAttempts,
+        CancellationToken cancellationToken)
+    {
+        if (targets.Count == 0)
+        {
+            return;
+        }
+
+        if (includeArtifact)
+        {
+            var artifactIds = targets.Select(x => x.ArtifactId).Distinct().ToArray();
+            var artifacts = await db.ContractArtifacts
+                .AsNoTracking()
+                .Where(x => artifactIds.Contains(x.Id))
+                .ToDictionaryAsync(x => x.Id, cancellationToken);
+
+            foreach (var target in targets)
+            {
+                if (artifacts.TryGetValue(target.ArtifactId, out var artifact))
+                {
+                    target.Artifact = artifact;
+                }
+            }
+        }
+
+        if (includeRuntimeNode)
+        {
+            var runtimeNodeIds = targets.Select(x => x.RuntimeNodeId).Distinct().ToArray();
+            var runtimeNodes = await db.RuntimeNodes
+                .AsNoTracking()
+                .Where(x => runtimeNodeIds.Contains(x.Id))
+                .ToDictionaryAsync(x => x.Id, cancellationToken);
+
+            await HydrateRuntimeNodeEnvironments(runtimeNodes.Values, cancellationToken);
+
+            foreach (var target in targets)
+            {
+                if (runtimeNodes.TryGetValue(target.RuntimeNodeId, out var runtimeNode))
+                {
+                    target.RuntimeNode = runtimeNode;
+                }
+            }
+        }
+
+        if (includeAttempts)
+        {
+            var targetIds = targets.Select(x => x.Id).Distinct().ToArray();
+            var attempts = await db.ContractReleaseAttempts
+                .AsNoTracking()
+                .Where(x => targetIds.Contains(x.ReleaseTargetId))
+                .OrderByDescending(x => x.StartedAtUtc)
+                .ToListAsync(cancellationToken);
+            var attemptsByTarget = attempts.ToLookup(x => x.ReleaseTargetId);
+
+            foreach (var target in targets)
+            {
+                target.Attempts = attemptsByTarget[target.Id].ToList();
+            }
+        }
+    }
+
+    private async Task HydrateRuntimeNodeEnvironments(IEnumerable<RuntimeNode> runtimeNodes, CancellationToken cancellationToken)
+    {
+        var nodes = runtimeNodes.ToArray();
+        var environmentIds = nodes
+            .Select(x => x.EnvironmentId)
+            .OfType<Guid>()
+            .Distinct()
+            .ToArray();
+
+        if (environmentIds.Length == 0)
+        {
+            return;
+        }
+
+        var environments = await db.RuntimeEnvironments
+            .AsNoTracking()
+            .Where(x => environmentIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, cancellationToken);
+
+        foreach (var node in nodes)
+        {
+            if (node.EnvironmentId is Guid environmentId && environments.TryGetValue(environmentId, out var environment))
+            {
+                node.Environment = environment;
+            }
+        }
     }
 }
