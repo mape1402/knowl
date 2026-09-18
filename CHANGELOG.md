@@ -1,5 +1,13 @@
 # Changelog
 
+## [v1.0.5]
+
+- Adds host-configurable UI branding for Control Plane and Runtime bootstrap options, including title, sidebar icon, and theme colors.
+- Keeps the default KnOwl Web UI purple and white while allowing hosts to override the theme without modifying library assets.
+- Updates the sample Control Plane and Runtime hosts with blue sample branding and the KnOwl icon.
+- Removes visible environment labels from the reusable Web UI layouts.
+- Aligns sample design-time DbContext factories with the sample databases so EF migrations update the same databases used by the running hosts.
+
 ## [v1.0.4]
 
 - Adds packable `KnOwl.ControlPlane.Api` and `KnOwl.Runtime.Api` libraries for host-agnostic Minimal API exposure.
