@@ -11,34 +11,38 @@ public sealed class ContractFieldMetadataRepository(KnOwlDbContext db) : IContra
     /// <inheritdoc />
     public async Task<IReadOnlyList<ContractFieldMetadataDefinition>> GetAllWithVersions(CancellationToken cancellationToken = default)
     {
-        return await db.ContractFieldMetadataDefinitions
+        var definitions = await db.ContractFieldMetadataDefinitions
             .AsNoTracking()
-            .Include(x => x.Versions)
             .OrderBy(x => x.Name)
             .ToListAsync(cancellationToken);
+
+        await HydrateVersions(definitions, onlyActiveVersions: false, cancellationToken);
+        return definitions;
     }
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<ContractFieldMetadataDefinition>> GetActiveWithVersions(CancellationToken cancellationToken = default)
     {
-        return await db.ContractFieldMetadataDefinitions
+        var definitions = await db.ContractFieldMetadataDefinitions
             .AsNoTracking()
-            .Include(x => x.Versions)
             .Where(x => x.IsActive)
             .OrderBy(x => x.Name)
             .ToListAsync(cancellationToken);
+
+        await HydrateVersions(definitions, onlyActiveVersions: true, cancellationToken);
+        return definitions;
     }
 
     /// <inheritdoc />
     public async Task<ContractFieldMetadataDefinition?> GetById(Guid id, bool includeVersions = false, CancellationToken cancellationToken = default)
     {
-        var query = db.ContractFieldMetadataDefinitions.AsQueryable();
+        var definition = await db.ContractFieldMetadataDefinitions.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (includeVersions)
         {
-            query = query.Include(x => x.Versions);
+            await HydrateVersions([definition], onlyActiveVersions: false, cancellationToken);
         }
 
-        return await query.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        return definition;
     }
 
     /// <inheritdoc />
@@ -111,6 +115,40 @@ public sealed class ContractFieldMetadataRepository(KnOwlDbContext db) : IContra
         if (rows == 0)
         {
             throw new KeyNotFoundException($"Metadata field version '{versionId}' was not found.");
+        }
+    }
+
+    private async Task HydrateVersions(
+        IReadOnlyCollection<ContractFieldMetadataDefinition?> definitions,
+        bool onlyActiveVersions,
+        CancellationToken cancellationToken)
+    {
+        var metadataFields = definitions
+            .Where(x => x is not null)
+            .Cast<ContractFieldMetadataDefinition>()
+            .ToArray();
+        var metadataFieldIds = metadataFields.Select(x => x.Id).ToArray();
+        if (metadataFieldIds.Length == 0)
+        {
+            return;
+        }
+
+        var query = db.ContractFieldMetadataVersions
+            .AsNoTracking()
+            .Where(x => metadataFieldIds.Contains(x.ContractFieldMetadataDefinitionId));
+        if (onlyActiveVersions)
+        {
+            query = query.Where(x => x.IsActive);
+        }
+
+        var versions = await query
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+        var versionsByDefinition = versions.ToLookup(x => x.ContractFieldMetadataDefinitionId);
+
+        foreach (var metadataField in metadataFields)
+        {
+            metadataField.Versions = versionsByDefinition[metadataField.Id].ToList();
         }
     }
 }

@@ -5,11 +5,22 @@
             return;
         }
 
+        syncThemeMode();
         window.ButterMorphHost.openFrame(url, {
             title: title || "ButterMorph",
             width: 1280,
             height: 840
         });
+    }
+
+    function currentThemeMode() {
+        return document.documentElement.dataset.knowlTheme ||
+            document.documentElement.dataset.bsTheme ||
+            "light";
+    }
+
+    function syncThemeMode() {
+        window.ButterMorphHost?.setThemeMode?.(currentThemeMode());
     }
 
     function initializeOpenButtons() {
@@ -155,6 +166,7 @@
     }
 
     document.addEventListener("DOMContentLoaded", function () {
+        syncThemeMode();
         initializeOpenButtons();
         initializePayloadDesigner();
         initializeRedirectMessages();

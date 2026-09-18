@@ -30,6 +30,7 @@
         root.dataset.bsTheme = selected;
         root.dataset.knowlTheme = selected;
         root.style.colorScheme = selected;
+        window.ButterMorphHost?.setThemeMode?.(selected);
 
         if (toggle) {
             const icon = toggle.querySelector('i');
