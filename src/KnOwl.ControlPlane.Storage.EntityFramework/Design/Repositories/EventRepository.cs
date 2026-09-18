@@ -11,23 +11,25 @@ public sealed class EventRepository(KnOwlDbContext db) : IEventRepository
     /// <inheritdoc />
     public async Task<IReadOnlyList<EventDefinition>> GetAllWithVersions(CancellationToken cancellationToken = default)
     {
-        return await db.Events
+        var events = await db.Events
             .AsNoTracking()
-            .Include(x => x.Versions)
             .OrderByDescending(x => x.CreatedAtUtc)
             .ToListAsync(cancellationToken);
+
+        await HydrateVersions(events, cancellationToken);
+        return events;
     }
 
     /// <inheritdoc />
     public async Task<EventDefinition?> GetById(Guid id, bool includeVersions = false, CancellationToken cancellationToken = default)
     {
-        var query = db.Events.AsQueryable();
+        var eventDefinition = await db.Events.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (includeVersions)
         {
-            query = query.Include(x => x.Versions);
+            await HydrateVersions([eventDefinition], cancellationToken);
         }
 
-        return await query.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        return eventDefinition;
     }
 
     /// <inheritdoc />
@@ -39,10 +41,18 @@ public sealed class EventRepository(KnOwlDbContext db) : IEventRepository
     /// <inheritdoc />
     public async Task<EventVersion?> GetVersionById(Guid versionId, CancellationToken cancellationToken = default)
     {
-        return await db.EventVersions
+        var version = await db.EventVersions
             .AsNoTracking()
-            .Include(x => x.EventDefinition)
             .FirstOrDefaultAsync(x => x.Id == versionId, cancellationToken);
+
+        if (version is not null)
+        {
+            version.EventDefinition = await db.Events
+                .AsNoTracking()
+                .FirstAsync(x => x.Id == version.EventDefinitionId, cancellationToken);
+        }
+
+        return version;
     }
 
     /// <inheritdoc />
@@ -133,5 +143,29 @@ public sealed class EventRepository(KnOwlDbContext db) : IEventRepository
         }
     }
 
+    private async Task HydrateVersions(IReadOnlyCollection<EventDefinition?> events, CancellationToken cancellationToken)
+    {
+        var definitions = events
+            .Where(x => x is not null)
+            .Cast<EventDefinition>()
+            .ToArray();
+        var eventIds = definitions.Select(x => x.Id).ToArray();
+        if (eventIds.Length == 0)
+        {
+            return;
+        }
+
+        var versions = await db.EventVersions
+            .AsNoTracking()
+            .Where(x => eventIds.Contains(x.EventDefinitionId))
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+        var versionsByEvent = versions.ToLookup(x => x.EventDefinitionId);
+
+        foreach (var eventDefinition in definitions)
+        {
+            eventDefinition.Versions = versionsByEvent[eventDefinition.Id].ToList();
+        }
+    }
 }
 
