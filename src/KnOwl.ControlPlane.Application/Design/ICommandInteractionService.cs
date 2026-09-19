@@ -18,6 +18,12 @@ public interface ICommandInteractionService
     Task<CommandDefinition?> GetById(Guid id, bool includeVersions = false, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets a command version by identifier.
+    /// </summary>
+    Task<CommandVersion?> GetVersionById(Guid versionId, CancellationToken cancellationToken = default)
+        => Task.FromResult<CommandVersion?>(null);
+
+    /// <summary>
     /// Determines whether the command already contains the requested version number.
     /// </summary>
     Task<bool> VersionExists(Guid commandId, string versionNumber, CancellationToken cancellationToken = default);
@@ -36,6 +42,12 @@ public interface ICommandInteractionService
     /// Adds a new version to an existing command definition.
     /// </summary>
     Task AddVersion(Guid commandId, CommandVersion version, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Updates the request and reply schemas for a draft command version.
+    /// </summary>
+    Task UpdateDraftVersion(Guid versionId, string requestSchemaJson, string? replySchemaJson, string? comment, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Draft command version updates are not supported by this service.");
 
     /// <summary>
     /// Marks a command definition inactive without deleting historical versions.

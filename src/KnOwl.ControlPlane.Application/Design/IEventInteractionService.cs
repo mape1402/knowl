@@ -18,6 +18,12 @@ public interface IEventInteractionService
     Task<EventDefinition?> GetById(Guid id, bool includeVersions = false, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets an event version by identifier.
+    /// </summary>
+    Task<EventVersion?> GetVersionById(Guid versionId, CancellationToken cancellationToken = default)
+        => Task.FromResult<EventVersion?>(null);
+
+    /// <summary>
     /// Determines whether the event already contains the requested version number.
     /// </summary>
     Task<bool> VersionExists(Guid eventId, string versionNumber, CancellationToken cancellationToken = default);
@@ -36,6 +42,12 @@ public interface IEventInteractionService
     /// Adds a new version to an existing event definition.
     /// </summary>
     Task AddVersion(Guid eventId, EventVersion version, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Updates the payload schema for a draft event version.
+    /// </summary>
+    Task UpdateDraftVersion(Guid versionId, string payloadSchemaJson, string? comment, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Draft event version updates are not supported by this service.");
 
     /// <summary>
     /// Marks an event definition inactive without deleting historical versions.

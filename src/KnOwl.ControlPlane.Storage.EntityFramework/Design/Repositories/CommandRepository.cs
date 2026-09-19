@@ -65,18 +65,14 @@ public sealed class CommandRepository(KnOwlDbContext db) : ICommandRepository
     /// <inheritdoc />
     public async Task UpdateDefinition(Guid id, string name, string topic, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
     {
-        var rows = await db.Commands
-            .Where(x => x.Id == id)
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(x => x.Name, name)
-                .SetProperty(x => x.Topic, topic)
-                .SetProperty(x => x.Description, description)
-                .SetProperty(x => x.UpdatedAtUtc, updatedAtUtc), cancellationToken);
+        var entity = await db.Commands.FirstOrDefaultAsync(x => x.Id == id, cancellationToken)
+            ?? throw new KeyNotFoundException($"Command '{id}' was not found.");
 
-        if (rows == 0)
-        {
-            throw new KeyNotFoundException($"Command '{id}' was not found.");
-        }
+        entity.Name = name;
+        entity.Topic = topic;
+        entity.Description = description;
+        entity.UpdatedAtUtc = updatedAtUtc;
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     /// <inheritdoc />
@@ -94,52 +90,74 @@ public sealed class CommandRepository(KnOwlDbContext db) : ICommandRepository
     /// <inheritdoc />
     public async Task UpdateVersionStatus(Guid versionId, ContractVersionStatus status, DateTime changedAtUtc, CancellationToken cancellationToken = default)
     {
-        var query = db.CommandVersions.Where(x => x.Id == versionId);
-        var rows = status switch
-        {
-            ContractVersionStatus.InReview => await query.ExecuteUpdateAsync(setters => setters
-                .SetProperty(x => x.Status, status)
-                .SetProperty(x => x.UpdatedAtUtc, changedAtUtc)
-                .SetProperty(x => x.InReviewAtUtc, changedAtUtc), cancellationToken),
-            ContractVersionStatus.Approved => await query.ExecuteUpdateAsync(setters => setters
-                .SetProperty(x => x.Status, status)
-                .SetProperty(x => x.UpdatedAtUtc, changedAtUtc)
-                .SetProperty(x => x.ApprovedAtUtc, changedAtUtc), cancellationToken),
-            ContractVersionStatus.Deployed => await query.ExecuteUpdateAsync(setters => setters
-                .SetProperty(x => x.Status, status)
-                .SetProperty(x => x.UpdatedAtUtc, changedAtUtc)
-                .SetProperty(x => x.DeployedAtUtc, changedAtUtc), cancellationToken),
-            ContractVersionStatus.Deprecated => await query.ExecuteUpdateAsync(setters => setters
-                .SetProperty(x => x.Status, status)
-                .SetProperty(x => x.UpdatedAtUtc, changedAtUtc)
-                .SetProperty(x => x.DeprecatedAtUtc, changedAtUtc), cancellationToken),
-            ContractVersionStatus.Archived => await query.ExecuteUpdateAsync(setters => setters
-                .SetProperty(x => x.Status, status)
-                .SetProperty(x => x.UpdatedAtUtc, changedAtUtc)
-                .SetProperty(x => x.ArchivedAtUtc, changedAtUtc), cancellationToken),
-            _ => await query.ExecuteUpdateAsync(setters => setters
-                .SetProperty(x => x.Status, status)
-                .SetProperty(x => x.UpdatedAtUtc, changedAtUtc), cancellationToken)
-        };
-
-        if (rows == 0)
+        var version = await db.CommandVersions.FirstOrDefaultAsync(x => x.Id == versionId, cancellationToken);
+        if (version is null)
         {
             throw new KeyNotFoundException($"Command version '{versionId}' was not found.");
         }
+
+        version.Status = status;
+        version.UpdatedAtUtc = changedAtUtc;
+        ApplyVersionStatusTimestamp(version, status, changedAtUtc);
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task UpdateDraftVersion(Guid versionId, string requestSchemaJson, string? replySchemaJson, string? comment, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+    {
+        var version = await db.CommandVersions.FirstOrDefaultAsync(x => x.Id == versionId, cancellationToken);
+        if (version is null)
+        {
+            throw new KeyNotFoundException($"Command version '{versionId}' was not found.");
+        }
+
+        if (version.Status != ContractVersionStatus.Draft)
+        {
+            throw new InvalidOperationException("Only draft command versions can be edited.");
+        }
+
+        version.PayloadSchemaJson = requestSchemaJson;
+        version.ReplyPayloadSchemaJson = string.IsNullOrWhiteSpace(replySchemaJson) ? null : replySchemaJson;
+        version.Comment = comment;
+        version.UpdatedAtUtc = updatedAtUtc;
+
+        var command = await db.Commands.FirstOrDefaultAsync(x => x.Id == version.CommandDefinitionId, cancellationToken)
+            ?? throw new KeyNotFoundException($"Command '{version.CommandDefinitionId}' was not found.");
+        command.UpdatedAtUtc = updatedAtUtc;
+
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     /// <inheritdoc />
     public async Task Delete(Guid id, CancellationToken cancellationToken = default)
     {
-        var rows = await db.Commands
-            .Where(x => x.Id == id)
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(x => x.IsActive, false)
-                .SetProperty(x => x.UpdatedAtUtc, DateTime.UtcNow), cancellationToken);
+        var entity = await db.Commands.FirstOrDefaultAsync(x => x.Id == id, cancellationToken)
+            ?? throw new KeyNotFoundException($"Command '{id}' was not found.");
 
-        if (rows == 0)
+        entity.IsActive = false;
+        entity.UpdatedAtUtc = DateTime.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static void ApplyVersionStatusTimestamp(CommandVersion version, ContractVersionStatus status, DateTime changedAtUtc)
+    {
+        switch (status)
         {
-            throw new KeyNotFoundException($"Command '{id}' was not found.");
+            case ContractVersionStatus.InReview:
+                version.InReviewAtUtc = changedAtUtc;
+                break;
+            case ContractVersionStatus.Approved:
+                version.ApprovedAtUtc = changedAtUtc;
+                break;
+            case ContractVersionStatus.Deployed:
+                version.DeployedAtUtc = changedAtUtc;
+                break;
+            case ContractVersionStatus.Deprecated:
+                version.DeprecatedAtUtc = changedAtUtc;
+                break;
+            case ContractVersionStatus.Archived:
+                version.ArchivedAtUtc = changedAtUtc;
+                break;
         }
     }
 

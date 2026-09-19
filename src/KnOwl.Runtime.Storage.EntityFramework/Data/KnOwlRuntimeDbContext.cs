@@ -9,8 +9,14 @@ namespace KnOwl.Runtime.Storage.EntityFramework.Data;
 /// <summary>
 /// EF Core database context for KnOwl Runtime metadata storage.
 /// </summary>
-public sealed class KnOwlRuntimeDbContext(DbContextOptions<KnOwlRuntimeDbContext> options) : DbContext(options)
+public sealed class KnOwlRuntimeDbContext : DbContext
 {
+    public KnOwlRuntimeDbContext(DbContextOptions<KnOwlRuntimeDbContext> options)
+        : base(options)
+    {
+        DisableAutoTransactionsForMongo();
+    }
+
     /// <summary>
     /// Contract artifacts deployed to this runtime node.
     /// </summary>
@@ -20,6 +26,14 @@ public sealed class KnOwlRuntimeDbContext(DbContextOptions<KnOwlRuntimeDbContext
     /// Control Plane nodes trusted by this runtime node.
     /// </summary>
     public DbSet<RuntimeDesignNode> RuntimeDesignNodes => Set<RuntimeDesignNode>();
+
+    private void DisableAutoTransactionsForMongo()
+    {
+        if (Database.ProviderName?.Contains("MongoDB", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            Database.AutoTransactionBehavior = AutoTransactionBehavior.Never;
+        }
+    }
 
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)

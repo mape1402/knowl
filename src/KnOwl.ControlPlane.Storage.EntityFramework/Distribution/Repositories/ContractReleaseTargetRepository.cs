@@ -58,14 +58,16 @@ public sealed class ContractReleaseTargetRepository(KnOwlDbContext db) : IContra
     /// <inheritdoc />
     public async Task CreateMany(IReadOnlyCollection<ContractReleaseTarget> targets, CancellationToken cancellationToken = default)
     {
-        db.ContractReleaseTargets.AddRange(targets);
+        var rows = targets.Select(CloneForInsert).ToArray();
+        db.ContractReleaseTargets.AddRange(rows);
         await db.SaveChangesAsync(cancellationToken);
     }
 
     /// <inheritdoc />
     public async Task Update(ContractReleaseTarget target, CancellationToken cancellationToken = default)
     {
-        db.ContractReleaseTargets.Update(target);
+        db.ChangeTracker.Clear();
+        db.ContractReleaseTargets.Update(CloneForInsert(target));
         await db.SaveChangesAsync(cancellationToken);
     }
 
@@ -74,6 +76,30 @@ public sealed class ContractReleaseTargetRepository(KnOwlDbContext db) : IContra
     {
         db.ContractReleaseAttempts.Add(attempt);
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static ContractReleaseTarget CloneForInsert(ContractReleaseTarget target)
+    {
+        return new ContractReleaseTarget
+        {
+            Id = target.Id,
+            ReleaseId = target.ReleaseId,
+            ReleaseItemId = target.ReleaseItemId,
+            RuntimeNodeId = target.RuntimeNodeId,
+            ArtifactId = target.ArtifactId,
+            RolloutGroup = target.RolloutGroup,
+            Status = target.Status,
+            ActivationStatus = target.ActivationStatus,
+            AssignedAtUtc = target.AssignedAtUtc,
+            AvailableAtUtc = target.AvailableAtUtc,
+            DeliveredAtUtc = target.DeliveredAtUtc,
+            AcknowledgedAtUtc = target.AcknowledgedAtUtc,
+            ActivatedAtUtc = target.ActivatedAtUtc,
+            FailedAtUtc = target.FailedAtUtc,
+            FailureReason = target.FailureReason,
+            RuntimeVersionApplied = target.RuntimeVersionApplied,
+            CorrelationId = target.CorrelationId
+        };
     }
 
     private async Task Hydrate(

@@ -6,14 +6,28 @@ namespace KnOwl.Documentation.Storage.EntityFramework.Data;
 /// <summary>
 /// EF Core context for KnOwl documentation metadata and database-backed content.
 /// </summary>
-public sealed class KnOwlDocumentationDbContext(DbContextOptions<KnOwlDocumentationDbContext> options) : DbContext(options)
+public sealed class KnOwlDocumentationDbContext : DbContext
 {
+    public KnOwlDocumentationDbContext(DbContextOptions<KnOwlDocumentationDbContext> options)
+        : base(options)
+    {
+        DisableAutoTransactionsForMongo();
+    }
+
     public DbSet<DocumentationSpace> Spaces => Set<DocumentationSpace>();
     public DbSet<DocumentationTopic> Topics => Set<DocumentationTopic>();
     public DbSet<DocumentationPage> Pages => Set<DocumentationPage>();
     public DbSet<DocumentationPageVersion> PageVersions => Set<DocumentationPageVersion>();
     public DbSet<DocumentationAsset> Assets => Set<DocumentationAsset>();
     public DbSet<DocumentationContentBlob> ContentBlobs => Set<DocumentationContentBlob>();
+
+    private void DisableAutoTransactionsForMongo()
+    {
+        if (Database.ProviderName?.Contains("MongoDB", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            Database.AutoTransactionBehavior = AutoTransactionBehavior.Never;
+        }
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

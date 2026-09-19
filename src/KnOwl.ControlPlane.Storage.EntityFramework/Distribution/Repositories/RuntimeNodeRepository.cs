@@ -77,16 +77,12 @@ public sealed class RuntimeNodeRepository(KnOwlDbContext db) : IRuntimeNodeRepos
     /// <inheritdoc />
     public async Task SetIsEnabled(Guid id, bool isEnabled, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
     {
-        var rows = await db.RuntimeNodes
-            .Where(x => x.Id == id)
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(x => x.IsEnabled, isEnabled)
-                .SetProperty(x => x.LastUpdatedAtUtc, updatedAtUtc), cancellationToken);
+        var runtimeNode = await db.RuntimeNodes.FirstOrDefaultAsync(x => x.Id == id, cancellationToken)
+            ?? throw new KeyNotFoundException($"Runtime node '{id}' was not found.");
 
-        if (rows == 0)
-        {
-            throw new KeyNotFoundException($"Runtime node '{id}' was not found.");
-        }
+        runtimeNode.IsEnabled = isEnabled;
+        runtimeNode.LastUpdatedAtUtc = updatedAtUtc;
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     private async Task HydrateEnvironments(IReadOnlyCollection<RuntimeNode> nodes, CancellationToken cancellationToken)

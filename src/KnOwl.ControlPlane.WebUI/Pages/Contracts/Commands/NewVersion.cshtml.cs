@@ -106,7 +106,7 @@ public class NewVersionModel(
         }
 
         var now = DateTime.UtcNow;
-        await commands.AddVersion(CommandId, new CommandVersion
+        var commandVersion = new CommandVersion
         {
             VersionNumber = version,
             PayloadSchemaJson = PayloadSchemaJson,
@@ -114,9 +114,10 @@ public class NewVersionModel(
             Comment = string.IsNullOrWhiteSpace(Input.Comment) ? null : Input.Comment.Trim(),
             CreatedAtUtc = now,
             UpdatedAtUtc = now
-        }, cancellationToken);
+        };
+        await commands.AddVersion(CommandId, commandVersion, cancellationToken);
 
-        return RedirectToPage("/Contracts/Commands/View", new { id = CommandId, version });
+        return RedirectToPage("/Contracts/Commands/Version", new { id = CommandId, versionId = commandVersion.Id });
     }
 
     private async Task LoadCatalogs(CancellationToken cancellationToken)

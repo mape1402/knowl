@@ -1,4 +1,6 @@
 (function () {
+    let activeRedirectUrl = "";
+
     function openDesigner(url, title) {
         if (!window.ButterMorphHost) {
             window.location.href = url;
@@ -32,6 +34,7 @@
             button.addEventListener("click", function () {
                 const url = button.getAttribute("data-buttermorph-url");
                 const title = button.getAttribute("data-buttermorph-title") || "ButterMorph";
+                activeRedirectUrl = button.getAttribute("data-buttermorph-redirect-url") || "";
                 if (url) {
                     openDesigner(url, title);
                 }
@@ -62,6 +65,7 @@
             button.addEventListener("click", function () {
                 const url = button.getAttribute("data-buttermorph-url");
                 const title = button.getAttribute("data-buttermorph-title") || "Schema Designer";
+                activeRedirectUrl = button.getAttribute("data-buttermorph-redirect-url") || "";
                 if (url) {
                     openDesigner(url, title);
                 }
@@ -117,10 +121,10 @@
 
     function initializeRedirectMessages() {
         const redirectNode = document.querySelector("[data-buttermorph-redirect-url]");
-        const redirectUrl = redirectNode ? redirectNode.getAttribute("data-buttermorph-redirect-url") : "";
+        const fallbackRedirectUrl = redirectNode ? redirectNode.getAttribute("data-buttermorph-redirect-url") : "";
         const handlesEventCreate = document.querySelector("[data-buttermorph-event-create]");
         const handlesCommandCreate = document.querySelector("[data-buttermorph-command-create]");
-        if (!redirectUrl && !handlesEventCreate && !handlesCommandCreate) {
+        if (!fallbackRedirectUrl && !handlesEventCreate && !handlesCommandCreate) {
             return;
         }
 
@@ -131,6 +135,7 @@
 
             const type = event.data.type || "";
             const contextKey = event.data.contextKey || "";
+            const redirectUrl = activeRedirectUrl || fallbackRedirectUrl;
             if (type === "ButterMorphPayloadSchemaDesignerSaved" && contextKey.indexOf("event:new:") === 0) {
                 const response = await fetch("/Contracts/ButterMorphDrafts?handler=CreatedEvent&context=" + encodeURIComponent(contextKey), {
                     cache: "no-store"

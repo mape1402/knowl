@@ -2,36 +2,85 @@
 @model KnOwl.ControlPlane.WebUI.Pages.Contracts.ContractReleases.IndexModel
 @{
     ViewData["Title"] = "Releases";
+
+    string ReleaseStatusClass(string status) => status switch
+    {
+        "Completed" => "knowl-status knowl-status-deployed",
+        "Failed" or "Canceled" => "knowl-status knowl-status-archived",
+        "InProgress" => "knowl-status knowl-status-review",
+        "Draft" => "knowl-status knowl-status-draft",
+        _ => "knowl-status"
+    };
+
+    string DistributionLabel(string mode) => mode switch
+    {
+        "Push" => "Control Plane pushes",
+        "Pull" => "Runtime pulls",
+        "Hybrid" => "Both directions",
+        _ => string.IsNullOrWhiteSpace(mode) ? "Unknown mode" : mode
+    };
 }
 
 <section class="dashboard-section">
-    <div class="platform-card">
-        <div class="platform-card-header">
-            <span>Contract Releases</span>
-            <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#releaseModal">New release</button>
+    <div class="release-page-head">
+        <div>
+            <h1>Contract Releases</h1>
+            <p>Bundle one or more deployed contract artifacts and distribute them to runtime nodes.</p>
         </div>
-        @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
-        {
-            <div class="alert alert-info mt-3">@Model.StatusMessage</div>
-        }
-        <div class="table-responsive mt-3">
-            <table class="table align-middle">
-                <thead><tr><th>Release</th><th>Status</th><th>Artifacts</th><th>Created</th><th></th></tr></thead>
-                <tbody>
-                @foreach (var release in Model.Releases)
-                {
-                    <tr>
-                        <td>@release.Name</td>
-                        <td>@release.Status</td>
-                        <td>@release.Items.Count</td>
-                        <td>@release.CreatedAtUtc.ToString("u")</td>
-                        <td><a class="btn btn-secondary btn-sm" asp-page="/Contracts/ContractReleases/View" asp-route-id="@release.Id">View</a></td>
-                    </tr>
-                }
-                </tbody>
-            </table>
-        </div>
+        <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#releaseModal">
+            <i class="bi bi-plus-lg"></i> New release
+        </button>
     </div>
+
+    @await Html.PartialAsync("_StatusMessageBox", Model.StatusMessage)
+
+    @if (Model.ReleaseCards.Count == 0)
+    {
+        <div class="events-empty-state">
+            <i class="bi bi-box-seam"></i>
+            <h3>No releases yet</h3>
+            <p>Deploy an Event or Command version, then create a multi-artifact release.</p>
+            <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#releaseModal">Create release</button>
+        </div>
+    }
+    else
+    {
+        <div class="release-board">
+            @foreach (var release in Model.ReleaseCards)
+            {
+                <article class="release-card" data-open-url="@Url.Page("/Contracts/ContractReleases/View", new { id = release.Id })">
+                    <div class="release-card-main">
+                        <div class="release-card-head">
+                            <div>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <span class="@ReleaseStatusClass(release.Status)">@release.Status</span>
+                                    <h2>@release.Name</h2>
+                                </div>
+                                <p class="release-card-sub">@release.Id</p>
+                            </div>
+                            <div class="dropdown">
+                                <button class="od-kebab" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Release actions">&#8942;</button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li>
+                                        <a class="dropdown-item" asp-page="/Contracts/ContractReleases/View" asp-route-id="@release.Id">Open details</a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="release-metrics">
+                            <span>@release.ArtifactCount artifacts</span>
+                            <span>@release.TargetCount targets</span>
+                            <span>@release.ActivatedCount promoted</span>
+                            <span>@release.PendingCount pending</span>
+                            <span>@release.FailedCount failed</span>
+                            <span>Created @release.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                        </div>
+                    </div>
+                </article>
+            }
+        </div>
+    }
 </section>
 
 <div class="modal fade" id="releaseModal" tabindex="-1" aria-hidden="true" data-show="@Model.ShowReleaseModal.ToString().ToLowerInvariant()" data-initial-step="@Model.InitialReleaseStep">
@@ -46,59 +95,68 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div asp-validation-summary="All" class="text-danger mb-3"></div>
+                    <div asp-validation-summary="All" class="knowl-message-box knowl-message-danger"></div>
                     <div class="release-step" data-step="1">
-                        <h6>Select artifacts</h6>
-                        @if (Model.Artifacts.Count == 0)
+                        @if (Model.ReleaseOptions.Count == 0)
                         {
-                            <div class="alert alert-light border mb-0">No artifacts are ready yet. Deploy an approved Event or Command version first.</div>
+                            <div class="knowl-message-box mb-0">
+                                <i class="bi bi-info-circle"></i>
+                                <span>No artifacts are ready yet. Deploy an approved Event or Command version first.</span>
+                            </div>
                         }
                         else
                         {
-                        <div class="table-responsive release-picker-table">
-                            <table class="table align-middle">
-                                <thead><tr><th></th><th>Type</th><th>Topic</th><th>Version</th><th>Hash</th></tr></thead>
-                                <tbody>
-                                @foreach (var artifact in Model.Artifacts)
+                            <div class="release-contract-picker">
+                                @foreach (var option in Model.ReleaseOptions)
                                 {
-                                    <tr>
-                                        <td><input type="checkbox" name="Input.ArtifactIds" value="@artifact.Id" checked="@Model.Input.ArtifactIds.Contains(artifact.Id)" /></td>
-                                        <td>@artifact.ArtifactType</td>
-                                        <td>@artifact.Topic</td>
-                                        <td>@artifact.VersionNumber</td>
-                                        <td><code>@artifact.ContentHash</code></td>
-                                    </tr>
+                                    var inputId = $"release_option_{option.Key}";
+                                    var selected = option.ArtifactIds.All(x => Model.Input.ArtifactIds.Contains(x));
+                                    <label class="release-contract-option" for="@inputId">
+                                        <input id="@inputId"
+                                               type="radio"
+                                               name="ReleaseOption"
+                                               value="@option.Key"
+                                               data-artifacts="@string.Join("|", option.ArtifactIds)"
+                                               checked="@selected" />
+                                        <span class="release-contract-option-main">
+                                            <span class="release-contract-title">@option.Name</span>
+                                            <span class="release-contract-meta">@option.ContractType · @option.Topic · @option.VersionNumber</span>
+                                        </span>
+                                        <span class="release-contract-tags">
+                                            @foreach (var artifact in option.Artifacts)
+                                            {
+                                                <span>@artifact.ArtifactType</span>
+                                            }
+                                        </span>
+                                        <span class="release-contract-detail">@option.Details</span>
+                                    </label>
                                 }
-                                </tbody>
-                            </table>
-                        </div>
+                            </div>
+                            <div id="releaseArtifactInputs"></div>
                         }
                     </div>
                     <div class="release-step d-none" data-step="2">
-                        <h6>Select runtime nodes</h6>
                         @if (Model.RuntimeNodes.Count == 0)
                         {
-                            <div class="alert alert-light border mb-0">No active runtime nodes are available. Create or enable a runtime node first.</div>
+                            <div class="knowl-message-box mb-0">
+                                <i class="bi bi-info-circle"></i>
+                                <span>No active runtime nodes are available. Create or enable a runtime node first.</span>
+                            </div>
                         }
                         else
                         {
-                        <div class="table-responsive release-picker-table">
-                            <table class="table align-middle">
-                                <thead><tr><th></th><th>Name</th><th>Code</th><th>Environment</th><th>Mode</th></tr></thead>
-                                <tbody>
-                                @foreach (var node in Model.RuntimeNodes)
+                            <div class="release-picker-grid runtime-picker-grid">
+                                @foreach (var node in Model.RuntimeNodes.OrderBy(x => x.Name))
                                 {
-                                    <tr>
-                                        <td><input type="checkbox" name="Input.RuntimeNodeIds" value="@node.Id" checked="@Model.Input.RuntimeNodeIds.Contains(node.Id)" /></td>
-                                        <td>@node.Name</td>
-                                        <td><code>@node.Code</code></td>
-                                        <td>@(node.Environment?.Name ?? "-")</td>
-                                        <td>@node.DistributionMode</td>
-                                    </tr>
+                                    var inputId = $"node_{node.Id:N}";
+                                    <label class="release-picker-card" for="@inputId">
+                                        <input id="@inputId" type="checkbox" name="Input.RuntimeNodeIds" value="@node.Id" checked="@Model.Input.RuntimeNodeIds.Contains(node.Id)" />
+                                        <span class="release-picker-title">@node.Name</span>
+                                        <span class="release-picker-meta">@node.Code - @DistributionLabel(node.DistributionMode.ToString())</span>
+                                        <span class="release-picker-meta">@(node.Environment?.Name ?? node.EnvironmentName ?? "-")</span>
+                                    </label>
                                 }
-                                </tbody>
-                            </table>
-                        </div>
+                            </div>
                         }
                     </div>
                 </div>
@@ -121,25 +179,44 @@
     const next = document.getElementById('releaseNextStep');
     const back = document.getElementById('releaseBackStep');
     const submit = document.getElementById('releaseSubmit');
-    const artifactChecks = () => Array.from(document.querySelectorAll('[name="Input.ArtifactIds"]'));
+    const artifactOptions = () => Array.from(document.querySelectorAll('[name="ReleaseOption"]'));
     const nodeChecks = () => Array.from(document.querySelectorAll('[name="Input.RuntimeNodeIds"]'));
     const hasChecked = items => items.some(x => x.checked);
+    const syncArtifactInputs = () => {
+        const host = document.getElementById('releaseArtifactInputs');
+        if (!host) return;
+        host.innerHTML = '';
+        const selected = artifactOptions().find(x => x.checked);
+        const ids = (selected?.dataset.artifacts || '').split('|').filter(Boolean);
+        ids.forEach(id => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'Input.ArtifactIds';
+            input.value = id;
+            host.appendChild(input);
+        });
+    };
     const updateActions = () => {
-        if (next) next.disabled = !hasChecked(artifactChecks());
+        syncArtifactInputs();
+        if (next) next.disabled = !hasChecked(artifactOptions());
         if (submit) submit.disabled = !hasChecked(nodeChecks());
+        document.querySelectorAll('.release-picker-card, .release-contract-option').forEach(card => {
+            const input = card.querySelector('input');
+            card.classList.toggle('selected', Boolean(input?.checked));
+        });
     };
     const setStep = value => {
         step = value;
         document.querySelectorAll('.release-step').forEach(x => x.classList.toggle('d-none', x.dataset.step !== String(step)));
         document.querySelectorAll('[data-step-label]').forEach(x => x.classList.toggle('active', x.dataset.stepLabel === String(step)));
-        back.classList.toggle('d-none', step === 1);
-        next.classList.toggle('d-none', step === 2);
-        submit.classList.toggle('d-none', step !== 2);
+        back?.classList.toggle('d-none', step === 1);
+        next?.classList.toggle('d-none', step === 2);
+        submit?.classList.toggle('d-none', step !== 2);
         updateActions();
     };
     next?.addEventListener('click', () => setStep(2));
     back?.addEventListener('click', () => setStep(1));
-    artifactChecks().forEach(x => x.addEventListener('change', updateActions));
+    artifactOptions().forEach(x => x.addEventListener('change', updateActions));
     nodeChecks().forEach(x => x.addEventListener('change', updateActions));
     if (modal?.dataset.show === 'true') {
         bootstrap.Modal.getOrCreateInstance(modal).show();

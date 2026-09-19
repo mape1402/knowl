@@ -5,23 +5,23 @@
     var newEventUrl = $"/buttermorph/payload-schema/designer?context={KnOwl.ControlPlane.WebUI.ButterMorph.KnOwlButterMorphContext.EventNew()}&mode=create&popup=true";
 }
 
-<section class="dashboard-section">
-    <div class="platform-card">
-        <div class="platform-card-header">
-            <span>Registered Events</span>
+<div class="od-page-head">
+    <div>
+        <h1 class="od-page-title">Events</h1>
+        <p class="od-page-subtitle">Global events and their versioned payload schemas.</p>
+    </div>
             <button type="button"
-                    class="btn btn-primary btn-sm"
+            class="btn btn-primary"
                     data-buttermorph-url="@newEventUrl"
                     data-buttermorph-title="New event"
                     data-buttermorph-event-create="true">
                 <i class="bi bi-plus-lg"></i> New event
             </button>
-        </div>
-
-        <p class="event-editor-intro">Global events and their versions.</p>
+</div>
         
         @if (Model.Events.Count == 0)
         {
+            <section class="od-panel">
             <div class="events-empty-state">
                 <i class="bi bi-inbox"></i>
                 <h3>No saved events</h3>
@@ -34,36 +34,53 @@
                     Add event
                 </button>
             </div>
+            </section>
         }
         else
         {
-            <div class="events-list compact-contract-list">
+            <section class="od-list-shell">
+            <div class="od-grid">
                 @foreach (var item in Model.Events)
                 {
-                    <article class="event-list-card">
-                        <h3 class="event-list-title">@item.Name</h3>
-                        <p class="event-list-topic">@(string.IsNullOrWhiteSpace(item.Topic) ? "-" : item.Topic)</p>
-                        <div class="event-list-meta">
-                            <span>Versions: @item.Versions.Count</span>
-                            <span>@(item.IsActive ? "Active" : "Inactive")</span>
-                            <span>Created: @item.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                    <article class="od-item-card"
+                             data-open-url="@Url.Page("/Contracts/Events/View", new { id = item.Id })">
+                        <div class="od-item-top">
+                            <div>
+                                <h2 class="od-item-title">@item.Name</h2>
+                            </div>
+                            <div class="d-flex align-items-start gap-2">
+                                <span class="od-status @(item.IsActive ? "od-status-active" : "od-status-inactive")">@(item.IsActive ? "Active" : "Inactive")</span>
+                                <div class="dropdown">
+                                    <button class="od-kebab" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Event actions">&#8942;</button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li>
+                                            <a class="dropdown-item" asp-page="/Contracts/Events/View" asp-route-id="@item.Id">Open</a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" asp-page="/Contracts/Events/Edit" asp-route-id="@item.Id">Edit</a>
+                                        </li>
+                                        @if (item.IsActive)
+                                        {
+                                            <li><hr class="dropdown-divider" /></li>
+                                            <li>
+                                                <form method="post" asp-page-handler="Delete" asp-route-id="@item.Id" class="od-inline-form" onsubmit="return confirm('Deactivate this event? Existing versions and artifacts will be preserved.');">
+                                                    <button type="submit" class="dropdown-item text-danger">Deactivate</button>
+                                                </form>
+                                            </li>
+                                        }
+                                    </ul>
+                                </div>
+                            </div>
                         </div>
-                        <div class="event-list-actions">
-                            <a class="btn btn-secondary btn-sm" asp-page="/Contracts/Events/View" asp-route-id="@item.Id">View details</a>
-                            <a class="btn btn-secondary btn-sm" asp-page="/Contracts/Events/Edit" asp-route-id="@item.Id">Edit</a>
-                            @if (item.IsActive)
-                            {
-                                <form method="post" asp-page-handler="Delete" asp-route-id="@item.Id" onsubmit="return confirm('Deactivate this event? Existing versions and artifacts will be preserved.');" class="d-inline">
-                                    <button type="submit" class="btn btn-outline-danger btn-sm">Deactivate</button>
-                                </form>
-                            }
+                        <p class="od-item-description">@(string.IsNullOrWhiteSpace(item.Description) ? "No description." : item.Description)</p>
+                        <div class="od-card-footer">
+                            <span class="od-card-date">Created @item.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd")</span>
                         </div>
                     </article>
                 }
             </div>
+            </section>
         }
-    </div>
-</section>
 
 @section Scripts {
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-host.js"></script>

@@ -48,6 +48,12 @@ public interface IEventRepository
     Task UpdateVersionStatus(Guid versionId, ContractVersionStatus status, DateTime changedAtUtc, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Updates the payload schema for a draft event version.
+    /// </summary>
+    Task UpdateDraftVersion(Guid versionId, string payloadSchemaJson, string? comment, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Draft event version updates are not supported by this repository.");
+
+    /// <summary>
     /// Marks an event definition inactive without deleting historical versions.
     /// </summary>
     Task Delete(Guid id, CancellationToken cancellationToken = default);

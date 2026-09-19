@@ -1,4 +1,5 @@
 using KnOwl.ControlPlane.Bootstrap;
+using KnOwl.ControlPlaneHost.Mongo.Sample.Design;
 using KnOwl.ControlPlaneHost.Mongo.Sample.Documentation;
 using Microsoft.EntityFrameworkCore;
 
@@ -37,6 +38,7 @@ builder.Services.AddKnOwlControlPlane(builder.Configuration, options =>
 
 var app = builder.Build();
 
+await SampleDesignSeeder.Initialize(app);
 await SampleDocumentationSeeder.Initialize(app);
 
 app.MapKnOwlControlPlane();

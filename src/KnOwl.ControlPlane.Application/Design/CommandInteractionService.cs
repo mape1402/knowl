@@ -15,6 +15,10 @@ internal sealed class CommandInteractionService(ICommandRepository repository) :
         => repository.GetById(id, includeVersions, cancellationToken);
 
     /// <inheritdoc />
+    public Task<CommandVersion?> GetVersionById(Guid versionId, CancellationToken cancellationToken = default)
+        => repository.GetVersionById(versionId, cancellationToken);
+
+    /// <inheritdoc />
     public Task<bool> VersionExists(Guid commandId, string versionNumber, CancellationToken cancellationToken = default)
         => repository.VersionExists(commandId, versionNumber, cancellationToken);
 
@@ -29,6 +33,20 @@ internal sealed class CommandInteractionService(ICommandRepository repository) :
     /// <inheritdoc />
     public Task AddVersion(Guid commandId, CommandVersion version, CancellationToken cancellationToken = default)
         => repository.AddVersion(commandId, version, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task UpdateDraftVersion(Guid versionId, string requestSchemaJson, string? replySchemaJson, string? comment, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+    {
+        var version = await repository.GetVersionById(versionId, cancellationToken)
+            ?? throw new KeyNotFoundException($"Command version '{versionId}' was not found.");
+
+        if (version.Status != ContractVersionStatus.Draft)
+        {
+            throw new InvalidOperationException("Only draft command versions can be edited.");
+        }
+
+        await repository.UpdateDraftVersion(versionId, requestSchemaJson, replySchemaJson, comment, updatedAtUtc, cancellationToken);
+    }
 
     /// <inheritdoc />
     public Task Delete(Guid id, CancellationToken cancellationToken = default)

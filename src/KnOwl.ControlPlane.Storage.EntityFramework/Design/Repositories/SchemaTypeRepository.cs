@@ -105,19 +105,18 @@ public sealed class SchemaTypeRepository(KnOwlDbContext db) : ISchemaTypeReposit
     /// <inheritdoc />
     public async Task UpdateDefinition(Guid id, string key, string name, string? description, bool isActive, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
     {
-        var rows = await db.SchemaTypes
-            .Where(x => x.Id == id && !x.IsSystem)
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(x => x.Key, key)
-                .SetProperty(x => x.Name, name)
-                .SetProperty(x => x.Description, description)
-                .SetProperty(x => x.IsActive, isActive)
-                .SetProperty(x => x.UpdatedAtUtc, updatedAtUtc), cancellationToken);
-
-        if (rows == 0)
+        var entity = await db.SchemaTypes.FirstOrDefaultAsync(x => x.Id == id && !x.IsSystem, cancellationToken);
+        if (entity is null)
         {
             throw new KeyNotFoundException($"Schema type '{id}' was not found.");
         }
+
+        entity.Key = key;
+        entity.Name = name;
+        entity.Description = description;
+        entity.IsActive = isActive;
+        entity.UpdatedAtUtc = updatedAtUtc;
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     /// <inheritdoc />
@@ -143,17 +142,18 @@ public sealed class SchemaTypeRepository(KnOwlDbContext db) : ISchemaTypeReposit
             throw new KeyNotFoundException($"Schema type version '{versionId}' was not found.");
         }
 
-        var rows = await db.SchemaTypeVersions
-            .Where(x => x.Id == versionId &&
-                        x.SchemaTypeDefinitionId == typeId)
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(x => x.IsActive, isActive)
-                .SetProperty(x => x.UpdatedAtUtc, updatedAtUtc), cancellationToken);
+        var version = await db.SchemaTypeVersions
+            .FirstOrDefaultAsync(x => x.Id == versionId &&
+                                      x.SchemaTypeDefinitionId == typeId, cancellationToken);
 
-        if (rows == 0)
+        if (version is null)
         {
             throw new KeyNotFoundException($"Schema type version '{versionId}' was not found.");
         }
+
+        version.IsActive = isActive;
+        version.UpdatedAtUtc = updatedAtUtc;
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     private async Task HydrateVersions(IReadOnlyCollection<SchemaTypeDefinition?> schemaTypes, CancellationToken cancellationToken)

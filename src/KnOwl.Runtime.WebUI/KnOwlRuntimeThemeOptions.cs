@@ -273,6 +273,7 @@ public sealed partial class KnOwlRuntimeThemeOptions
             CssVar("--knowl-muted-text", mutedTextColor),
             CssVar("--knowl-border", borderColor),
             CssVar("--knowl-subtle-bg", subtleBackgroundColor),
+            CssVar("--knowl-surface-muted", subtleBackgroundColor),
             CssVar("--knowl-code-bg", codeBackgroundColor),
             CssVar("--knowl-code-text", codeTextColor),
             CssVarRaw("--knowl-shadow-color", shadowColor),

@@ -19,6 +19,107 @@
     });
 }());
 
+// ── Clickable cards ───────────────────────────────────────
+(function () {
+    document.querySelectorAll('[data-open-url]').forEach(card => {
+        card.addEventListener('click', event => {
+            if (event.target.closest('a, button, input, textarea, select, label, form, .dropdown, .dropdown-menu')) {
+                return;
+            }
+
+            const url = card.getAttribute('data-open-url');
+            if (url) {
+                window.location.href = url;
+            }
+        });
+    });
+}());
+
+// ── Message boxes ────────────────────────────────────────
+(function () {
+    document.querySelectorAll('[data-message-box]').forEach(box => {
+        const dialog = box.querySelector('.knowl-message-dialog');
+        const previousFocus = document.activeElement;
+
+        const dismiss = () => {
+            box.remove();
+            previousFocus?.focus?.();
+            document.removeEventListener('keydown', onKeyDown);
+        };
+
+        function onKeyDown(event) {
+            if (event.key === 'Escape') {
+                dismiss();
+            }
+        }
+
+        box.querySelectorAll('[data-message-dismiss]').forEach(button => {
+            button.addEventListener('click', dismiss);
+        });
+
+        box.addEventListener('click', event => {
+            if (event.target === box) {
+                dismiss();
+            }
+        });
+
+        document.addEventListener('keydown', onKeyDown);
+        dialog?.focus();
+    });
+}());
+
+// ── Responsive card grids ─────────────────────────────────
+(function () {
+    const parsePixels = (value, fallback) => {
+        const parsed = Number.parseFloat(value);
+        return Number.isFinite(parsed) ? parsed : fallback;
+    };
+
+    const layoutGrid = grid => {
+        const cards = Array.from(grid.children).filter(child => child.classList.contains('od-item-card'));
+        if (cards.length === 0) {
+            return;
+        }
+
+        const styles = window.getComputedStyle(grid);
+        const width = grid.clientWidth;
+        const gap = parsePixels(styles.columnGap, 12);
+        const minWidth = parsePixels(styles.getPropertyValue('--od-card-min-width'), 280);
+        const maxWidth = parsePixels(styles.getPropertyValue('--od-card-max-width'), 320);
+        const preferredWidth = parsePixels(styles.getPropertyValue('--od-card-preferred-width'), 300);
+        const maxColumns = Math.max(1, Math.floor((width + gap) / (minWidth + gap)));
+
+        if (cards.length < maxColumns) {
+            grid.style.setProperty('--od-card-width', `${preferredWidth}px`);
+            grid.style.gridTemplateColumns = `repeat(${cards.length}, minmax(0, var(--od-card-width)))`;
+            return;
+        }
+
+        const columns = maxColumns;
+        const computedWidth = (width - (gap * (columns - 1))) / columns;
+        const cardWidth = Math.min(maxWidth, Math.max(minWidth, computedWidth));
+        grid.style.setProperty('--od-card-width', `${cardWidth}px`);
+        grid.style.gridTemplateColumns = `repeat(${columns}, minmax(0, var(--od-card-width)))`;
+    };
+
+    const grids = document.querySelectorAll('.od-grid');
+    if (grids.length === 0) {
+        return;
+    }
+
+    grids.forEach(layoutGrid);
+
+    if ('ResizeObserver' in window) {
+        const observer = new ResizeObserver(entries => {
+            entries.forEach(entry => layoutGrid(entry.target));
+        });
+        grids.forEach(grid => observer.observe(grid));
+        return;
+    }
+
+    window.addEventListener('resize', () => grids.forEach(layoutGrid));
+}());
+
 // ── Theme toggle ──────────────────────────────────────────
 (function () {
     const STORAGE_KEY = 'knowlThemeMode';

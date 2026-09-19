@@ -1,6 +1,7 @@
 :root {
     --bg: var(--knowl-content-bg, #f8f7ff);
     --panel: var(--knowl-surface, #ffffff);
+    --knowl-surface-muted: var(--knowl-subtle-bg, #f4f4fb);
     --panel-strong: var(--knowl-sidebar-bg, #4c1d95);
     --ink: var(--knowl-text, #1f1433);
     --muted: var(--knowl-muted-text, #69747d);

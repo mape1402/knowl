@@ -12,7 +12,7 @@ public class IndexModel(ISchemaTypeInteractionService schemaTypes) : PageModel
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
         Types = (await schemaTypes.GetAll(cancellationToken))
-            .OrderByDescending(x => x.IsSystem)
+            .OrderBy(x => x.IsSystem)
             .ThenBy(x => x.Name)
             .ToList();
     }

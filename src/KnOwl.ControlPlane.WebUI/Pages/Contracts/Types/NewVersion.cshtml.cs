@@ -76,7 +76,7 @@ public class NewVersionModel(ISchemaTypeInteractionService schemaTypes) : PageMo
         }
 
         var now = DateTime.UtcNow;
-        await schemaTypes.AddVersion(TypeId, new SchemaTypeVersion
+        var schemaTypeVersion = new SchemaTypeVersion
         {
             VersionNumber = Version.VersionNumber.Trim(),
             DefinitionJson = BuildDefinitionJson(entity, Version, arrayItemVersion),
@@ -84,9 +84,10 @@ public class NewVersionModel(ISchemaTypeInteractionService schemaTypes) : PageMo
             IsActive = true,
             CreatedAtUtc = now,
             UpdatedAtUtc = now
-        }, cancellationToken);
+        };
+        await schemaTypes.AddVersion(TypeId, schemaTypeVersion, cancellationToken);
 
-        return RedirectToPage("/Contracts/Types/View", new { id = TypeId, version = Version.VersionNumber.Trim() });
+        return RedirectToPage("/Contracts/Types/Version", new { id = TypeId, versionId = schemaTypeVersion.Id });
     }
 
     private static string BuildDefinitionJson(SchemaTypeDefinition entity, TypeVersionInput version, SchemaTypeVersion? arrayItemVersion)

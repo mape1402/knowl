@@ -11,9 +11,6 @@
         <div class="platform-card-header">
             <span>New command</span>
             <div class="event-list-actions">
-                <button class="btn btn-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#contract-general-data" aria-expanded="true" aria-controls="contract-general-data">
-                    <i class="bi bi-layout-sidebar-inset"></i> Command Data
-                </button>
                 <a class="btn btn-secondary btn-sm" asp-page="/Contracts/Commands/Index">
                     <i class="bi bi-arrow-left"></i> Back
                 </a>
@@ -21,47 +18,17 @@
         </div>
 
         <form id="event-editor-form" method="post">
-            <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+            <div asp-validation-summary="ModelOnly" class="knowl-message-box knowl-message-danger"></div>
             <input asp-for="DraftId" type="hidden" />
             <input asp-for="PayloadSchemaJson" type="hidden" id="payload-schema-json" />
             <input asp-for="ReplyPayloadSchemaJson" type="hidden" id="reply-payload-schema-json" />
 
             <div class="contract-editor-scroll">
-                <div class="collapse show" id="contract-general-data">
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-4">
-                            <label asp-for="Input.Name" class="form-label"></label>
-                            <input asp-for="Input.Name" type="text" class="form-control" maxlength="200" />
-                            <span asp-validation-for="Input.Name" class="text-danger"></span>
-                        </div>
-                        <div class="col-md-4">
-                            <label asp-for="Input.Topic" class="form-label"></label>
-                            <input asp-for="Input.Topic" type="text" class="form-control" maxlength="70" placeholder="inventories.reserve" />
-                            <span asp-validation-for="Input.Topic" class="text-danger"></span>
-                        </div>
-                        <div class="col-md-4">
-                            <label asp-for="Input.Version" class="form-label"></label>
-                            <input asp-for="Input.Version" type="text" class="form-control" maxlength="13" />
-                            <span asp-validation-for="Input.Version" class="text-danger"></span>
-                        </div>
-                        <div class="col-md-6">
-                            <label asp-for="Input.Description" class="form-label"></label>
-                            <input asp-for="Input.Description" type="text" class="form-control" maxlength="1000" />
-                            <span asp-validation-for="Input.Description" class="text-danger"></span>
-                        </div>
-                        <div class="col-md-6">
-                            <label asp-for="Input.Comment" class="form-label"></label>
-                            <input asp-for="Input.Comment" type="text" class="form-control" maxlength="1000" placeholder="Initial version" />
-                            <span asp-validation-for="Input.Comment" class="text-danger"></span>
-                        </div>
-                    </div>
-                </div>
-
                 <div class="event-schema-block">
                     <div class="event-schema-header">
                         <div>
                             <h2 class="section-heading event-schema-title">Command request</h2>
-                            <small class="text-muted" data-buttermorph-payload-status>The request schema is required for the first version.</small>
+                            <small class="text-muted" data-buttermorph-payload-status>Name, topic, description, and version are taken from this schema.</small>
                         </div>
                         <button type="button"
                                 class="btn btn-secondary btn-sm"

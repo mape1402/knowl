@@ -67,19 +67,15 @@ public sealed class ContractFieldMetadataRepository(KnOwlDbContext db) : IContra
     /// <inheritdoc />
     public async Task UpdateDefinition(Guid id, string key, string name, string? description, bool isActive, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
     {
-        var rows = await db.ContractFieldMetadataDefinitions
-            .Where(x => x.Id == id)
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(x => x.Key, key)
-                .SetProperty(x => x.Name, name)
-                .SetProperty(x => x.Description, description)
-                .SetProperty(x => x.IsActive, isActive)
-                .SetProperty(x => x.UpdatedAtUtc, updatedAtUtc), cancellationToken);
+        var entity = await db.ContractFieldMetadataDefinitions.FirstOrDefaultAsync(x => x.Id == id, cancellationToken)
+            ?? throw new KeyNotFoundException($"Metadata field '{id}' was not found.");
 
-        if (rows == 0)
-        {
-            throw new KeyNotFoundException($"Metadata field '{id}' was not found.");
-        }
+        entity.Key = key;
+        entity.Name = name;
+        entity.Description = description;
+        entity.IsActive = isActive;
+        entity.UpdatedAtUtc = updatedAtUtc;
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     /// <inheritdoc />
@@ -106,16 +102,17 @@ public sealed class ContractFieldMetadataRepository(KnOwlDbContext db) : IContra
     /// <inheritdoc />
     public async Task SetVersionActive(Guid metadataFieldId, Guid versionId, bool isActive, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
     {
-        var rows = await db.ContractFieldMetadataVersions
-            .Where(x => x.Id == versionId && x.ContractFieldMetadataDefinitionId == metadataFieldId)
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(x => x.IsActive, isActive)
-                .SetProperty(x => x.UpdatedAtUtc, updatedAtUtc), cancellationToken);
+        var version = await db.ContractFieldMetadataVersions
+            .FirstOrDefaultAsync(x => x.Id == versionId && x.ContractFieldMetadataDefinitionId == metadataFieldId, cancellationToken);
 
-        if (rows == 0)
+        if (version is null)
         {
             throw new KeyNotFoundException($"Metadata field version '{versionId}' was not found.");
         }
+
+        version.IsActive = isActive;
+        version.UpdatedAtUtc = updatedAtUtc;
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     private async Task HydrateVersions(
