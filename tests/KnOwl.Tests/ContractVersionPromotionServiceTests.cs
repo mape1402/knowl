@@ -14,10 +14,22 @@ public sealed class ContractVersionPromotionServiceTests
         var policy = provider.GetRequiredService<IContractVersionTransitionPolicy>();
 
         Assert.True(policy.CanTransition(ContractVersionStatus.Draft, ContractVersionStatus.InReview));
+        Assert.True(policy.CanTransition(ContractVersionStatus.Draft, ContractVersionStatus.Abandoned));
         Assert.True(policy.CanTransition(ContractVersionStatus.InReview, ContractVersionStatus.Approved));
         Assert.True(policy.CanTransition(ContractVersionStatus.Approved, ContractVersionStatus.Deployed));
         Assert.True(policy.CanTransition(ContractVersionStatus.Deployed, ContractVersionStatus.Deprecated));
         Assert.True(policy.CanTransition(ContractVersionStatus.Deprecated, ContractVersionStatus.Archived));
+    }
+
+    [Fact]
+    public void TransitionPolicyKeepsAbandonedTerminal()
+    {
+        using var provider = CreateProvider(new PromotionEventRepository(), new PromotionCommandRepository());
+        var policy = provider.GetRequiredService<IContractVersionTransitionPolicy>();
+
+        Assert.Empty(policy.GetAllowedTargets(ContractVersionStatus.Abandoned));
+        Assert.False(policy.CanTransition(ContractVersionStatus.Abandoned, ContractVersionStatus.Draft));
+        Assert.False(policy.CanTransition(ContractVersionStatus.Abandoned, ContractVersionStatus.InReview));
     }
 
     [Fact]
@@ -35,6 +47,23 @@ public sealed class ContractVersionPromotionServiceTests
         await service.TransitionEventVersion(versionId, ContractVersionStatus.InReview);
 
         Assert.Equal((versionId, ContractVersionStatus.InReview), events.LastStatusUpdate);
+    }
+
+    [Fact]
+    public async Task TransitionEventVersionCanAbandonDraft()
+    {
+        var versionId = Guid.NewGuid();
+        PromotionEventRepository events = new()
+        {
+            Version = new EventVersion { Id = versionId, Status = ContractVersionStatus.Draft }
+        };
+
+        using var provider = CreateProvider(events, new PromotionCommandRepository());
+        var service = provider.GetRequiredService<IContractVersionPromotionService>();
+
+        await service.TransitionEventVersion(versionId, ContractVersionStatus.Abandoned);
+
+        Assert.Equal((versionId, ContractVersionStatus.Abandoned), events.LastStatusUpdate);
     }
 
     [Fact]

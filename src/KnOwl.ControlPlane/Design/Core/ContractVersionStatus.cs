@@ -16,6 +16,11 @@ public enum ContractVersionStatus
     InReview,
 
     /// <summary>
+    /// Draft version was intentionally abandoned and cannot transition further.
+    /// </summary>
+    Abandoned,
+
+    /// <summary>
     /// Version is approved and can be deployed.
     /// </summary>
     Approved,

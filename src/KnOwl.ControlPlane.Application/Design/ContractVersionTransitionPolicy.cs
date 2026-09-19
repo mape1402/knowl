@@ -8,8 +8,9 @@ internal sealed class ContractVersionTransitionPolicy : IContractVersionTransiti
     private static readonly IReadOnlyDictionary<ContractVersionStatus, ContractVersionStatus[]> Transitions =
         new Dictionary<ContractVersionStatus, ContractVersionStatus[]>
         {
-            [ContractVersionStatus.Draft] = [ContractVersionStatus.InReview],
+            [ContractVersionStatus.Draft] = [ContractVersionStatus.InReview, ContractVersionStatus.Abandoned],
             [ContractVersionStatus.InReview] = [ContractVersionStatus.Draft, ContractVersionStatus.Approved],
+            [ContractVersionStatus.Abandoned] = [],
             [ContractVersionStatus.Approved] = [ContractVersionStatus.InReview, ContractVersionStatus.Deployed],
             [ContractVersionStatus.Deployed] = [ContractVersionStatus.Deprecated],
             [ContractVersionStatus.Deprecated] = [ContractVersionStatus.Archived],
