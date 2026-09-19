@@ -46,7 +46,6 @@
             <a class="btn btn-outline-secondary" asp-page="/Contracts/Commands/View" asp-route-id="@Model.Command?.Id">Back</a>
             @if (Model.Command is not null)
             {
-                <a class="btn btn-outline-secondary" asp-page="/Contracts/Commands/NewVersion" asp-route-id="@Model.Command.Id">New version</a>
                 @if (Model.Version?.Status == ContractVersionStatus.Draft)
                 {
                     var editRequestUrl = $"/buttermorph/payload-schema/designer?context={KnOwl.ControlPlane.WebUI.ButterMorph.KnOwlButterMorphContext.EditCommandVersionRequest(Model.Version.Id)}&mode=edit&popup=true";

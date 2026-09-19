@@ -103,12 +103,13 @@ public static class KnOwlButterMorphDefinitionMapper
             var definition = JsonSerializer.Deserialize<CustomFieldDefinition>(NormalizeCustomFieldDefinitionJson(version.DefinitionJson), JsonOptions);
             if (definition is not null)
             {
-                definition.Key = string.IsNullOrWhiteSpace(definition.Key) ? entity.Key : definition.Key;
+                definition.Key = entity.Key;
                 definition.Name = string.IsNullOrWhiteSpace(definition.Name) ? entity.Name : definition.Name;
                 definition.Description = string.IsNullOrWhiteSpace(definition.Description) ? entity.Description ?? string.Empty : definition.Description;
-                definition.Version = string.IsNullOrWhiteSpace(definition.Version) ? version.VersionNumber : definition.Version;
+                definition.Version = version.VersionNumber;
                 definition.VersionComment = string.IsNullOrWhiteSpace(definition.VersionComment) ? version.Comment ?? string.Empty : definition.VersionComment;
                 definition.IsActive = entity.IsActive && definition.IsActive;
+                definition.AppliesTo = NormalizeButterMorphScopes(definition.AppliesTo, definition.IsRequired).ToList();
                 return definition;
             }
         }
@@ -136,7 +137,7 @@ public static class KnOwlButterMorphDefinitionMapper
             DataType = definition.DataType,
             IsRequired = definition.IsRequired,
             Validation = SerializeDictionary(definition.Validation),
-            AppliesToJson = JsonSerializer.Serialize(definition.AppliesTo ?? [], JsonOptions),
+            AppliesToJson = JsonSerializer.Serialize(NormalizeButterMorphScopes(definition.AppliesTo, definition.IsRequired), JsonOptions),
             ChildrenDefinitionJson = SerializeElement(definition.ChildrenDefinition),
             ArrayItemDataType = definition.ArrayItemDataType ?? string.Empty,
             ArrayItemDefinitionJson = SerializeElement(definition.ArrayItemDefinition)
@@ -186,15 +187,7 @@ public static class KnOwlButterMorphDefinitionMapper
     public static IReadOnlyCollection<string> ToButterMorphScopes(string appliesToJson)
     {
         var knowlScopes = ContractFieldMetadataCatalog.ParseAppliesTo(appliesToJson);
-        List<string> scopes = [];
-
-        if (knowlScopes.Contains("events") || knowlScopes.Contains("commands"))
-        {
-            scopes.Add("Schema");
-            scopes.Add("Field");
-        }
-
-        return scopes.Count == 0 ? ["Schema", "Field"] : scopes.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        return NormalizeButterMorphScopes(knowlScopes);
     }
 
     /// <summary>
@@ -255,9 +248,56 @@ public static class KnOwlButterMorphDefinitionMapper
             Version = "1.0.0",
             VersionComment = string.Empty,
             DataType = "string",
-            AppliesTo = ["Field"],
+            AppliesTo = ["Schema"],
             IsActive = entity.IsActive
         };
+    }
+
+    private static IReadOnlyCollection<string> NormalizeButterMorphScopes(IReadOnlyCollection<string>? scopes, bool isRequired = false)
+    {
+        if (scopes is null || scopes.Count == 0)
+        {
+            return ["Schema"];
+        }
+
+        List<string> normalized = [];
+        foreach (var scope in scopes)
+        {
+            if (string.IsNullOrWhiteSpace(scope))
+            {
+                continue;
+            }
+
+            if (string.Equals(scope, "Schema", StringComparison.OrdinalIgnoreCase))
+            {
+                normalized.Add("Schema");
+                continue;
+            }
+
+            if (string.Equals(scope, "Field", StringComparison.OrdinalIgnoreCase))
+            {
+                normalized.Add("Field");
+                continue;
+            }
+
+            if (string.Equals(scope, "events", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(scope, "commands", StringComparison.OrdinalIgnoreCase))
+            {
+                normalized.Add("Schema");
+            }
+        }
+
+        var distinct = normalized.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (isRequired &&
+            distinct.Contains("Schema", StringComparer.OrdinalIgnoreCase) &&
+            distinct.Contains("Field", StringComparer.OrdinalIgnoreCase))
+        {
+            return ["Schema"];
+        }
+
+        return distinct.Count == 0
+            ? ["Schema"]
+            : distinct;
     }
 
     private static string SerializeDictionary(IReadOnlyDictionary<string, JsonElement> value)

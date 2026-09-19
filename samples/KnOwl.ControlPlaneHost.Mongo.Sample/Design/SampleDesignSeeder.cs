@@ -40,9 +40,10 @@ internal static class SampleDesignSeeder
             "Sample PII Classification",
             "Editable custom field used to validate custom field versioning.",
             [
-                CreateMetadataVersion("1.0.0", "Initial classification values.", "string", true, ["Schema", "Field"], "{\"enum\":[\"none\",\"internal\",\"restricted\"]}"),
-                CreateMetadataVersion("1.1.0", "Adds confidential as a supported value.", "string", true, ["Schema", "Field"], "{\"enum\":[\"none\",\"internal\",\"restricted\",\"confidential\"]}")
-            ]);
+                CreateMetadataVersion("1.0.0", "Initial classification values.", "string", true, ["Schema"], "{\"enum\":[\"none\",\"internal\",\"restricted\"]}"),
+                CreateMetadataVersion("1.1.0", "Adds confidential as a supported value.", "string", true, ["Schema"], "{\"enum\":[\"none\",\"internal\",\"restricted\",\"confidential\"]}")
+            ],
+            updateExistingVersions: true);
 
         await EnsureMetadataField(
             metadataFields,
@@ -92,7 +93,8 @@ internal static class SampleDesignSeeder
         string key,
         string name,
         string description,
-        IReadOnlyCollection<ContractFieldMetadataVersion> versions)
+        IReadOnlyCollection<ContractFieldMetadataVersion> versions,
+        bool updateExistingVersions = false)
     {
         var existing = (await metadataFields.GetAll())
             .FirstOrDefault(x => string.Equals(x.Key, key, StringComparison.OrdinalIgnoreCase));
@@ -111,7 +113,7 @@ internal static class SampleDesignSeeder
 
         foreach (var version in versions)
         {
-            if (!await metadataFields.VersionExists(existing.Id, version.VersionNumber))
+            if (updateExistingVersions || !await metadataFields.VersionExists(existing.Id, version.VersionNumber))
             {
                 await metadataFields.UpsertVersion(existing.Id, version);
             }
