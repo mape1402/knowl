@@ -1,6 +1,7 @@
 using System.Text.Json;
 using KnOwl.ControlPlane.Application;
 using KnOwl.ControlPlane.WebUI.ButterMorph;
+using KnOwl.ControlPlane.WebUI.ContractMetadata;
 using KnOwl.ControlPlane.Design.Core;
 using ButterMorph.SchemaDesign;
 using KnOwlSchemaTypeDefinition = KnOwl.ControlPlane.Design.Core.SchemaTypeDefinition;
@@ -106,11 +107,207 @@ public sealed class ButterMorphAdapterTests
     {
         var knowlScopes = KnOwlButterMorphDefinitionMapper.ToKnOwlScopes(["Field"]);
         var butterMorphScopes = KnOwlButterMorphDefinitionMapper.ToButterMorphScopes("[\"events\"]");
+        var schemaOnlyScopes = KnOwlButterMorphDefinitionMapper.ToButterMorphScopes("[\"Schema\"]");
 
         Assert.Contains("events", knowlScopes);
         Assert.Contains("commands", knowlScopes);
         Assert.Contains("Schema", butterMorphScopes);
-        Assert.Contains("Field", butterMorphScopes);
+        Assert.DoesNotContain("Field", butterMorphScopes);
+        Assert.Equal(["Schema"], schemaOnlyScopes);
+    }
+
+    [Fact]
+    public void MapperNormalizesRequiredMetadataCatalogIdentityFromPersistedEntity()
+    {
+        ContractFieldMetadataDefinition entity = new()
+        {
+            Id = Guid.NewGuid(),
+            Key = "sample-pii-classification",
+            Name = "Sample PII Classification",
+            Description = "Governance classification",
+            IsActive = true
+        };
+        ContractFieldMetadataVersion version = new()
+        {
+            VersionNumber = "1.1.0",
+            Comment = "Adds confidential.",
+            IsActive = true,
+            DefinitionJson = """
+                {
+                  "key": "stale-key",
+                  "name": "PII",
+                  "version": "0.1.0",
+                  "versionComment": "",
+                  "dataType": "string",
+                  "appliesTo": ["Schema", "Field"],
+                  "isRequired": true,
+                  "isActive": true,
+                  "validation": { "enum": ["none", "internal", "confidential"] }
+                }
+                """
+        };
+
+        var item = KnOwlButterMorphDefinitionMapper.ToCatalogItem(entity, version);
+
+        Assert.Equal("sample-pii-classification", item.Key);
+        Assert.Equal("1.1.0", item.Version);
+        Assert.True(item.IsRequired);
+        Assert.Equal("[\"Schema\"]", item.AppliesToJson);
+        Assert.DoesNotContain("Field", item.AppliesToJson, StringComparison.Ordinal);
+        Assert.Contains("confidential", item.Validation, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MapperPreservesOptionalDualScopeMetadata()
+    {
+        ContractFieldMetadataDefinition entity = new()
+        {
+            Id = Guid.NewGuid(),
+            Key = "classification",
+            Name = "Classification",
+            IsActive = true
+        };
+        ContractFieldMetadataVersion version = new()
+        {
+            VersionNumber = "1.0.0",
+            IsActive = true,
+            DefinitionJson = """
+                {
+                  "dataType": "string",
+                  "appliesTo": ["Schema", "Field"],
+                  "isRequired": false,
+                  "isActive": true
+                }
+                """
+        };
+
+        var item = KnOwlButterMorphDefinitionMapper.ToCatalogItem(entity, version);
+
+        Assert.Equal("[\"Schema\",\"Field\"]", item.AppliesToJson);
+    }
+
+    [Fact]
+    public void MapperKeepsSchemaOnlyMetadataOutOfFieldRequiredValidation()
+    {
+        ContractFieldMetadataDefinition entity = new()
+        {
+            Id = Guid.NewGuid(),
+            Key = "source-system",
+            Name = "Source System",
+            IsActive = true
+        };
+        ContractFieldMetadataVersion version = new()
+        {
+            VersionNumber = "1.0.0",
+            IsActive = true,
+            DefinitionJson = """
+                {
+                  "dataType": "string",
+                  "appliesTo": ["Schema"],
+                  "isRequired": true,
+                  "isActive": true
+                }
+                """
+        };
+
+        var item = KnOwlButterMorphDefinitionMapper.ToCatalogItem(entity, version);
+
+        Assert.Equal("[\"Schema\"]", item.AppliesToJson);
+        Assert.DoesNotContain("Field", item.AppliesToJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MapperPreservesExplicitFieldMetadataScope()
+    {
+        ContractFieldMetadataDefinition entity = new()
+        {
+            Id = Guid.NewGuid(),
+            Key = "security-classification",
+            Name = "Security Classification",
+            IsActive = true
+        };
+        ContractFieldMetadataVersion version = new()
+        {
+            VersionNumber = "1.0.0",
+            IsActive = true,
+            DefinitionJson = """
+                {
+                  "dataType": "string",
+                  "appliesTo": ["Field"],
+                  "isRequired": false,
+                  "isActive": true
+                }
+                """
+        };
+
+        var item = KnOwlButterMorphDefinitionMapper.ToCatalogItem(entity, version);
+
+        Assert.Equal("[\"Field\"]", item.AppliesToJson);
+    }
+
+    [Fact]
+    public async Task LegacyMetadataCatalogIncludesExplicitFieldScopedCustomFields()
+    {
+        ContractFieldMetadataDefinition entity = new()
+        {
+            Id = Guid.NewGuid(),
+            Key = "sample-pii-classification",
+            Name = "Sample PII Classification",
+            IsActive = true,
+            Versions =
+            [
+                new ContractFieldMetadataVersion
+                {
+                    VersionNumber = "1.0.0",
+                    IsActive = true,
+                    DefinitionJson = """
+                        {
+                          "dataType": "string",
+                          "appliesTo": ["Field"],
+                          "isRequired": true,
+                          "isActive": true
+                        }
+                        """
+                }
+            ]
+        };
+
+        var json = await ContractFieldMetadataCatalog.GetApplicableMetadataJsonAsync(new MetadataInteractionStub([entity]), "events");
+
+        Assert.Contains("sample-pii-classification", json, StringComparison.Ordinal);
+        Assert.Contains("\"isRequired\":true", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task LegacyMetadataCatalogDoesNotTreatSchemaOnlyMetadataAsFieldMetadata()
+    {
+        ContractFieldMetadataDefinition entity = new()
+        {
+            Id = Guid.NewGuid(),
+            Key = "source-system",
+            Name = "Source System",
+            IsActive = true,
+            Versions =
+            [
+                new ContractFieldMetadataVersion
+                {
+                    VersionNumber = "1.0.0",
+                    IsActive = true,
+                    DefinitionJson = """
+                        {
+                          "dataType": "string",
+                          "appliesTo": ["Schema"],
+                          "isRequired": true,
+                          "isActive": true
+                        }
+                        """
+                }
+            ]
+        };
+
+        var json = await ContractFieldMetadataCatalog.GetApplicableMetadataJsonAsync(new MetadataInteractionStub([entity]), "events");
+
+        Assert.DoesNotContain("source-system", json, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -260,6 +457,54 @@ public sealed class ButterMorphAdapterTests
         });
 
         Assert.DoesNotContain(result.MetadataFields, x => x.Key == "topic");
+    }
+
+    [Fact]
+    public async Task PayloadSchemaHostInjectsRequiredCustomFieldsWithNormalizedKeys()
+    {
+        ContractFieldMetadataDefinition entity = new()
+        {
+            Id = Guid.NewGuid(),
+            Key = "sample-pii-classification",
+            Name = "Sample PII Classification",
+            IsActive = true,
+            Versions =
+            [
+                new ContractFieldMetadataVersion
+                {
+                    VersionNumber = "1.1.0",
+                    IsActive = true,
+                    DefinitionJson = """
+                        {
+                          "key": "old-pii-key",
+                          "version": "0.9.0",
+                          "dataType": "string",
+                          "appliesTo": ["events"],
+                          "isRequired": true,
+                          "isActive": true,
+                          "validation": { "enum": ["none", "internal", "confidential"] }
+                        }
+                        """
+                }
+            ]
+        };
+        var host = new KnOwlPayloadSchemaDesignerHost(
+            new EventInteractionStub(),
+            new CommandInteractionStub(),
+            new SchemaTypeInteractionStub(),
+            new MetadataInteractionStub([entity]),
+            new KnOwlButterMorphDraftStore());
+
+        var result = await host.Load(new global::ButterMorph.Web.Razor.ButterMorphPayloadSchemaDesignerLoadRequest
+        {
+            ContextKey = KnOwlButterMorphContext.CommandCreateReplyDraft(Guid.NewGuid())
+        });
+
+        var field = Assert.Single(result.MetadataFields);
+        Assert.Equal("sample-pii-classification", field.Key);
+        Assert.Equal("1.1.0", field.Version);
+        Assert.True(field.IsRequired);
+        Assert.Equal("[\"Schema\"]", field.AppliesToJson);
     }
 
     [Fact]

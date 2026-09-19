@@ -29,7 +29,7 @@ public static class ContractFieldMetadataCatalog
                 x.Entity,
                 Definition = KnOwlButterMorphDefinitionMapper.ToDefinition(x.Entity, x.Version!)
             })
-            .Where(x => x.Definition.AppliesTo.Count == 0 || x.Definition.AppliesTo.Contains(normalizedSection, StringComparer.OrdinalIgnoreCase))
+            .Where(x => AppliesToContractSection(x.Definition.AppliesTo, normalizedSection))
             .Select(x => new SelectableMetadataField(
                 x.Entity.Id,
                 x.Definition.Name,
@@ -61,6 +61,21 @@ public static class ContractFieldMetadataCatalog
         {
             return [];
         }
+    }
+
+    private static bool AppliesToContractSection(IReadOnlyCollection<string> scopes, string normalizedSection)
+    {
+        if (scopes.Count == 0)
+        {
+            return true;
+        }
+
+        if (scopes.Contains(normalizedSection, StringComparer.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return scopes.Contains("Field", StringComparer.OrdinalIgnoreCase);
     }
 
     public sealed record SelectableMetadataField(
