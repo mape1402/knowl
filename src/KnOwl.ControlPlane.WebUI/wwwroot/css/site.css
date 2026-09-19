@@ -548,6 +548,107 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
     color: #fcd34d;
 }
 
+.knowl-toast {
+    align-items: flex-start;
+    background: color-mix(in srgb, var(--knowl-primary, #7c3aed) 7%, var(--knowl-surface, #ffffff));
+    border: 1px solid color-mix(in srgb, var(--knowl-primary, #7c3aed) 42%, var(--knowl-border, #e2e3ef));
+    border-radius: 8px;
+    bottom: 1rem;
+    box-shadow: 0 22px 52px color-mix(in srgb, var(--knowl-shadow-color, rgba(26, 26, 46, 0.24)) 86%, transparent);
+    color: var(--knowl-text, #1f1433);
+    display: flex;
+    gap: 0.75rem;
+    max-width: min(380px, calc(100vw - 2rem));
+    overflow: hidden;
+    padding: 0.9rem 2.65rem 0.9rem 1rem;
+    position: fixed;
+    right: 1rem;
+    width: max-content;
+    z-index: 1095;
+}
+
+.knowl-toast::before {
+    background: var(--knowl-primary, #7c3aed);
+    content: "";
+    inset: 0 auto 0 0;
+    position: absolute;
+    width: 4px;
+}
+
+.knowl-toast-hiding {
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.14s ease, transform 0.14s ease;
+}
+
+.knowl-toast-icon {
+    align-items: center;
+    background: var(--knowl-primary, #7c3aed);
+    border: 1px solid color-mix(in srgb, var(--knowl-primary, #7c3aed) 62%, var(--knowl-border, #e2e3ef));
+    border-radius: 8px;
+    color: #ffffff;
+    display: inline-flex;
+    flex: 0 0 1.9rem;
+    height: 1.9rem;
+    justify-content: center;
+    width: 1.9rem;
+}
+
+.knowl-toast-title {
+    color: var(--knowl-text, #1f1433);
+    font-size: 0.92rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 0.2rem;
+}
+
+.knowl-toast-body {
+    color: color-mix(in srgb, var(--knowl-text, #1f1433) 80%, var(--knowl-muted, #575370));
+    font-size: 0.88rem;
+    line-height: 1.45;
+}
+
+.knowl-toast-close {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    color: var(--knowl-muted, #575370);
+    display: inline-flex;
+    height: 1.8rem;
+    justify-content: center;
+    padding: 0;
+    position: absolute;
+    right: 0.5rem;
+    top: 0.5rem;
+    width: 1.8rem;
+}
+
+.knowl-toast-close:hover {
+    color: var(--knowl-primary, #7c3aed);
+}
+
+[data-knowl-theme="dark"] .knowl-toast {
+    background: color-mix(in srgb, var(--knowl-primary, #60a5fa) 16%, var(--knowl-surface, #111827));
+    border-color: color-mix(in srgb, var(--knowl-primary, #60a5fa) 58%, var(--knowl-border, #334155));
+    box-shadow: 0 24px 56px rgba(0, 0, 0, 0.58);
+}
+
+[data-knowl-theme="dark"] .knowl-toast-title {
+    color: var(--knowl-text, #f8fafc);
+}
+
+[data-knowl-theme="dark"] .knowl-toast-body {
+    color: color-mix(in srgb, var(--knowl-text, #f8fafc) 88%, #ffffff);
+}
+
+[data-knowl-theme="dark"] .knowl-toast-close {
+    color: color-mix(in srgb, var(--knowl-text, #f8fafc) 72%, transparent);
+}
+
+[data-knowl-theme="dark"] .knowl-toast-close:hover {
+    color: var(--knowl-text, #f8fafc);
+}
+
 .knowl-message-overlay {
     align-items: center;
     background: color-mix(in srgb, var(--knowl-shadow-color, rgba(26, 26, 46, 0.22)) 64%, transparent);
@@ -608,9 +709,16 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
 }
 
 .knowl-message-dialog-actions {
+    align-items: center;
     display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
     justify-content: flex-end;
-    margin-top: 1rem;
+    margin-top: 1.25rem;
+}
+
+.knowl-message-dialog-actions .btn {
+    min-width: 6.75rem;
 }
 
 .knowl-message-close {
@@ -632,6 +740,17 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
 .knowl-message-close:hover {
     border-color: color-mix(in srgb, var(--knowl-primary, #7c3aed) 35%, var(--knowl-border, #e2e3ef));
     color: var(--knowl-primary, #7c3aed);
+}
+
+@media (max-width: 420px) {
+    .knowl-message-dialog-actions {
+        align-items: stretch;
+        flex-direction: column-reverse;
+    }
+
+    .knowl-message-dialog-actions .btn {
+        width: 100%;
+    }
 }
 
 .form-floating > .form-control-plaintext::placeholder,
@@ -1838,6 +1957,7 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
     gap: 0.75rem;
     align-items: stretch;
     justify-content: start;
+    overflow: visible;
     width: 100%;
 }
 
@@ -1851,6 +1971,9 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
     gap: 0.62rem;
     transition: border-color 0.14s ease, box-shadow 0.14s ease, transform 0.12s ease;
     min-width: 0;
+    overflow: visible;
+    position: relative;
+    z-index: 0;
 }
 
 .od-item-card[data-open-url] {
@@ -1861,6 +1984,12 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
     border-color: color-mix(in srgb, var(--knowl-primary, #7c3aed) 35%, var(--knowl-border, #e2e3ef));
     box-shadow: 0 10px 22px color-mix(in srgb, #111827 10%, transparent);
     transform: translateY(-2px);
+    z-index: 1;
+}
+
+.od-item-card.od-item-card-menu-open,
+.od-item-card:has(.dropdown-menu.show) {
+    z-index: 30;
 }
 
 .od-item-top,
@@ -1884,6 +2013,8 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
 .od-item-top .dropdown {
     flex: 0 0 auto;
     line-height: 1;
+    position: relative;
+    z-index: 2;
 }
 
 .od-item-title,
@@ -1929,6 +2060,7 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
     color: var(--knowl-text, #1f1433);
     min-width: 12.5rem;
     padding: 0.35rem;
+    z-index: 1100;
 }
 
 .dropdown-item {

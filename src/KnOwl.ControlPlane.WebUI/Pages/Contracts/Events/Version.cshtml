@@ -75,7 +75,13 @@
                         @foreach (var target in Model.AllowedTargets)
                         {
                             <li>
-                                <form method="post" asp-page-handler="Transition" class="od-inline-form">
+                                <form method="post"
+                                      asp-page-handler="Transition"
+                                      class="od-inline-form"
+                                      data-status-transition-form
+                                      data-confirm-title="Confirm status change"
+                                      data-confirm-message="Change version @Model.Version.VersionNumber to @StatusLabel(target)?"
+                                      data-confirm-label="@ActionLabel(target)">
                                     <input type="hidden" name="id" value="@Model.Event.Id" />
                                     <input type="hidden" name="versionId" value="@Model.Version.Id" />
                                     <input type="hidden" name="targetStatus" value="@target" />
