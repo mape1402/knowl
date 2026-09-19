@@ -11,8 +11,14 @@ namespace KnOwl.ControlPlane.Storage.EntityFramework.Design.Data;
 /// <summary>
 /// EF Core database context for KnOwl async contract persistence.
 /// </summary>
-public class KnOwlDbContext(DbContextOptions<KnOwlDbContext> options) : DbContext(options)
+public class KnOwlDbContext : DbContext
 {
+    public KnOwlDbContext(DbContextOptions<KnOwlDbContext> options)
+        : base(options)
+    {
+        DisableAutoTransactionsForMongo();
+    }
+
     /// <summary>
     /// Event definitions persisted by KnOwl.
     /// </summary>
@@ -77,6 +83,14 @@ public class KnOwlDbContext(DbContextOptions<KnOwlDbContext> options) : DbContex
     /// Contract artifacts deployed to runtime storage.
     /// </summary>
     public DbSet<RuntimeContractArtifact> RuntimeContractArtifacts => Set<RuntimeContractArtifact>();
+
+    private void DisableAutoTransactionsForMongo()
+    {
+        if (Database.ProviderName?.Contains("MongoDB", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            Database.AutoTransactionBehavior = AutoTransactionBehavior.Never;
+        }
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

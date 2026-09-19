@@ -39,6 +39,14 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
                 ApplyEventLoadResult(result, entity, latest);
             }
         }
+        else if (KnOwlButterMorphContext.TryReadGuid(request.ContextKey, "event-version:edit:", out var eventVersionId))
+        {
+            var version = await events.GetVersionById(eventVersionId);
+            if (version is not null)
+            {
+                ApplyEventEditLoadResult(result, version);
+            }
+        }
         else if (request.ContextKey.StartsWith("command:new:", StringComparison.OrdinalIgnoreCase))
         {
         }
@@ -66,6 +74,14 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
                 ApplyCommandLoadResult(result, entity, latest);
             }
         }
+        else if (KnOwlButterMorphContext.TryReadGuid(request.ContextKey, "command-version-request:edit:", out var commandRequestVersionId))
+        {
+            var version = await commands.GetVersionById(commandRequestVersionId);
+            if (version is not null)
+            {
+                ApplyCommandRequestEditLoadResult(result, version);
+            }
+        }
         else if (KnOwlButterMorphContext.TryReadGuid(request.ContextKey, "command-version-reply:new:", out var commandReplyId))
         {
             var entity = await commands.GetById(commandReplyId, includeVersions: true);
@@ -73,6 +89,14 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
             if (entity is not null)
             {
                 ApplyCommandReplyLoadResult(result, entity, latest);
+            }
+        }
+        else if (KnOwlButterMorphContext.TryReadGuid(request.ContextKey, "command-version-reply:edit:", out var commandReplyVersionId))
+        {
+            var version = await commands.GetVersionById(commandReplyVersionId);
+            if (version is not null)
+            {
+                ApplyCommandReplyEditLoadResult(result, version);
             }
         }
 
@@ -95,6 +119,24 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
         result.JsonSchema = latest?.PayloadSchemaJson ?? string.Empty;
     }
 
+    private static void ApplyEventEditLoadResult(ButterMorphPayloadSchemaDesignerLoadResult result, EventVersion version)
+    {
+        if (TryReadPayloadDefinition(version.PayloadSchemaJson, out var definition))
+        {
+            definition.Version = version.VersionNumber;
+            definition.VersionComment = version.Comment ?? definition.VersionComment;
+            result.Definition = definition;
+            return;
+        }
+
+        var entity = version.EventDefinition;
+        result.Key = entity is null ? string.Empty : KnOwlButterMorphDefinitionMapper.NormalizeKey(entity.Name);
+        result.Name = entity?.Name ?? string.Empty;
+        result.Description = entity?.Description ?? string.Empty;
+        result.Version = version.VersionNumber;
+        result.JsonSchema = version.PayloadSchemaJson;
+    }
+
     private static void ApplyCommandLoadResult(ButterMorphPayloadSchemaDesignerLoadResult result, CommandDefinition entity, CommandVersion? latest)
     {
         if (latest is not null && TryReadPayloadDefinition(latest.PayloadSchemaJson, out var definition))
@@ -111,6 +153,24 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
         result.JsonSchema = latest?.PayloadSchemaJson ?? string.Empty;
     }
 
+    private static void ApplyCommandRequestEditLoadResult(ButterMorphPayloadSchemaDesignerLoadResult result, CommandVersion version)
+    {
+        if (TryReadPayloadDefinition(version.PayloadSchemaJson, out var definition))
+        {
+            definition.Version = version.VersionNumber;
+            definition.VersionComment = version.Comment ?? definition.VersionComment;
+            result.Definition = definition;
+            return;
+        }
+
+        var entity = version.CommandDefinition;
+        result.Key = entity is null ? string.Empty : KnOwlButterMorphDefinitionMapper.NormalizeKey(entity.Name);
+        result.Name = entity?.Name ?? string.Empty;
+        result.Description = entity?.Description ?? string.Empty;
+        result.Version = version.VersionNumber;
+        result.JsonSchema = version.PayloadSchemaJson;
+    }
+
     private static void ApplyCommandReplyLoadResult(ButterMorphPayloadSchemaDesignerLoadResult result, CommandDefinition entity, CommandVersion? latest)
     {
         result.Key = $"{KnOwlButterMorphDefinitionMapper.NormalizeKey(entity.Name)}.reply";
@@ -118,6 +178,25 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
         result.Description = entity.Description ?? string.Empty;
         result.Version = NextVersion(latest?.VersionNumber);
         result.JsonSchema = latest?.ReplyPayloadSchemaJson ?? string.Empty;
+    }
+
+    private static void ApplyCommandReplyEditLoadResult(ButterMorphPayloadSchemaDesignerLoadResult result, CommandVersion version)
+    {
+        if (!string.IsNullOrWhiteSpace(version.ReplyPayloadSchemaJson) &&
+            TryReadPayloadDefinition(version.ReplyPayloadSchemaJson, out var definition))
+        {
+            definition.Version = version.VersionNumber;
+            definition.VersionComment = version.Comment ?? definition.VersionComment;
+            result.Definition = definition;
+            return;
+        }
+
+        var entity = version.CommandDefinition;
+        result.Key = entity is null ? string.Empty : $"{KnOwlButterMorphDefinitionMapper.NormalizeKey(entity.Name)}.reply";
+        result.Name = entity is null ? string.Empty : $"{entity.Name} Reply";
+        result.Description = entity?.Description ?? string.Empty;
+        result.Version = version.VersionNumber;
+        result.JsonSchema = version.ReplyPayloadSchemaJson ?? string.Empty;
     }
 
     private static bool TryReadPayloadDefinition(string json, out PayloadSchemaDefinition definition)
@@ -207,6 +286,27 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
             };
         }
 
+        if (KnOwlButterMorphContext.TryReadGuid(request.ContextKey, "event-version:edit:", out var eventVersionId))
+        {
+            try
+            {
+                await events.UpdateDraftVersion(
+                    eventVersionId,
+                    schemaJson,
+                    NormalizeComment(request.Definition.VersionComment),
+                    DateTime.UtcNow);
+                return new ButterMorphPayloadSchemaDesignerSaveResult
+                {
+                    Succeeded = true,
+                    Message = "Draft event version updated."
+                };
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or KeyNotFoundException)
+            {
+                return Failed(ex.Message);
+            }
+        }
+
         if (KnOwlButterMorphContext.TryReadGuid(request.ContextKey, "command-version:new:", out var commandId))
         {
             var entity = await commands.GetById(commandId);
@@ -238,6 +338,62 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
                 Succeeded = true,
                 Message = "Command version created."
             };
+        }
+
+        if (KnOwlButterMorphContext.TryReadGuid(request.ContextKey, "command-version-request:edit:", out var requestVersionId))
+        {
+            var version = await commands.GetVersionById(requestVersionId);
+            if (version is null)
+            {
+                return Failed("Command version not found.");
+            }
+
+            try
+            {
+                await commands.UpdateDraftVersion(
+                    requestVersionId,
+                    schemaJson,
+                    version.ReplyPayloadSchemaJson,
+                    NormalizeComment(request.Definition.VersionComment, version.Comment),
+                    DateTime.UtcNow);
+                return new ButterMorphPayloadSchemaDesignerSaveResult
+                {
+                    Succeeded = true,
+                    Message = "Draft command request updated."
+                };
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Failed(ex.Message);
+            }
+        }
+
+        if (KnOwlButterMorphContext.TryReadGuid(request.ContextKey, "command-version-reply:edit:", out var replyVersionId))
+        {
+            var version = await commands.GetVersionById(replyVersionId);
+            if (version is null)
+            {
+                return Failed("Command version not found.");
+            }
+
+            try
+            {
+                await commands.UpdateDraftVersion(
+                    replyVersionId,
+                    version.PayloadSchemaJson,
+                    schemaJson,
+                    NormalizeComment(request.Definition.VersionComment, version.Comment),
+                    DateTime.UtcNow);
+                return new ButterMorphPayloadSchemaDesignerSaveResult
+                {
+                    Succeeded = true,
+                    Message = "Draft command reply updated."
+                };
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Failed(ex.Message);
+            }
         }
 
         draftStore.SavePayloadSchema(request.ContextKey, schemaJson);
@@ -359,6 +515,11 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
         };
     }
 
+    private static string? NormalizeComment(string? comment, string? fallback = null)
+        => string.IsNullOrWhiteSpace(comment)
+            ? string.IsNullOrWhiteSpace(fallback) ? null : fallback.Trim()
+            : comment.Trim();
+
     private static bool TryReadTopic(PayloadSchemaDefinition definition, out string topic)
     {
         topic = string.Empty;
@@ -446,8 +607,10 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
             contextKey.StartsWith("command:new:", StringComparison.OrdinalIgnoreCase) ||
             KnOwlButterMorphContext.TryReadGuid(contextKey, "command-create-request:new:", out _) ||
             KnOwlButterMorphContext.TryReadGuid(contextKey, "event-version:new:", out _) ||
+            KnOwlButterMorphContext.TryReadGuid(contextKey, "event-version:edit:", out _) ||
             KnOwlButterMorphContext.TryReadGuid(contextKey, "command-version:new:", out _) ||
-            KnOwlButterMorphContext.TryReadGuid(contextKey, "command-version-request:new:", out _);
+            KnOwlButterMorphContext.TryReadGuid(contextKey, "command-version-request:new:", out _) ||
+            KnOwlButterMorphContext.TryReadGuid(contextKey, "command-version-request:edit:", out _);
     }
 
     private static IReadOnlyCollection<SchemaTypeCatalogItem> CreateTemporalSystemCatalogItems()

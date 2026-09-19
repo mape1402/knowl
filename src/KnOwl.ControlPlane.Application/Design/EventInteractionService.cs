@@ -15,6 +15,10 @@ internal sealed class EventInteractionService(IEventRepository repository) : IEv
         => repository.GetById(id, includeVersions, cancellationToken);
 
     /// <inheritdoc />
+    public Task<EventVersion?> GetVersionById(Guid versionId, CancellationToken cancellationToken = default)
+        => repository.GetVersionById(versionId, cancellationToken);
+
+    /// <inheritdoc />
     public Task<bool> VersionExists(Guid eventId, string versionNumber, CancellationToken cancellationToken = default)
         => repository.VersionExists(eventId, versionNumber, cancellationToken);
 
@@ -29,6 +33,20 @@ internal sealed class EventInteractionService(IEventRepository repository) : IEv
     /// <inheritdoc />
     public Task AddVersion(Guid eventId, EventVersion version, CancellationToken cancellationToken = default)
         => repository.AddVersion(eventId, version, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task UpdateDraftVersion(Guid versionId, string payloadSchemaJson, string? comment, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+    {
+        var version = await repository.GetVersionById(versionId, cancellationToken)
+            ?? throw new KeyNotFoundException($"Event version '{versionId}' was not found.");
+
+        if (version.Status != ContractVersionStatus.Draft)
+        {
+            throw new InvalidOperationException("Only draft event versions can be edited.");
+        }
+
+        await repository.UpdateDraftVersion(versionId, payloadSchemaJson, comment, updatedAtUtc, cancellationToken);
+    }
 
     /// <inheritdoc />
     public Task Delete(Guid id, CancellationToken cancellationToken = default)

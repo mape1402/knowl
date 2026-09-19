@@ -23,7 +23,9 @@ public sealed class ContractReleaseRepository(KnOwlDbContext db) : IContractRele
     /// <inheritdoc />
     public async Task<ContractRelease?> GetById(Guid id, bool includeItems = false, bool includeTargets = false, CancellationToken cancellationToken = default)
     {
-        var release = await db.ContractReleases.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        var release = await db.ContractReleases
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (release is null)
         {
             return null;
@@ -52,30 +54,30 @@ public sealed class ContractReleaseRepository(KnOwlDbContext db) : IContractRele
     /// <inheritdoc />
     public async Task UpdateStatus(Guid id, ContractReleaseStatus status, DateTime changedAtUtc, CancellationToken cancellationToken = default)
     {
-        var query = db.ContractReleases.Where(x => x.Id == id);
-        var rows = status switch
-        {
-            ContractReleaseStatus.Deployed => await query.ExecuteUpdateAsync(setters => setters
-                .SetProperty(x => x.Status, status)
-                .SetProperty(x => x.DeployedAtUtc, changedAtUtc), cancellationToken),
-            ContractReleaseStatus.InProgress => await query.ExecuteUpdateAsync(setters => setters
-                .SetProperty(x => x.Status, status), cancellationToken),
-            ContractReleaseStatus.Completed => await query.ExecuteUpdateAsync(setters => setters
-                .SetProperty(x => x.Status, status)
-                .SetProperty(x => x.CompletedAtUtc, changedAtUtc), cancellationToken),
-            ContractReleaseStatus.Failed => await query.ExecuteUpdateAsync(setters => setters
-                .SetProperty(x => x.Status, status)
-                .SetProperty(x => x.FailedAtUtc, changedAtUtc), cancellationToken),
-            ContractReleaseStatus.Canceled => await query.ExecuteUpdateAsync(setters => setters
-                .SetProperty(x => x.Status, status)
-                .SetProperty(x => x.CanceledAtUtc, changedAtUtc), cancellationToken),
-            _ => await query.ExecuteUpdateAsync(setters => setters.SetProperty(x => x.Status, status), cancellationToken)
-        };
-
-        if (rows == 0)
+        var release = await db.ContractReleases.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (release is null)
         {
             throw new KeyNotFoundException($"Release '{id}' was not found.");
         }
+
+        release.Status = status;
+        switch (status)
+        {
+            case ContractReleaseStatus.Deployed:
+                release.DeployedAtUtc = changedAtUtc;
+                break;
+            case ContractReleaseStatus.Completed:
+                release.CompletedAtUtc = changedAtUtc;
+                break;
+            case ContractReleaseStatus.Failed:
+                release.FailedAtUtc = changedAtUtc;
+                break;
+            case ContractReleaseStatus.Canceled:
+                release.CanceledAtUtc = changedAtUtc;
+                break;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     private async Task HydrateItems(IReadOnlyCollection<ContractRelease> releases, CancellationToken cancellationToken)

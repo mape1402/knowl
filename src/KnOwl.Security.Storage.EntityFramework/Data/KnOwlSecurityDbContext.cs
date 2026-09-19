@@ -6,8 +6,14 @@ namespace KnOwl.Security.Storage.EntityFramework.Data;
 /// <summary>
 /// EF Core context for provider-agnostic KnOwl security state.
 /// </summary>
-public sealed class KnOwlSecurityDbContext(DbContextOptions<KnOwlSecurityDbContext> options) : DbContext(options)
+public sealed class KnOwlSecurityDbContext : DbContext
 {
+    public KnOwlSecurityDbContext(DbContextOptions<KnOwlSecurityDbContext> options)
+        : base(options)
+    {
+        DisableAutoTransactionsForMongo();
+    }
+
     public DbSet<KnOwlSubject> Subjects => Set<KnOwlSubject>();
 
     public DbSet<KnOwlRoleAssignment> RoleAssignments => Set<KnOwlRoleAssignment>();
@@ -15,6 +21,14 @@ public sealed class KnOwlSecurityDbContext(DbContextOptions<KnOwlSecurityDbConte
     public DbSet<KnOwlPermissionAssignment> PermissionAssignments => Set<KnOwlPermissionAssignment>();
 
     public DbSet<KnOwlExternalGroupRoleAssignment> ExternalGroupRoleAssignments => Set<KnOwlExternalGroupRoleAssignment>();
+
+    private void DisableAutoTransactionsForMongo()
+    {
+        if (Database.ProviderName?.Contains("MongoDB", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            Database.AutoTransactionBehavior = AutoTransactionBehavior.Never;
+        }
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -14,7 +14,9 @@ public class IndexModel(
     IContractReleaseExecutionService releaseExecution) : PageModel
 {
     public IReadOnlyList<ContractRelease> Releases { get; private set; } = [];
+    public IReadOnlyList<ReleaseCard> ReleaseCards { get; private set; } = [];
     public IReadOnlyList<ContractArtifact> Artifacts { get; private set; } = [];
+    public IReadOnlyList<ReleaseContractOption> ReleaseOptions { get; private set; } = [];
     public IReadOnlyList<RuntimeNode> RuntimeNodes { get; private set; } = [];
     public bool ShowReleaseModal { get; private set; }
     public int InitialReleaseStep { get; private set; } = 1;
@@ -63,9 +65,56 @@ public class IndexModel(
 
     private async Task Load(CancellationToken cancellationToken)
     {
-        Releases = await releases.GetAll(cancellationToken);
+        var releaseRows = await releases.GetAll(cancellationToken);
+        var detailedReleases = new List<ContractRelease>(releaseRows.Count);
+        foreach (var release in releaseRows)
+        {
+            detailedReleases.Add(
+                await releases.GetById(release.Id, includeItems: true, includeTargets: true, cancellationToken)
+                ?? release);
+        }
+
+        Releases = detailedReleases;
+        ReleaseCards = detailedReleases.Select(ReleaseCard.FromRelease).ToList();
         Artifacts = await artifacts.GetAll(cancellationToken);
+        ReleaseOptions = BuildReleaseOptions(Artifacts);
         RuntimeNodes = await runtimeNodes.GetActiveEnabled(cancellationToken);
+    }
+
+    private static IReadOnlyList<ReleaseContractOption> BuildReleaseOptions(IReadOnlyList<ContractArtifact> sourceArtifacts)
+    {
+        return sourceArtifacts
+            .GroupBy(x => new { x.DefinitionId, x.VersionId, x.Topic, x.VersionNumber })
+            .Select(group =>
+            {
+                var orderedArtifacts = group
+                    .OrderBy(x => x.ArtifactType == ContractArtifactType.Event ? 0 : x.ArtifactType == ContractArtifactType.CommandRequest ? 1 : 2)
+                    .ToArray();
+                var primary = orderedArtifacts.First();
+                var isCommand = orderedArtifacts.Any(x => x.ArtifactType is ContractArtifactType.CommandRequest or ContractArtifactType.CommandReply);
+                var hasReply = orderedArtifacts.Any(x => x.ArtifactType == ContractArtifactType.CommandReply);
+                var label = isCommand ? "Command" : "Event";
+                var details = isCommand
+                    ? hasReply ? "Request and reply artifacts" : "Request artifact"
+                    : "Event artifact";
+
+                return new ReleaseContractOption(
+                    $"{group.Key.VersionId:N}",
+                    primary.DefinitionId,
+                    primary.VersionId,
+                    label,
+                    primary.Name,
+                    group.Key.Topic,
+                    group.Key.VersionNumber,
+                    details,
+                    orderedArtifacts.Max(x => x.CreatedAtUtc),
+                    orderedArtifacts.Select(x => x.Id).ToArray(),
+                    orderedArtifacts.Select(x => new ReleaseOptionArtifact(x.ArtifactType.ToString(), x.ContentHash)).ToArray());
+            })
+            .OrderBy(x => x.ContractType, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .ThenByDescending(x => x.CreatedAtUtc)
+            .ToArray();
     }
 }
 
@@ -73,5 +122,162 @@ public sealed class ReleaseInput
 {
     public List<Guid> ArtifactIds { get; set; } = [];
     public List<Guid> RuntimeNodeIds { get; set; } = [];
+}
+
+public sealed record ReleaseContractOption(
+    string Key,
+    Guid DefinitionId,
+    Guid VersionId,
+    string ContractType,
+    string Name,
+    string Topic,
+    string VersionNumber,
+    string Details,
+    DateTime CreatedAtUtc,
+    IReadOnlyList<Guid> ArtifactIds,
+    IReadOnlyList<ReleaseOptionArtifact> Artifacts);
+
+public sealed record ReleaseOptionArtifact(string ArtifactType, string ContentHash);
+
+public sealed record ReleaseCard(
+    Guid Id,
+    string Name,
+    string Status,
+    DateTime CreatedAtUtc,
+    int ArtifactCount,
+    int TargetCount,
+    int ActivatedCount,
+    int PendingCount,
+    int FailedCount,
+    IReadOnlyList<ReleaseArtifactCard> Artifacts,
+    IReadOnlyList<ReleaseRuntimeCard> RuntimeNodes)
+{
+    public static ReleaseCard FromRelease(ContractRelease release)
+    {
+        var targets = release.Targets.ToArray();
+        var items = release.Items.ToArray();
+        var artifactCards = items
+            .Select(item =>
+            {
+                var artifactTargets = targets
+                    .Where(target => target.ReleaseItemId == item.Id || target.ArtifactId == item.ArtifactId)
+                    .Select(ReleaseTargetCard.FromTarget)
+                    .ToList();
+
+                return new ReleaseArtifactCard(
+                    item.Id,
+                    item.ArtifactId,
+                    item.Artifact?.ArtifactType.ToString() ?? "Artifact",
+                    item.Artifact?.Name ?? "Unknown artifact",
+                    item.Artifact?.Topic ?? string.Empty,
+                    item.Artifact?.VersionNumber ?? string.Empty,
+                    item.Artifact?.ContentHash ?? string.Empty,
+                    artifactTargets);
+            })
+            .ToList();
+
+        var runtimeCards = targets
+            .GroupBy(target => target.RuntimeNodeId)
+            .Select(group =>
+            {
+                var first = group.First();
+                var nodeName = first.RuntimeNode?.Name ?? first.RuntimeNodeId.ToString("N");
+                var nodeCode = first.RuntimeNode?.Code ?? string.Empty;
+                var mode = first.RuntimeNode?.DistributionMode.ToString() ?? string.Empty;
+                var groupedTargets = group.Select(ReleaseTargetCard.FromTarget).ToList();
+
+                return new ReleaseRuntimeCard(
+                    first.RuntimeNodeId,
+                    nodeName,
+                    nodeCode,
+                    mode,
+                    groupedTargets.Count,
+                    groupedTargets.Count(x => x.IsActivated),
+                    groupedTargets.Count(x => x.IsPending),
+                    groupedTargets.Count(x => x.IsFailed));
+            })
+            .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return new ReleaseCard(
+            release.Id,
+            release.Name,
+            release.Status.ToString(),
+            release.CreatedAtUtc,
+            items.Length,
+            targets.Length,
+            targets.Count(IsActivated),
+            targets.Count(IsPending),
+            targets.Count(IsFailed),
+            artifactCards,
+            runtimeCards);
+    }
+
+    private static bool IsActivated(ContractReleaseTarget target)
+        => target.Status == ContractReleaseTargetStatus.Activated;
+
+    private static bool IsPending(ContractReleaseTarget target)
+        => target.Status is ContractReleaseTargetStatus.Pending
+            or ContractReleaseTargetStatus.AvailableForPull
+            or ContractReleaseTargetStatus.PushScheduled
+            or ContractReleaseTargetStatus.InProgress
+            or ContractReleaseTargetStatus.Delivered
+            or ContractReleaseTargetStatus.Acknowledged;
+
+    private static bool IsFailed(ContractReleaseTarget target)
+        => target.Status is ContractReleaseTargetStatus.Failed or ContractReleaseTargetStatus.Cancelled;
+}
+
+public sealed record ReleaseArtifactCard(
+    Guid ReleaseItemId,
+    Guid ArtifactId,
+    string ArtifactType,
+    string Name,
+    string Topic,
+    string VersionNumber,
+    string ContentHash,
+    IReadOnlyList<ReleaseTargetCard> Targets);
+
+public sealed record ReleaseRuntimeCard(
+    Guid RuntimeNodeId,
+    string Name,
+    string Code,
+    string DistributionMode,
+    int TargetCount,
+    int ActivatedCount,
+    int PendingCount,
+    int FailedCount);
+
+public sealed record ReleaseTargetCard(
+    Guid Id,
+    string RuntimeNodeName,
+    string RuntimeNodeCode,
+    string DistributionMode,
+    string ArtifactLabel,
+    string Status,
+    string ActivationStatus,
+    bool IsActivated,
+    bool IsPending,
+    bool IsFailed)
+{
+    public static ReleaseTargetCard FromTarget(ContractReleaseTarget target)
+        => new(
+            target.Id,
+            target.RuntimeNode?.Name ?? target.RuntimeNodeId.ToString("N"),
+            target.RuntimeNode?.Code ?? string.Empty,
+            target.RuntimeNode?.DistributionMode.ToString() ?? string.Empty,
+            target.Artifact is null
+                ? target.ArtifactId.ToString("N")
+                : $"{target.Artifact.Topic}@{target.Artifact.VersionNumber}",
+            target.Status.ToString(),
+            target.ActivationStatus.ToString(),
+            target.Status == ContractReleaseTargetStatus.Activated,
+            target.Status is ContractReleaseTargetStatus.Pending
+                or ContractReleaseTargetStatus.AvailableForPull
+                or ContractReleaseTargetStatus.PushScheduled
+                or ContractReleaseTargetStatus.InProgress
+                or ContractReleaseTargetStatus.Delivered
+                or ContractReleaseTargetStatus.Acknowledged,
+            target.Status is ContractReleaseTargetStatus.Failed or ContractReleaseTargetStatus.Cancelled);
 }
 

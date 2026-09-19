@@ -8,8 +8,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="ButterMorph.Json.Schema" Version="1.1.1" />
-    <PackageReference Include="ButterMorph.Web.Razor" Version="1.1.1" />
+    <PackageReference Include="ButterMorph.Json.Schema" Version="1.1.2" />
+    <PackageReference Include="ButterMorph.Web.Razor" Version="1.1.2" />
   </ItemGroup>
 
   <PropertyGroup>

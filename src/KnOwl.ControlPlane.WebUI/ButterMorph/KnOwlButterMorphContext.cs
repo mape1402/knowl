@@ -41,6 +41,11 @@ public static class KnOwlButterMorphContext
     public static string EventVersion(Guid eventId) => $"event-version:new:{eventId}";
 
     /// <summary>
+    /// Creates a context key for editing an existing draft event version.
+    /// </summary>
+    public static string EditEventVersion(Guid versionId) => $"event-version:edit:{versionId}";
+
+    /// <summary>
     /// Creates a context key for a new command definition.
     /// </summary>
     public static string CommandNew() => $"command:new:{Guid.NewGuid():N}";
@@ -69,6 +74,16 @@ public static class KnOwlButterMorphContext
     /// Creates a draft context key for adding a command reply schema.
     /// </summary>
     public static string CommandVersionReplyDraft(Guid commandId) => $"command-version-reply:new:{commandId}";
+
+    /// <summary>
+    /// Creates a context key for editing an existing draft command request schema.
+    /// </summary>
+    public static string EditCommandVersionRequest(Guid versionId) => $"command-version-request:edit:{versionId}";
+
+    /// <summary>
+    /// Creates a context key for editing an existing draft command reply schema.
+    /// </summary>
+    public static string EditCommandVersionReply(Guid versionId) => $"command-version-reply:edit:{versionId}";
 
     /// <summary>
     /// Attempts to read a GUID identifier from a context key with the expected prefix.

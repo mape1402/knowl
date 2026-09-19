@@ -57,6 +57,7 @@ public class IndexModel(IContractFieldMetadataInteractionService metadataFields)
                 entity.IsActive,
                 false,
                 [],
+                entity.Versions.Count,
                 entity.CreatedAtUtc);
         }
 
@@ -71,6 +72,7 @@ public class IndexModel(IContractFieldMetadataInteractionService metadataFields)
             entity.IsActive,
             definition.IsRequired,
             definition.AppliesTo,
+            entity.Versions.Count,
             entity.CreatedAtUtc);
     }
 
@@ -84,5 +86,6 @@ public class IndexModel(IContractFieldMetadataInteractionService metadataFields)
         bool IsActive,
         bool IsRequired,
         IReadOnlyCollection<string> AppliesTo,
+        int VersionCount,
         DateTime CreatedAtUtc);
 }

@@ -1,0 +1,24 @@
+@model string?
+
+@if (!string.IsNullOrWhiteSpace(Model))
+{
+    <div class="knowl-message-overlay" data-message-box>
+        <div class="knowl-message-dialog" role="alertdialog" aria-modal="true" aria-label="Message" tabindex="-1">
+            <button class="knowl-message-close" type="button" data-message-dismiss aria-label="Close message">
+                <i class="bi bi-x-lg"></i>
+            </button>
+            <div class="knowl-message-dialog-body">
+                <span class="knowl-message-dialog-icon" aria-hidden="true">
+                    <i class="bi bi-info-circle"></i>
+                </span>
+                <div>
+                    <h2>Message</h2>
+                    <p>@Model</p>
+                </div>
+            </div>
+            <div class="knowl-message-dialog-actions">
+                <button class="btn btn-primary btn-sm" type="button" data-message-dismiss>OK</button>
+            </div>
+        </div>
+    </div>
+}

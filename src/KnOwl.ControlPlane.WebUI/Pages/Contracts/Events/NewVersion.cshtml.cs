@@ -86,16 +86,17 @@ public class NewVersionModel(
         }
 
         var now = DateTime.UtcNow;
-        await events.AddVersion(EventId, new EventVersion
+        var eventVersion = new EventVersion
         {
             VersionNumber = version,
             PayloadSchemaJson = PayloadSchemaJson,
             Comment = string.IsNullOrWhiteSpace(Input.Comment) ? null : Input.Comment.Trim(),
             CreatedAtUtc = now,
             UpdatedAtUtc = now
-        }, cancellationToken);
+        };
+        await events.AddVersion(EventId, eventVersion, cancellationToken);
 
-        return RedirectToPage("/Contracts/Events/View", new { id = EventId, version });
+        return RedirectToPage("/Contracts/Events/Version", new { id = EventId, versionId = eventVersion.Id });
     }
 
     private async Task LoadCatalogs(CancellationToken cancellationToken)

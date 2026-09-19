@@ -7,75 +7,96 @@
 }
 
 <section class="dashboard-section">
-    <div class="platform-card event-detail-card">
-        <div class="platform-card-header">
-            <span>Custom Field Details</span>
-            <div class="d-flex gap-2">
+    <div class="od-page-head">
+        <div>
+            <h1 class="od-page-title">@Model.Field?.Name</h1>
+            <p class="od-page-subtitle">@(string.IsNullOrWhiteSpace(Model.Field?.Key) ? "Custom field" : Model.Field.Key)</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" asp-page="/Contracts/MetadataFields/Index">Back</a>
+            @if (Model.Field is not null)
+            {
                 <button type="button"
-                        class="btn btn-primary btn-sm"
+                        class="btn btn-primary"
                         data-buttermorph-url="@designerUrl"
                         data-buttermorph-title="New version of @field.Name"
                         data-buttermorph-redirect-url="@Url.Page("/Contracts/MetadataFields/View", new { id = field.Id })">
-                    <i class="bi bi-plus-lg"></i> New version
+                    New version
                 </button>
-                <a class="btn btn-secondary btn-sm" asp-page="/Contracts/MetadataFields/Index">
-                    <i class="bi bi-arrow-left"></i> Back
-                </a>
-            </div>
+            }
         </div>
+    </div>
 
-        @if (Model.Field is null)
-        {
-            <div class="events-empty-state"><h3>Custom field not found</h3></div>
-        }
-        else
-        {
-            <div class="event-meta-grid">
-                <div>
-                    <span class="event-meta-label">Name</span>
-                    <p class="event-meta-value">@field.Name</p>
-                </div>
-                <div>
-                    <span class="event-meta-label">Key</span>
-                    <p class="event-meta-value">@field.Key</p>
-                </div>
-                <div>
-                    <span class="event-meta-label">Versions</span>
-                    <p class="event-meta-value">@field.Versions.Count</p>
-                </div>
+    @if (Model.Field is null)
+    {
+        <section class="od-panel"><p class="od-empty">Custom field not found.</p></section>
+    }
+    else
+    {
+        <section class="od-panel">
+            <div class="contract-detail-summary">
+                <div><span class="event-meta-label">Name</span><p class="event-meta-value">@field.Name</p></div>
+                <div><span class="event-meta-label">Key</span><p class="event-meta-value">@field.Key</p></div>
+                <div><span class="event-meta-label">Versions</span><p class="event-meta-value">@field.Versions.Count</p></div>
             </div>
-
             <div class="mt-3">
                 <span class="event-meta-label">Description</span>
                 <p class="event-meta-value">@(string.IsNullOrWhiteSpace(field.Description) ? "-" : field.Description)</p>
             </div>
+        </section>
 
-            <div class="mt-3">
-                <span class="event-meta-label">Available Versions</span>
-                <div class="d-flex gap-2 flex-wrap mt-2">
+        <section class="od-list-shell mt-3">
+            @if (!field.Versions.Any())
+            {
+                <p class="od-empty">No versions yet.</p>
+            }
+            else
+            {
+                <div class="od-grid od-versions-grid">
                     @foreach (var version in field.Versions.OrderByDescending(x => x.CreatedAtUtc))
                     {
-                        <a class="btn btn-secondary btn-sm @(Model.SelectedVersion?.Id == version.Id ? "active" : "")"
-                           asp-page="/Contracts/MetadataFields/View"
-                           asp-route-id="@field.Id"
-                           asp-route-version="@version.VersionNumber">
-                            @version.VersionNumber
-                        </a>
+                        <article class="od-item-card od-version-card"
+                                 data-open-url="@Url.Page("/Contracts/MetadataFields/Version", new { id = field.Id, versionId = version.Id })">
+                            <div class="od-item-top">
+                                <div>
+                                    <h2 class="od-item-title">@version.VersionNumber</h2>
+                                    <p class="od-item-meta">@(string.IsNullOrWhiteSpace(version.Comment) ? "No version notes" : version.Comment)</p>
+                                </div>
+                                <div class="d-flex align-items-start gap-2">
+                                    <span class="od-status @(version.IsActive ? "od-status-active" : "od-status-inactive")">@(version.IsActive ? "Active" : "Inactive")</span>
+                                    <div class="dropdown">
+                                        <button class="od-kebab" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Version actions">&#8942;</button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <a class="dropdown-item" asp-page="/Contracts/MetadataFields/Version" asp-route-id="@field.Id" asp-route-versionId="@version.Id">Open</a>
+                                            </li>
+                                            @if (version.IsActive)
+                                            {
+                                                <li><hr class="dropdown-divider" /></li>
+                                                <li>
+                                                    <form method="post" asp-page-handler="DeactivateVersion" class="od-inline-form">
+                                                        <input type="hidden" name="id" value="@field.Id" />
+                                                        <input type="hidden" name="versionId" value="@version.Id" />
+                                                        <button type="submit" class="dropdown-item text-danger">Deactivate version</button>
+                                                    </form>
+                                                </li>
+                                            }
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="od-card-footer">
+                                <span class="od-card-date">Created @version.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd")</span>
+                            </div>
+                        </article>
                     }
                 </div>
-            </div>
-
-            <div class="mt-3 event-detail-schema">
-                <span class="event-meta-label">Custom field definition (@Model.SelectedVersion?.VersionNumber)</span>
-                <p class="event-meta-value"><strong>Comment:</strong> @(string.IsNullOrWhiteSpace(Model.SelectedVersion?.Comment) ? "-" : Model.SelectedVersion?.Comment)</p>
-                <pre class="contract-json-output">@Model.FormattedDefinitionJson</pre>
-            </div>
-        }
-    </div>
+            }
+        </section>
+    }
 </section>
 
 @section Scripts {
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-host.js"></script>
     <script src="~/_content/KnOwl.ControlPlane.WebUI/js/buttermorph-knowl-host.js" asp-append-version="true"></script>
 }
-

@@ -1,55 +1,30 @@
 using System.Text.Json;
-using KnOwl.ControlPlane.Application.Distribution.Artifacts;
 using KnOwl.ControlPlane.Application;
+using KnOwl.ControlPlane.Application.Distribution.Artifacts;
 using KnOwl.ControlPlane.Design.Core;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace KnOwl.ControlPlane.WebUI.Pages.Contracts.Commands;
 
-public class ViewModel(
+public class VersionModel(
     ICommandInteractionService commands,
     IContractVersionPromotionService promotion,
     IContractArtifactBuilder artifactBuilder) : PageModel
 {
     public CommandDefinition? Command { get; private set; }
-    public CommandVersion? SelectedVersion { get; private set; }
-    public string FormattedPayloadSchemaJson { get; private set; } = "{}";
-    public string FormattedReplyPayloadSchemaJson { get; private set; } = "{}";
+    public CommandVersion? Version { get; private set; }
+    public string FormattedRequestSchemaJson { get; private set; } = "{}";
+    public string FormattedReplySchemaJson { get; private set; } = "{}";
     public IReadOnlyCollection<ContractVersionStatus> AllowedTargets { get; private set; } = [];
-
-    public IReadOnlyCollection<ContractVersionStatus> GetAllowedTargets(ContractVersionStatus status)
-        => promotion.GetAllowedTargets(status);
 
     [TempData]
     public string? StatusMessage { get; set; }
 
-    public async Task<IActionResult> OnGetAsync(Guid? id, string? version, CancellationToken cancellationToken)
+    public async Task<IActionResult> OnGetAsync(Guid id, Guid versionId, CancellationToken cancellationToken)
     {
-        if (id is null)
-        {
-            return NotFound();
-        }
-
-        Command = await commands.GetById(id.Value, includeVersions: true, cancellationToken);
-
-        if (Command is null)
-        {
-            return NotFound();
-        }
-
-        SelectedVersion = string.IsNullOrWhiteSpace(version)
-            ? Command.Versions.OrderByDescending(x => x.CreatedAtUtc).FirstOrDefault()
-            : Command.Versions.FirstOrDefault(x => x.VersionNumber == version);
-
-        if (SelectedVersion is not null)
-        {
-            FormattedPayloadSchemaJson = FormatJson(SelectedVersion.PayloadSchemaJson);
-            FormattedReplyPayloadSchemaJson = FormatJson(SelectedVersion.ReplyPayloadSchemaJson);
-            AllowedTargets = promotion.GetAllowedTargets(SelectedVersion.Status);
-        }
-
-        return Page();
+        var result = await Load(id, versionId, cancellationToken);
+        return result ?? Page();
     }
 
     public async Task<IActionResult> OnPostTransitionAsync(Guid id, Guid versionId, ContractVersionStatus targetStatus, CancellationToken cancellationToken)
@@ -72,7 +47,27 @@ public class ViewModel(
             StatusMessage = ex.Message;
         }
 
-        return RedirectToPage(new { id });
+        return RedirectToPage(new { id, versionId });
+    }
+
+    private async Task<IActionResult?> Load(Guid id, Guid versionId, CancellationToken cancellationToken)
+    {
+        Command = await commands.GetById(id, includeVersions: true, cancellationToken);
+        if (Command is null)
+        {
+            return NotFound();
+        }
+
+        Version = Command.Versions.FirstOrDefault(x => x.Id == versionId);
+        if (Version is null)
+        {
+            return NotFound();
+        }
+
+        FormattedRequestSchemaJson = FormatJson(Version.PayloadSchemaJson);
+        FormattedReplySchemaJson = FormatJson(Version.ReplyPayloadSchemaJson);
+        AllowedTargets = promotion.GetAllowedTargets(Version.Status);
+        return null;
     }
 
     public static string FormatJson(string? json)
@@ -84,8 +79,8 @@ public class ViewModel(
 
         try
         {
-            using var doc = JsonDocument.Parse(json);
-            return JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true });
+            using var document = JsonDocument.Parse(json);
+            return JsonSerializer.Serialize(document.RootElement, new JsonSerializerOptions { WriteIndented = true });
         }
         catch (JsonException)
         {

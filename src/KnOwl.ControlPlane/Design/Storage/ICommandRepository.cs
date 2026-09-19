@@ -48,6 +48,12 @@ public interface ICommandRepository
     Task UpdateVersionStatus(Guid versionId, ContractVersionStatus status, DateTime changedAtUtc, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Updates the request and reply schemas for a draft command version.
+    /// </summary>
+    Task UpdateDraftVersion(Guid versionId, string requestSchemaJson, string? replySchemaJson, string? comment, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Draft command version updates are not supported by this repository.");
+
+    /// <summary>
     /// Marks a command definition inactive without deleting historical versions.
     /// </summary>
     Task Delete(Guid id, CancellationToken cancellationToken = default);

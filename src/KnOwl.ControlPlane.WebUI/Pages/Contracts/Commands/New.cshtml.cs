@@ -1,25 +1,16 @@
-using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
+using global::ButterMorph.SchemaDesign;
 using KnOwl.ControlPlane.Application;
 using KnOwl.ControlPlane.Design.Core;
 using KnOwl.ControlPlane.WebUI.ButterMorph;
-using KnOwl.ControlPlane.WebUI.ContractMetadata;
-using KnOwl.ControlPlane.WebUI.SchemaTypes;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace KnOwl.ControlPlane.WebUI.Pages.Contracts.Commands;
 
-public class NewModel(
-    ICommandInteractionService commands,
-    ISchemaTypeInteractionService schemaTypes,
-    IContractFieldMetadataInteractionService metadataFields) : PageModel
+public class NewModel(ICommandInteractionService commands) : PageModel
 {
     [BindProperty]
-    public CommandInput Input { get; set; } = new();
-
-    [BindProperty]
-    [Required]
     public string PayloadSchemaJson { get; set; } = "{\"type\":\"object\",\"properties\":{}}";
 
     [BindProperty]
@@ -28,17 +19,13 @@ public class NewModel(
     [BindProperty]
     public Guid DraftId { get; set; }
 
-    public string SchemaTypesJson { get; private set; } = "[]";
-    public string MetadataFieldsJson { get; private set; } = "[]";
     public string ButterMorphContext { get; private set; } = string.Empty;
     public string ReplyButterMorphContext { get; private set; } = string.Empty;
 
-    public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
+    public IActionResult OnGet()
     {
         DraftId = Guid.NewGuid();
-        Input.Version = "1.0.0";
         SetButterMorphContexts();
-        await LoadCatalogs(cancellationToken);
         return Page();
     }
 
@@ -52,48 +39,56 @@ public class NewModel(
         SetButterMorphContexts();
         if (!ModelState.IsValid)
         {
-            await LoadCatalogs(cancellationToken);
             return Page();
         }
 
         if (!TryParseJson(PayloadSchemaJson, nameof(PayloadSchemaJson), "The request schema is not valid JSON."))
         {
-            await LoadCatalogs(cancellationToken);
             return Page();
         }
 
         if (!string.IsNullOrWhiteSpace(ReplyPayloadSchemaJson) &&
             !TryParseJson(ReplyPayloadSchemaJson, nameof(ReplyPayloadSchemaJson), "The reply schema is not valid JSON."))
         {
-            await LoadCatalogs(cancellationToken);
             return Page();
         }
 
-        var topic = string.IsNullOrWhiteSpace(Input.Topic)
-            ? ReadTopicFromPayloadSchema(PayloadSchemaJson)
-            : Input.Topic.Trim();
-
-        if (string.IsNullOrWhiteSpace(topic))
+        if (!TryReadRequestDefinition(out var definition))
         {
-            ModelState.AddModelError(nameof(Input.Topic), "Topic is required when the request schema does not define a key or topic metadata.");
-            await LoadCatalogs(cancellationToken);
+            return Page();
+        }
+
+        if (!TryReadTopic(definition, out var topic))
+        {
+            ModelState.AddModelError(nameof(PayloadSchemaJson), "Command topic or schema key is required in the request schema.");
             return Page();
         }
 
         if (topic.Length > 70)
         {
-            ModelState.AddModelError(nameof(Input.Topic), "Topic must be 70 characters or fewer.");
-            await LoadCatalogs(cancellationToken);
+            ModelState.AddModelError(nameof(PayloadSchemaJson), "Command topic must be 70 characters or fewer.");
             return Page();
         }
 
-        var version = Input.Version.Trim();
+        if (string.IsNullOrWhiteSpace(definition.Name))
+        {
+            ModelState.AddModelError(nameof(PayloadSchemaJson), "Command name is required in the request schema.");
+            return Page();
+        }
+
+        if (string.IsNullOrWhiteSpace(definition.Version))
+        {
+            ModelState.AddModelError(nameof(PayloadSchemaJson), "Command version is required in the request schema.");
+            return Page();
+        }
+
+        var version = definition.Version.Trim();
         var now = DateTime.UtcNow;
         CommandDefinition commandDefinition = new()
         {
-            Name = Input.Name.Trim(),
+            Name = definition.Name.Trim(),
             Topic = topic,
-            Description = string.IsNullOrWhiteSpace(Input.Description) ? null : Input.Description.Trim(),
+            Description = string.IsNullOrWhiteSpace(definition.Description) ? null : definition.Description.Trim(),
             CreatedAtUtc = now,
             UpdatedAtUtc = now
         };
@@ -103,7 +98,7 @@ public class NewModel(
             VersionNumber = version,
             PayloadSchemaJson = PayloadSchemaJson,
             ReplyPayloadSchemaJson = string.IsNullOrWhiteSpace(ReplyPayloadSchemaJson) ? null : ReplyPayloadSchemaJson,
-            Comment = string.IsNullOrWhiteSpace(Input.Comment) ? null : Input.Comment.Trim(),
+            Comment = string.IsNullOrWhiteSpace(definition.VersionComment) ? null : definition.VersionComment.Trim(),
             CreatedAtUtc = now,
             UpdatedAtUtc = now
         });
@@ -116,12 +111,6 @@ public class NewModel(
     {
         ButterMorphContext = KnOwlButterMorphContext.CommandCreateRequestDraft(DraftId);
         ReplyButterMorphContext = KnOwlButterMorphContext.CommandCreateReplyDraft(DraftId);
-    }
-
-    private async Task LoadCatalogs(CancellationToken cancellationToken)
-    {
-        SchemaTypesJson = await SchemaTypeCatalog.GetSelectableTypesJsonAsync(schemaTypes);
-        MetadataFieldsJson = await ContractFieldMetadataCatalog.GetApplicableMetadataJsonAsync(metadataFields, "commands");
     }
 
     private bool TryParseJson(string? json, string key, string message)
@@ -138,74 +127,53 @@ public class NewModel(
         }
     }
 
-    private static string ReadTopicFromPayloadSchema(string json)
+    private bool TryReadRequestDefinition(out PayloadSchemaDefinition definition)
     {
+        definition = new PayloadSchemaDefinition();
         try
         {
-            using var document = JsonDocument.Parse(string.IsNullOrWhiteSpace(json) ? "{}" : json);
-            var root = document.RootElement;
-            if (root.TryGetProperty("metadata", out var metadata) &&
-                metadata.ValueKind == JsonValueKind.Object &&
-                metadata.TryGetProperty("topic", out var topicElement) &&
-                TryReadMetadataValue(topicElement, out var topic))
+            var parsed = JsonSerializer.Deserialize<PayloadSchemaDefinition>(
+                PayloadSchemaJson,
+                new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            if (parsed is null)
             {
-                return topic;
+                ModelState.AddModelError(nameof(PayloadSchemaJson), "The request schema is not valid.");
+                return false;
             }
 
-            if (root.TryGetProperty("key", out var keyElement) && keyElement.ValueKind == JsonValueKind.String)
-            {
-                return keyElement.GetString()?.Trim() ?? string.Empty;
-            }
+            definition = parsed;
+            return true;
         }
         catch (JsonException)
         {
+            ModelState.AddModelError(nameof(PayloadSchemaJson), "The request schema is not valid.");
+            return false;
         }
-
-        return string.Empty;
     }
 
-    private static bool TryReadMetadataValue(JsonElement element, out string value)
+    private static bool TryReadTopic(PayloadSchemaDefinition definition, out string topic)
     {
-        value = string.Empty;
+        topic = string.Empty;
+        if (!definition.Metadata.TryGetValue("topic", out var element))
+        {
+            topic = definition.Key?.Trim() ?? string.Empty;
+            return !string.IsNullOrWhiteSpace(topic);
+        }
+
         if (element.ValueKind == JsonValueKind.String)
         {
-            value = element.GetString()?.Trim() ?? string.Empty;
-            return !string.IsNullOrWhiteSpace(value);
+            topic = element.GetString()?.Trim() ?? string.Empty;
+            return !string.IsNullOrWhiteSpace(topic);
         }
 
         if (element.ValueKind == JsonValueKind.Object &&
             element.TryGetProperty("value", out var valueElement) &&
             valueElement.ValueKind == JsonValueKind.String)
         {
-            value = valueElement.GetString()?.Trim() ?? string.Empty;
-            return !string.IsNullOrWhiteSpace(value);
+            topic = valueElement.GetString()?.Trim() ?? string.Empty;
+            return !string.IsNullOrWhiteSpace(topic);
         }
 
         return false;
-    }
-
-    public class CommandInput
-    {
-        [Required]
-        [MaxLength(200)]
-        [Display(Name = "Command Name")]
-        public string Name { get; set; } = string.Empty;
-
-        [MaxLength(70)]
-        [Display(Name = "Topic")]
-        public string? Topic { get; set; }
-
-        [MaxLength(1000)]
-        [Display(Name = "Description")]
-        public string? Description { get; set; }
-
-        [Required]
-        [MaxLength(13)]
-        [Display(Name = "Version Number")]
-        public string Version { get; set; } = string.Empty;
-
-        [MaxLength(1000)]
-        [Display(Name = "Version Comment")]
-        public string? Comment { get; set; }
     }
 }

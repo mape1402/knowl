@@ -15,12 +15,21 @@ public sealed class ButterMorphAdapterTests
     {
         var id = Guid.NewGuid();
         var eventVersionKey = KnOwlButterMorphContext.EventVersion(id);
+        var eventEditKey = KnOwlButterMorphContext.EditEventVersion(id);
         var commandVersionKey = KnOwlButterMorphContext.CommandVersion(id);
+        var commandRequestEditKey = KnOwlButterMorphContext.EditCommandVersionRequest(id);
+        var commandReplyEditKey = KnOwlButterMorphContext.EditCommandVersionReply(id);
 
         Assert.True(KnOwlButterMorphContext.TryReadGuid(eventVersionKey, "event-version:new:", out var eventId));
+        Assert.True(KnOwlButterMorphContext.TryReadGuid(eventEditKey, "event-version:edit:", out var eventEditId));
         Assert.True(KnOwlButterMorphContext.TryReadGuid(commandVersionKey, "command-version:new:", out var commandId));
+        Assert.True(KnOwlButterMorphContext.TryReadGuid(commandRequestEditKey, "command-version-request:edit:", out var commandRequestEditId));
+        Assert.True(KnOwlButterMorphContext.TryReadGuid(commandReplyEditKey, "command-version-reply:edit:", out var commandReplyEditId));
         Assert.Equal(id, eventId);
+        Assert.Equal(id, eventEditId);
         Assert.Equal(id, commandId);
+        Assert.Equal(id, commandRequestEditId);
+        Assert.Equal(id, commandReplyEditId);
         Assert.False(KnOwlButterMorphContext.TryReadGuid(eventVersionKey, "command-version:new:", out _));
     }
 
@@ -302,24 +311,143 @@ public sealed class ButterMorphAdapterTests
         Assert.Equal("customer.register", command.Topic);
     }
 
+    [Fact]
+    public async Task PayloadSchemaHostUpdatesDraftEventVersionFromEditContext()
+    {
+        var versionId = Guid.NewGuid();
+        var events = new EventInteractionStub
+        {
+            Version = new EventVersion
+            {
+                Id = versionId,
+                Status = ContractVersionStatus.Draft,
+                PayloadSchemaJson = "{\"key\":\"customer.created\",\"name\":\"Customer Created\",\"version\":\"1.0.0\",\"type\":\"object\",\"properties\":{}}",
+                EventDefinition = new EventDefinition
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "Customer Created",
+                    Topic = "customer.created"
+                }
+            }
+        };
+        var host = new KnOwlPayloadSchemaDesignerHost(
+            events,
+            new CommandInteractionStub(),
+            new SchemaTypeInteractionStub(),
+            new MetadataInteractionStub(),
+            new KnOwlButterMorphDraftStore());
+
+        var result = await host.Save(new global::ButterMorph.Web.Razor.ButterMorphPayloadSchemaDesignerSaveRequest
+        {
+            ContextKey = KnOwlButterMorphContext.EditEventVersion(versionId),
+            Definition = new PayloadSchemaDefinition
+            {
+                Key = "customer.updated",
+                Name = "Customer Updated",
+                Version = "1.0.0",
+                VersionComment = "Adjusted draft",
+                Type = "object"
+            }
+        });
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(versionId, events.UpdatedVersionId);
+        Assert.Contains("customer.updated", events.UpdatedPayloadSchemaJson, StringComparison.Ordinal);
+        Assert.Equal("Adjusted draft", events.UpdatedComment);
+    }
+
+    [Fact]
+    public async Task PayloadSchemaHostBlocksCommandEditWhenVersionIsNotDraft()
+    {
+        var versionId = Guid.NewGuid();
+        var commands = new CommandInteractionStub
+        {
+            Version = new CommandVersion
+            {
+                Id = versionId,
+                Status = ContractVersionStatus.Approved,
+                PayloadSchemaJson = "{\"key\":\"customer.reserve\",\"name\":\"Reserve Customer\",\"version\":\"1.0.0\",\"type\":\"object\",\"properties\":{}}",
+                ReplyPayloadSchemaJson = "{\"key\":\"customer.reserve.reply\",\"name\":\"Reserve Customer Reply\",\"version\":\"1.0.0\",\"type\":\"object\",\"properties\":{}}",
+                CommandDefinition = new CommandDefinition
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "Reserve Customer",
+                    Topic = "customer.reserve"
+                }
+            }
+        };
+        var host = new KnOwlPayloadSchemaDesignerHost(
+            new EventInteractionStub(),
+            commands,
+            new SchemaTypeInteractionStub(),
+            new MetadataInteractionStub(),
+            new KnOwlButterMorphDraftStore());
+
+        var result = await host.Save(new global::ButterMorph.Web.Razor.ButterMorphPayloadSchemaDesignerSaveRequest
+        {
+            ContextKey = KnOwlButterMorphContext.EditCommandVersionRequest(versionId),
+            Definition = new PayloadSchemaDefinition
+            {
+                Key = "customer.reserve",
+                Name = "Reserve Customer",
+                Version = "1.0.0",
+                Type = "object"
+            }
+        });
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("Only draft command versions can be edited", result.Message, StringComparison.Ordinal);
+        Assert.Null(commands.UpdatedVersionId);
+    }
+
     private sealed class EventInteractionStub : IEventInteractionService
     {
+        public EventVersion? Version { get; init; }
+        public Guid? UpdatedVersionId { get; private set; }
+        public string? UpdatedPayloadSchemaJson { get; private set; }
+        public string? UpdatedComment { get; private set; }
+
         public Task<IReadOnlyList<EventDefinition>> GetAll(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<EventDefinition>>([]);
         public Task<EventDefinition?> GetById(Guid id, bool includeVersions = false, CancellationToken cancellationToken = default) => Task.FromResult<EventDefinition?>(null);
+        public Task<EventVersion?> GetVersionById(Guid versionId, CancellationToken cancellationToken = default) => Task.FromResult(Version?.Id == versionId ? Version : null);
         public Task<bool> VersionExists(Guid eventId, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task Create(EventDefinition eventDefinition, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task UpdateDefinition(Guid id, string name, string topic, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task AddVersion(Guid eventId, EventVersion version, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpdateDraftVersion(Guid versionId, string payloadSchemaJson, string? comment, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+        {
+            if (Version is null || Version.Id != versionId)
+            {
+                throw new KeyNotFoundException($"Event version '{versionId}' was not found.");
+            }
+
+            if (Version.Status != ContractVersionStatus.Draft)
+            {
+                throw new InvalidOperationException("Only draft event versions can be edited.");
+            }
+
+            UpdatedVersionId = versionId;
+            UpdatedPayloadSchemaJson = payloadSchemaJson;
+            UpdatedComment = comment;
+            return Task.CompletedTask;
+        }
+
         public Task Delete(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private sealed class CommandInteractionStub : ICommandInteractionService
     {
         public CommandDefinition? Entity { get; init; }
+        public CommandVersion? Version { get; init; }
         public List<CommandDefinition> Created { get; } = [];
+        public Guid? UpdatedVersionId { get; private set; }
+        public string? UpdatedRequestSchemaJson { get; private set; }
+        public string? UpdatedReplySchemaJson { get; private set; }
+        public string? UpdatedComment { get; private set; }
 
         public Task<IReadOnlyList<CommandDefinition>> GetAll(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<CommandDefinition>>([]);
         public Task<CommandDefinition?> GetById(Guid id, bool includeVersions = false, CancellationToken cancellationToken = default) => Task.FromResult(Entity?.Id == id ? Entity : null);
+        public Task<CommandVersion?> GetVersionById(Guid versionId, CancellationToken cancellationToken = default) => Task.FromResult(Version?.Id == versionId ? Version : null);
         public Task<bool> VersionExists(Guid commandId, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task Create(CommandDefinition commandDefinition, CancellationToken cancellationToken = default)
         {
@@ -328,6 +456,25 @@ public sealed class ButterMorphAdapterTests
         }
         public Task UpdateDefinition(Guid id, string name, string topic, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task AddVersion(Guid commandId, CommandVersion version, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpdateDraftVersion(Guid versionId, string requestSchemaJson, string? replySchemaJson, string? comment, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+        {
+            if (Version is null || Version.Id != versionId)
+            {
+                throw new KeyNotFoundException($"Command version '{versionId}' was not found.");
+            }
+
+            if (Version.Status != ContractVersionStatus.Draft)
+            {
+                throw new InvalidOperationException("Only draft command versions can be edited.");
+            }
+
+            UpdatedVersionId = versionId;
+            UpdatedRequestSchemaJson = requestSchemaJson;
+            UpdatedReplySchemaJson = replySchemaJson;
+            UpdatedComment = comment;
+            return Task.CompletedTask;
+        }
+
         public Task Delete(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
