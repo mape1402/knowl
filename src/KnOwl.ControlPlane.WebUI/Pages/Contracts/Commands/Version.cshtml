@@ -8,6 +8,7 @@
     {
         ContractVersionStatus.Draft => "knowl-status knowl-status-draft",
         ContractVersionStatus.InReview => "knowl-status knowl-status-review",
+        ContractVersionStatus.Abandoned => "knowl-status knowl-status-abandoned",
         ContractVersionStatus.Approved => "knowl-status knowl-status-approved",
         ContractVersionStatus.Deployed => "knowl-status knowl-status-deployed",
         ContractVersionStatus.Deprecated => "knowl-status knowl-status-deprecated",
@@ -15,11 +16,17 @@
         _ => "knowl-status"
     };
 
-    string StatusLabel(ContractVersionStatus status) => status == ContractVersionStatus.InReview ? "In review" : status.ToString();
+    string StatusLabel(ContractVersionStatus status) => status switch
+    {
+        ContractVersionStatus.InReview => "In review",
+        ContractVersionStatus.Abandoned => "Abandoned",
+        _ => status.ToString()
+    };
 
     string ActionLabel(ContractVersionStatus status) => status switch
     {
         ContractVersionStatus.InReview => "Send to review",
+        ContractVersionStatus.Abandoned => "Abandon draft",
         ContractVersionStatus.Draft => "Return to draft",
         ContractVersionStatus.Approved => "Approve version",
         ContractVersionStatus.Deployed => "Deploy version",
@@ -84,7 +91,7 @@
                                     <input type="hidden" name="id" value="@Model.Command.Id" />
                                     <input type="hidden" name="versionId" value="@Model.Version.Id" />
                                     <input type="hidden" name="targetStatus" value="@target" />
-                                    <button type="submit" class="dropdown-item @(target == ContractVersionStatus.Archived ? "text-danger" : string.Empty)">@ActionLabel(target)</button>
+                                    <button type="submit" class="dropdown-item @(target is ContractVersionStatus.Abandoned or ContractVersionStatus.Archived ? "text-danger" : string.Empty)">@ActionLabel(target)</button>
                                 </form>
                             </li>
                         }

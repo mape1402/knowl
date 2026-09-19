@@ -1375,6 +1375,15 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
     color: #fbbf24;
 }
 
+.knowl-status-abandoned {
+    background: color-mix(in srgb, #64748b 14%, var(--knowl-surface, #ffffff));
+    color: #334155;
+}
+
+[data-knowl-theme="dark"] .knowl-status-abandoned {
+    color: #e2e8f0;
+}
+
 .knowl-status-approved {
     background: color-mix(in srgb, #0ea5e9 16%, var(--knowl-surface, #ffffff));
     color: #0369a1;
@@ -1915,18 +1924,37 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
 .dropdown-menu {
     background: var(--knowl-surface, #fff);
     border-color: var(--knowl-border, #e2e3ef);
+    border-radius: 8px;
+    box-shadow: 0 12px 28px color-mix(in srgb, var(--knowl-shadow-color, rgba(15, 23, 42, 0.18)) 70%, transparent);
     color: var(--knowl-text, #1f1433);
-    min-width: 11rem;
+    min-width: 12.5rem;
+    padding: 0.35rem;
 }
 
 .dropdown-item {
+    align-items: center;
+    border-radius: 6px;
     color: var(--knowl-text, #1f1433);
+    display: flex;
+    font-size: 0.86rem;
+    font-weight: 600;
+    gap: 0.5rem;
+    line-height: 1.25;
+    min-height: 2.15rem;
+    padding: 0.48rem 0.65rem;
+    white-space: normal;
+    width: 100%;
 }
 
 .dropdown-item:hover,
 .dropdown-item:focus {
     background: color-mix(in srgb, var(--knowl-primary, #7c3aed) 10%, var(--knowl-surface, #fff));
     color: var(--knowl-text, #1f1433);
+}
+
+.dropdown-divider {
+    border-top-color: var(--knowl-border, #e2e3ef);
+    margin: 0.35rem 0;
 }
 
 .od-versions-grid {
