@@ -44,10 +44,7 @@ internal sealed class ContractArtifactBuilder(
 
     /// <inheritdoc />
     public async Task<ContractArtifact> BuildCommandArtifact(Guid versionId, CancellationToken cancellationToken = default)
-    {
-        var artifacts = await BuildCommandArtifacts(versionId, cancellationToken);
-        return artifacts.First(x => x.ArtifactType == ContractArtifactType.CommandRequest);
-    }
+        => (await BuildCommandArtifacts(versionId, cancellationToken)).Single();
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<ContractArtifact>> BuildCommandArtifacts(Guid versionId, CancellationToken cancellationToken = default)
@@ -58,43 +55,23 @@ internal sealed class ContractArtifactBuilder(
             ?? throw new InvalidOperationException($"Command version '{versionId}' does not include its definition snapshot.");
 
         EnsureArtifactStatus(version.Status, versionId);
-        await EnsureValidSnapshot(versionId, ContractArtifactType.CommandRequest, cancellationToken);
+        await EnsureValidSnapshot(versionId, ContractArtifactType.Command, cancellationToken);
 
-        List<ContractArtifact> created =
-        [
-            await GetOrCreateArtifact(new ContractArtifact
-            {
-                ArtifactType = ContractArtifactType.CommandRequest,
-                DefinitionId = version.CommandDefinitionId,
-                VersionId = version.Id,
-                Name = $"{definition.Name} Request",
-                Topic = definition.Topic,
-                VersionNumber = version.VersionNumber,
-                Description = definition.Description,
-                PayloadSchemaJson = version.PayloadSchemaJson,
-                SourceStatus = version.Status.ToString(),
-                CreatedAtUtc = DateTime.UtcNow
-            }, cancellationToken)
-        ];
-
-        if (!string.IsNullOrWhiteSpace(version.ReplyPayloadSchemaJson))
+        var artifact = await GetOrCreateArtifact(new ContractArtifact
         {
-            created.Add(await GetOrCreateArtifact(new ContractArtifact
-            {
-                ArtifactType = ContractArtifactType.CommandReply,
-                DefinitionId = version.CommandDefinitionId,
-                VersionId = version.Id,
-                Name = $"{definition.Name} Reply",
-                Topic = definition.Topic,
-                VersionNumber = version.VersionNumber,
-                Description = definition.Description,
-                PayloadSchemaJson = version.ReplyPayloadSchemaJson,
-                SourceStatus = version.Status.ToString(),
-                CreatedAtUtc = DateTime.UtcNow
-            }, cancellationToken));
-        }
+            ArtifactType = ContractArtifactType.Command,
+            DefinitionId = version.CommandDefinitionId,
+            VersionId = version.Id,
+            Name = definition.Name,
+            Topic = definition.Topic,
+            VersionNumber = version.VersionNumber,
+            Description = definition.Description,
+            PayloadSchemaJson = CommandArtifactPayloadDocument.Compose(version.PayloadSchemaJson, version.ReplyPayloadSchemaJson),
+            SourceStatus = version.Status.ToString(),
+            CreatedAtUtc = DateTime.UtcNow
+        }, cancellationToken);
 
-        return created;
+        return [artifact];
     }
 
     private async Task<ContractArtifact> GetOrCreateArtifact(ContractArtifact artifact, CancellationToken cancellationToken)

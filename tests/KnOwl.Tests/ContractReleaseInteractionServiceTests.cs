@@ -42,6 +42,24 @@ public sealed class ContractReleaseInteractionServiceTests
     }
 
     [Fact]
+    public async Task CreateAllowsCommandRequestAndReplyArtifactsInSameRelease()
+    {
+        var definitionId = Guid.NewGuid();
+        var versionId = Guid.NewGuid();
+        var request = CreateArtifact("customer.register", "1.0.0", ContractArtifactType.CommandRequest, definitionId, versionId);
+        var reply = CreateArtifact("customer.register", "1.0.0", ContractArtifactType.CommandReply, definitionId, versionId);
+
+        using var provider = CreateProvider(new ReleaseArtifactRepository([request, reply]), new ReleaseRepository());
+        var service = provider.GetRequiredService<IContractReleaseInteractionService>();
+
+        var release = await service.Create("Customer command", null, [request.Id, reply.Id]);
+
+        Assert.Equal(2, release.Items.Count);
+        Assert.Contains(release.Items, x => x.ArtifactId == request.Id);
+        Assert.Contains(release.Items, x => x.ArtifactId == reply.Id);
+    }
+
+    [Fact]
     public async Task PlanCreatesTargetsForSelectedRuntimeNodes()
     {
         var artifact = CreateArtifact("customer.created", "1.0.0");
@@ -52,6 +70,7 @@ public sealed class ContractReleaseInteractionServiceTests
             Id = Guid.NewGuid(),
             Name = "Pull runtime",
             Code = "pull-runtime",
+            EnvironmentName = "dev",
             DistributionMode = DistributionMode.Pull,
             IsEnabled = true,
             Status = RuntimeNodeStatus.Active
@@ -61,6 +80,7 @@ public sealed class ContractReleaseInteractionServiceTests
             Id = Guid.NewGuid(),
             Name = "Push runtime",
             Code = "push-runtime",
+            EnvironmentName = "dev",
             DistributionMode = DistributionMode.Push,
             IsEnabled = true,
             Status = RuntimeNodeStatus.Active
@@ -93,6 +113,7 @@ public sealed class ContractReleaseInteractionServiceTests
             Id = Guid.NewGuid(),
             Name = "Push runtime",
             Code = "push-runtime",
+            EnvironmentName = "dev",
             DistributionMode = DistributionMode.Push,
             IsEnabled = true,
             Status = RuntimeNodeStatus.Active
@@ -123,8 +144,36 @@ public sealed class ContractReleaseInteractionServiceTests
             Id = Guid.NewGuid(),
             Name = "Disabled runtime",
             Code = "disabled-runtime",
+            EnvironmentName = "dev",
             DistributionMode = DistributionMode.Pull,
             IsEnabled = false,
+            Status = RuntimeNodeStatus.Active
+        };
+
+        using var provider = CreateProvider(
+            new ReleaseArtifactRepository([artifact]),
+            releases,
+            new RuntimeNodeRepository([runtimeNode]),
+            new ReleaseTargetRepository());
+        var service = provider.GetRequiredService<IContractReleaseInteractionService>();
+
+        var release = await service.Create("Customer contracts", null, [artifact.Id]);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.Plan(release.Id, [runtimeNode.Id]));
+    }
+
+    [Fact]
+    public async Task PlanBlocksRuntimeNodesWithoutEnvironment()
+    {
+        var artifact = CreateArtifact("customer.created", "1.0.0");
+        ReleaseRepository releases = new();
+        var runtimeNode = new RuntimeNode
+        {
+            Id = Guid.NewGuid(),
+            Name = "Orphan runtime",
+            Code = "orphan-runtime",
+            DistributionMode = DistributionMode.Pull,
+            IsEnabled = true,
             Status = RuntimeNodeStatus.Active
         };
 
@@ -151,6 +200,7 @@ public sealed class ContractReleaseInteractionServiceTests
             Id = Guid.NewGuid(),
             Name = "Pull runtime",
             Code = "pull-runtime",
+            EnvironmentName = "dev",
             DistributionMode = DistributionMode.Pull,
             IsEnabled = true,
             Status = RuntimeNodeStatus.Active
@@ -176,14 +226,19 @@ public sealed class ContractReleaseInteractionServiceTests
     }
 
 
-    private static ContractArtifact CreateArtifact(string topic, string version)
+    private static ContractArtifact CreateArtifact(
+        string topic,
+        string version,
+        ContractArtifactType artifactType = ContractArtifactType.Event,
+        Guid? definitionId = null,
+        Guid? versionId = null)
     {
         return new ContractArtifact
         {
             Id = Guid.NewGuid(),
-            ArtifactType = ContractArtifactType.Event,
-            DefinitionId = Guid.NewGuid(),
-            VersionId = Guid.NewGuid(),
+            ArtifactType = artifactType,
+            DefinitionId = definitionId ?? Guid.NewGuid(),
+            VersionId = versionId ?? Guid.NewGuid(),
             Name = topic,
             Topic = topic,
             VersionNumber = version,

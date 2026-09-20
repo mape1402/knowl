@@ -1,4 +1,5 @@
 @page
+@using KnOwl.Contracts.Artifacts
 @using KnOwl.Contracts.Distribution
 @using KnOwl.ControlPlane.Distribution.Core
 @model KnOwl.ControlPlane.WebUI.Pages.Contracts.ContractReleases.ViewModel
@@ -38,6 +39,42 @@
         DistributionMode.Hybrid => "Both directions",
         _ => "Unknown mode"
     };
+
+    string ContractGroupName(IEnumerable<ContractReleaseItem> items)
+    {
+        var ordered = items.OrderBy(ArtifactTypeOrder).ToArray();
+        var primary = ordered.FirstOrDefault(x => x.Artifact?.ArtifactType == ContractArtifactType.Event)
+            ?? ordered.FirstOrDefault(x => x.Artifact?.ArtifactType == ContractArtifactType.Command)
+            ?? ordered.FirstOrDefault(x => x.Artifact?.ArtifactType == ContractArtifactType.CommandRequest)
+            ?? ordered.FirstOrDefault()
+            ?? throw new InvalidOperationException("Release artifact group is empty.");
+
+        var name = primary.Artifact?.Name ?? "Unknown contract";
+        if (!ordered.Any(x => x.Artifact?.ArtifactType is ContractArtifactType.Command or ContractArtifactType.CommandRequest or ContractArtifactType.CommandReply))
+        {
+            return name;
+        }
+
+        foreach (var suffix in new[] { " Request", " Reply" })
+        {
+            if (name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+            {
+                return name[..^suffix.Length].TrimEnd();
+            }
+        }
+
+        return name;
+    }
+
+    int ArtifactTypeOrder(ContractReleaseItem item)
+        => item.Artifact?.ArtifactType switch
+        {
+            ContractArtifactType.Event => 0,
+            ContractArtifactType.Command => 1,
+            ContractArtifactType.CommandRequest => 2,
+            ContractArtifactType.CommandReply => 3,
+            _ => 4
+        };
 }
 
 <section class="dashboard-section">
@@ -82,25 +119,43 @@
         </div>
 
         <div class="release-artifact-board">
-            @foreach (var item in Model.Release.Items.OrderBy(x => x.Artifact?.Topic).ThenBy(x => x.Artifact?.ArtifactType))
+            @foreach (var contractGroup in Model.Release.Items
+                .GroupBy(item => new
+                {
+                    DefinitionId = item.Artifact?.DefinitionId ?? Guid.Empty,
+                    VersionId = item.Artifact?.VersionId ?? Guid.Empty,
+                    Topic = item.Artifact?.Topic ?? string.Empty,
+                    VersionNumber = item.Artifact?.VersionNumber ?? string.Empty
+                })
+                .OrderBy(group => group.Key.Topic)
+                .ThenBy(group => group.Key.VersionNumber))
             {
-                var artifactTargets = Model.Release.Targets
-                    .Where(target => target.ReleaseItemId == item.Id || target.ArtifactId == item.ArtifactId)
+                var groupItems = contractGroup.ToArray();
+                var contractName = ContractGroupName(groupItems);
+                var groupItemIds = groupItems.Select(x => x.Id).ToHashSet();
+                var groupTargets = Model.Release.Targets
+                    .Where(target => groupItemIds.Contains(target.ReleaseItemId) || groupItems.Any(item => item.ArtifactId == target.ArtifactId))
                     .OrderBy(target => target.RuntimeNode?.Name)
+                    .ThenBy(target => target.Artifact?.ArtifactType)
                     .ToArray();
 
                 <article class="release-artifact-card">
                     <div class="release-artifact-card-head">
                         <div>
-                            <span class="knowl-status knowl-status-approved">@item.Artifact?.ArtifactType</span>
-                            <h2>@(item.Artifact?.Name ?? "Unknown artifact")</h2>
-                            <p>@item.Artifact?.Topic @item.Artifact?.VersionNumber</p>
+                            <span class="knowl-status knowl-status-approved">@(groupItems.Any(x => x.Artifact?.ArtifactType.ToString().StartsWith("Command") == true) ? "Command" : "Event")</span>
+                            <h2>@contractName</h2>
+                            <p>@contractGroup.Key.Topic @contractGroup.Key.VersionNumber</p>
                         </div>
-                        <code>@item.Artifact?.ContentHash</code>
+                        <div class="release-contract-tags">
+                            @foreach (var item in groupItems.OrderBy(x => x.Artifact?.ArtifactType))
+                            {
+                                <span>@item.Artifact?.ArtifactType</span>
+                            }
+                        </div>
                     </div>
 
                     <div class="release-runtime-stages">
-                        @foreach (var target in artifactTargets)
+                        @foreach (var target in groupTargets)
                         {
                             var canPushRuntime = target.RuntimeNode?.DistributionMode is DistributionMode.Push or DistributionMode.Hybrid;
                             var canRetryTarget = target.Status is ContractReleaseTargetStatus.Pending
@@ -113,6 +168,7 @@
                             <div class="@TargetStatusClass(target.Status)">
                                 <div class="knowl-stage-name">@target.RuntimeNode?.Name</div>
                                 <div class="knowl-stage-meta">@target.RuntimeNode?.Code - @DistributionLabel(target.RuntimeNode?.DistributionMode)</div>
+                                <div class="knowl-stage-meta">@target.Artifact?.ArtifactType</div>
                                 <div class="knowl-stage-status">@target.Status</div>
                                 @if (!string.IsNullOrWhiteSpace(target.FailureReason) || lastAttempt is not null)
                                 {

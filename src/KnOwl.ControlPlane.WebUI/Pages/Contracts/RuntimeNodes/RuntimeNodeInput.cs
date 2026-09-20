@@ -18,6 +18,7 @@ public sealed class RuntimeNodeInput
     [Display(Name = "Node code")]
     public string Code { get; set; } = string.Empty;
 
+    [Required]
     [Display(Name = "Environment")]
     public Guid? EnvironmentId { get; set; }
 
@@ -26,7 +27,7 @@ public sealed class RuntimeNodeInput
 
     [MaxLength(500)]
     [Display(Name = "Runtime base URL")]
-    public string EndpointBaseUri { get; set; } = string.Empty;
+    public string? EndpointBaseUri { get; set; }
 
     [Display(Name = "Status")]
     public RuntimeNodeStatus Status { get; set; } = RuntimeNodeStatus.Active;

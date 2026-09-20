@@ -59,8 +59,8 @@ public class ViewModel(
             await promotion.TransitionCommandVersion(versionId, targetStatus, cancellationToken);
             if (targetStatus == ContractVersionStatus.Deployed)
             {
-                var artifacts = await artifactBuilder.BuildCommandArtifacts(versionId, cancellationToken);
-                StatusMessage = $"Version transitioned to {targetStatus}. Artifacts generated: {artifacts.Count}.";
+                var artifact = await artifactBuilder.BuildCommandArtifact(versionId, cancellationToken);
+                StatusMessage = $"Version transitioned to {targetStatus}. Artifact generated: {artifact.Topic}@{artifact.VersionNumber}.";
             }
             else
             {

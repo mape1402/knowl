@@ -1,283 +1,294 @@
 @page
+@using KnOwl.Contracts.Distribution
 @using KnOwl.Contracts.Security
 @using KnOwl.ControlPlane.Distribution.Core
 @model KnOwl.ControlPlane.WebUI.Pages.Contracts.RuntimeNodes.IndexModel
 @{
     ViewData["Title"] = "Runtime Nodes";
+
+    string StatusClass(RuntimeNode node)
+        => node.IsEnabled && node.Status == RuntimeNodeStatus.Active
+            ? "od-status od-status-active"
+            : "od-status od-status-inactive";
+
+    string DistributionLabel(DistributionMode mode) => mode switch
+    {
+        DistributionMode.Push => "Control Plane pushes",
+        DistributionMode.Pull => "Runtime pulls",
+        DistributionMode.Hybrid => "Both directions",
+        _ => mode.ToString()
+    };
+
+    string CredentialSummary(RuntimeNode node)
+    {
+        var needsRuntime = node.DistributionMode is DistributionMode.Push or DistributionMode.Hybrid;
+        var needsControl = node.DistributionMode is DistributionMode.Pull or DistributionMode.Hybrid;
+        var runtimeReady = !needsRuntime || node.OutboundCredentialStatus == ConnectionCredentialStatus.Active;
+        var controlReady = !needsControl || node.InboundCredentialStatus == ConnectionCredentialStatus.Active;
+        return runtimeReady && controlReady ? "Ready" : "Pending";
+    }
 }
 
 <div class="od-page-head">
     <div>
         <h1 class="od-page-title">Runtime Nodes</h1>
-        <p class="od-page-subtitle">Execution hosts available for contract releases.</p>
+        <p class="od-page-subtitle">Execution hosts grouped by environment and configured through the distribution wizard.</p>
     </div>
-    <button class="btn btn-primary js-open-runtime-node-setup" type="button" data-mode="new">Create runtime node</button>
+    <button class="btn btn-primary js-open-runtime-wizard" type="button" data-mode="new">
+        <i class="bi bi-plus-lg"></i> Create runtime node
+    </button>
 </div>
-        @await Html.PartialAsync("_StatusMessageBox", Model.StatusMessage)
-        @if (!Model.RuntimeNodes.Any())
-        {
-            <section class="od-panel">
-                <p class="od-empty">No runtime nodes found.</p>
-            </section>
-        }
-        else
-        {
-        <section class="od-list-shell">
-            <div class="od-grid od-runtime-node-grid">
-                @foreach (var node in Model.RuntimeNodes)
-                {
-                    var credentialReady = node.InboundCredentialStatus == ConnectionCredentialStatus.Active && node.OutboundCredentialStatus == ConnectionCredentialStatus.Active;
-                    <article class="od-item-card od-runtime-node-card"
-                             data-runtime-node-card
-                             data-runtime-node-open
-                             data-id="@node.Id"
-                             data-name="@node.Name"
-                             data-code="@node.Code"
-                             data-environment-id="@node.EnvironmentId"
-                             data-environment-name="@(node.Environment?.Name ?? node.EnvironmentName ?? "-")"
-                             data-distribution-mode="@node.DistributionMode"
-                             data-endpoint-base-uri="@node.EndpointBaseUri"
-                             data-status="@node.Status"
-                             data-enabled="@node.IsEnabled.ToString().ToLowerInvariant()"
-                             data-description="@node.Description"
-                             data-inbound-credential-status="@node.InboundCredentialStatus"
-                             data-outbound-credential-status="@node.OutboundCredentialStatus">
-                        <div class="od-item-top">
-                            <div>
-                                <h2 class="od-item-title">@node.Name</h2>
-                                <p class="od-item-meta">@node.Code</p>
-                            </div>
-                            <div class="d-flex align-items-start gap-2">
-                                <span class="od-status @(node.IsEnabled && node.Status == RuntimeNodeStatus.Active ? "od-status-active" : "od-status-inactive")">@node.Status</span>
-                                <div class="dropdown">
-                                    <button class="od-kebab" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Runtime node actions">
-                                        <span aria-hidden="true">⋮</span>
-                                    </button>
-                                    <ul class="dropdown-menu dropdown-menu-end">
-                                        <li><button class="dropdown-item js-open-runtime-node-setup" type="button">Open setup</button></li>
-                                        <li><button class="dropdown-item js-edit-runtime-node-from-card" type="button">Edit identity</button></li>
-                                        <li><button class="dropdown-item js-generate-runtime-credentials-from-card" type="button">Generate design credentials</button></li>
-                                        <li><button class="dropdown-item js-import-runtime-credentials-from-card" type="button">Import runtime credentials</button></li>
-                                        <li>
-                                            <form class="od-inline-form" method="post" asp-page-handler="ValidateConnection">
-                                                <input type="hidden" name="runtimeNodeId" value="@node.Id" />
-                                                <button class="dropdown-item" type="submit">Check connection</button>
-                                            </form>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="od-runtime-card-summary">
-                            <div><span>Mode</span><strong>@node.DistributionMode</strong></div>
-                            <div><span>Credentials</span><strong class="@(credentialReady ? "text-success" : "text-warning")">@(credentialReady ? "Ready" : "Pending")</strong></div>
-                            <div><span>Environment</span><strong>@(node.Environment?.Name ?? node.EnvironmentName ?? "-")</strong></div>
-                        </div>
-                        <p class="od-item-description">@(string.IsNullOrWhiteSpace(node.Description) ? "No description." : node.Description)</p>
-                    </article>
-                }
-            </div>
-        </section>
-        }
 
-<div class="modal fade" id="runtimeNodeSetupModal" tabindex="-1" aria-labelledby="runtimeNodeSetupModalLabel" aria-hidden="true">
+@await Html.PartialAsync("_StatusMessageBox", Model.StatusMessage)
+
+@if (!Model.RuntimeNodes.Any())
+{
+    <section class="od-panel">
+        <p class="od-empty">No runtime nodes found.</p>
+    </section>
+}
+else
+{
+    <section class="od-list-shell">
+        <div class="od-grid od-runtime-node-grid">
+            @foreach (var node in Model.RuntimeNodes)
+            {
+                var environmentName = node.Environment?.Name ?? node.EnvironmentName;
+                <article class="od-item-card od-runtime-node-card"
+                         data-runtime-node-card
+                         data-id="@node.Id"
+                         data-name="@node.Name"
+                         data-code="@node.Code"
+                         data-environment-id="@node.EnvironmentId"
+                         data-environment-name="@environmentName"
+                         data-distribution-mode="@node.DistributionMode"
+                         data-distribution-mode-label="@DistributionLabel(node.DistributionMode)"
+                         data-endpoint-base-uri="@node.EndpointBaseUri"
+                         data-status="@node.Status"
+                         data-enabled="@node.IsEnabled.ToString().ToLowerInvariant()"
+                         data-description="@node.Description"
+                         data-inbound-credential-status="@node.InboundCredentialStatus"
+                         data-outbound-credential-status="@node.OutboundCredentialStatus"
+                         data-inbound-client-id="@node.InboundClientId"
+                         data-inbound-key-id="@node.InboundKeyId"
+                         data-inbound-allowed-scopes="@node.InboundAllowedScopes"
+                         data-outbound-client-id="@node.OutboundClientId"
+                         data-outbound-key-id="@node.OutboundKeyId"
+                         data-outbound-requested-scopes="@node.OutboundRequestedScopes">
+                    <div class="od-item-top">
+                        <div>
+                            <h2 class="od-item-title">@node.Name</h2>
+                            <p class="od-item-meta">@node.Code</p>
+                        </div>
+                        <div class="d-flex align-items-start gap-2">
+                            <span class="@StatusClass(node)">@(node.IsEnabled ? node.Status : "Disabled")</span>
+                            <div class="dropdown">
+                                <button class="od-kebab" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Runtime node actions">
+                                    <span aria-hidden="true">...</span>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><button class="dropdown-item js-open-runtime-wizard" type="button">Configure</button></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="od-runtime-card-summary">
+                        <div><span>Environment</span><strong>@(string.IsNullOrWhiteSpace(environmentName) ? "-" : environmentName)</strong></div>
+                        <div><span>Mode</span><strong>@DistributionLabel(node.DistributionMode)</strong></div>
+                        <div><span>Credentials</span><strong>@CredentialSummary(node)</strong></div>
+                    </div>
+                    <p class="od-item-description">@(string.IsNullOrWhiteSpace(node.Description) ? "No description." : node.Description)</p>
+                </article>
+            }
+        </div>
+    </section>
+}
+
+<div class="modal fade" id="runtimeWizardModal" tabindex="-1" aria-labelledby="runtimeWizardModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
                 <div>
-                    <h5 class="modal-title" id="runtimeNodeSetupModalLabel">Runtime node setup</h5>
-                    <p class="od-item-meta mb-0" id="runtimeNodeSetupSubtitle">Configure identity, policy, credentials, and connection.</p>
+                    <h5 class="modal-title" id="runtimeWizardModalLabel">Runtime node setup</h5>
+                    <p class="od-item-meta mb-0" id="runtimeWizardSubtitle">Create the node, choose policy, exchange credentials, then verify.</p>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body od-runtime-setup-body">
-                <aside class="od-setup-rail" aria-label="Setup steps">
-                    <button type="button" class="od-setup-step active" data-runtime-setup-step="identity">Identity</button>
-                    <button type="button" class="od-setup-step" data-runtime-setup-step="policy">Policy</button>
-                    <button type="button" class="od-setup-step" data-runtime-setup-step="runtimeCredentials">Runtime credentials</button>
-                    <button type="button" class="od-setup-step" data-runtime-setup-step="designCredentials">Design credentials</button>
-                    <button type="button" class="od-setup-step" data-runtime-setup-step="verify">Verify</button>
+                <aside class="od-setup-rail" aria-label="Runtime setup steps">
+                    <button type="button" class="od-setup-step active" data-runtime-step-target="basic"><span>1</span> Basic data</button>
+                    <button type="button" class="od-setup-step" data-runtime-step-target="policy"><span>2</span> Policy</button>
+                    <button type="button" class="od-setup-step" data-runtime-step-target="runtimeCredentials"><span>3</span> Runtime credentials</button>
+                    <button type="button" class="od-setup-step" data-runtime-step-target="controlPlaneCredentials"><span>4</span> Control Plane credentials</button>
+                    <button type="button" class="od-setup-step" data-runtime-step-target="verify"><span>5</span> Verify</button>
                 </aside>
                 <div class="od-setup-panels">
-                    <section class="od-setup-panel active" data-runtime-setup-panel="identity">
+                    <section class="od-setup-panel active" data-runtime-step="basic">
                         <div class="od-section-head">
                             <div>
-                                <h2 class="od-section-title">Identity</h2>
-                                <p class="od-item-meta">Name, code, environment, and description.</p>
+                                <h2 class="od-section-title">Basic data</h2>
+                                <p class="od-item-meta">Runtime identity and environment dependency.</p>
                             </div>
-                            <button type="button" class="btn btn-primary btn-sm js-edit-runtime-node">Edit identity</button>
                         </div>
-                        <div class="od-info-grid">
-                            <div class="od-info-tile"><span>Name</span><strong id="setupRuntimeName">-</strong></div>
-                            <div class="od-info-tile"><span>Code</span><strong id="setupRuntimeCode">-</strong></div>
-                            <div class="od-info-tile"><span>Environment</span><strong id="setupRuntimeEnvironment">-</strong></div>
-                            <div class="od-info-tile"><span>Status</span><strong id="setupRuntimeStatus">-</strong></div>
-                        </div>
-                        <div class="od-info-block">
-                            <span>Description</span>
-                            <p id="setupRuntimeDescription">-</p>
-                        </div>
+                        <form method="post" asp-page-handler="WizardUpsert" id="runtimeBasicForm" data-runtime-wizard-form>
+                            <input type="hidden" name="Input.Id" data-runtime-field="id" />
+                            <input type="hidden" name="Input.DistributionMode" data-runtime-field="distributionMode" value="Pull" />
+                            <input type="hidden" name="Input.EndpointBaseUri" data-runtime-field="endpointBaseUri" />
+                            <input type="hidden" name="Input.Status" data-runtime-field="status" value="Active" />
+                            <input type="hidden" name="Input.IsEnabled" data-runtime-field="isEnabled" value="false" />
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label" for="runtimeNameInput">Name</label>
+                                    <input class="form-control" id="runtimeNameInput" name="Input.Name" data-runtime-field="name" autocomplete="off" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="runtimeCodeInput">Code</label>
+                                    <input class="form-control" id="runtimeCodeInput" name="Input.Code" data-runtime-field="code" autocomplete="off" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="runtimeEnvironmentInput">Environment</label>
+                                    <select class="form-select" id="runtimeEnvironmentInput" name="Input.EnvironmentId" data-runtime-field="environmentId">
+                                        <option value="">Select environment</option>
+                                        @foreach (var environment in Model.Environments)
+                                        {
+                                            <option value="@environment.Id">@environment.Name (@environment.Code)</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="runtimeDescriptionInput">Description</label>
+                                    <input class="form-control" id="runtimeDescriptionInput" name="Input.Description" data-runtime-field="description" autocomplete="off" />
+                                </div>
+                            </div>
+                        </form>
                     </section>
-                    <section class="od-setup-panel" data-runtime-setup-panel="policy">
+
+                    <section class="od-setup-panel" data-runtime-step="policy">
                         <div class="od-section-head">
                             <div>
                                 <h2 class="od-section-title">Distribution policy</h2>
-                                <p class="od-item-meta">Choose who starts release movement.</p>
+                                <p class="od-item-meta">Choose who moves release artifacts.</p>
                             </div>
-                            <button type="button" class="btn btn-primary btn-sm js-edit-runtime-node">Edit policy</button>
                         </div>
-                        <div class="od-info-grid">
-                            <div class="od-info-tile"><span>Mode</span><strong id="setupRuntimeMode">-</strong></div>
-                            <div class="od-info-tile"><span>Endpoint</span><strong id="setupRuntimeEndpoint">-</strong></div>
-                            <div class="od-info-tile"><span>Enabled</span><strong id="setupRuntimeEnabled">-</strong></div>
-                        </div>
+                        <form method="post" asp-page-handler="WizardUpsert" id="runtimePolicyForm" data-runtime-wizard-form>
+                            <input type="hidden" name="Input.Id" data-runtime-field="id" />
+                            <input type="hidden" name="Input.Name" data-runtime-field="name" />
+                            <input type="hidden" name="Input.Code" data-runtime-field="code" />
+                            <input type="hidden" name="Input.EnvironmentId" data-runtime-field="environmentId" />
+                            <input type="hidden" name="Input.Description" data-runtime-field="description" />
+                            <input type="hidden" name="Input.Status" data-runtime-field="status" value="Active" />
+                            <input type="hidden" name="Input.IsEnabled" data-runtime-field="isEnabled" value="false" />
+                            <div class="od-policy-options">
+                                <label class="od-policy-option">
+                                    <input type="radio" name="Input.DistributionMode" value="Push" />
+                                    <span><strong>Control Plane pushes</strong><small>Control Plane sends artifacts to the Runtime endpoint.</small></span>
+                                </label>
+                                <label class="od-policy-option">
+                                    <input type="radio" name="Input.DistributionMode" value="Pull" />
+                                    <span><strong>Runtime pulls</strong><small>Runtime imports available releases from Control Plane.</small></span>
+                                </label>
+                                <label class="od-policy-option">
+                                    <input type="radio" name="Input.DistributionMode" value="Hybrid" />
+                                    <span><strong>Both directions</strong><small>Control Plane can push and Runtime can pull.</small></span>
+                                </label>
+                            </div>
+                            <div class="mt-3" data-runtime-endpoint-panel>
+                                <label class="form-label" for="runtimeEndpointInput">Runtime base URL</label>
+                                <input class="form-control" id="runtimeEndpointInput" name="Input.EndpointBaseUri" data-runtime-field="endpointBaseUri" placeholder="https://runtime-host" />
+                            </div>
+                        </form>
                     </section>
-                    <section class="od-setup-panel" data-runtime-setup-panel="runtimeCredentials">
+
+                    <section class="od-setup-panel" data-runtime-step="runtimeCredentials">
                         <div class="od-section-head">
                             <div>
                                 <h2 class="od-section-title">Runtime credentials</h2>
-                                <p class="od-item-meta">Required when Control Plane publishes releases to Runtime.</p>
+                                <p class="od-item-meta">Required when Control Plane pushes artifacts to Runtime.</p>
                             </div>
-                            <button type="button" class="btn btn-primary btn-sm js-import-runtime-credentials">Import runtime credentials</button>
+                            <span class="od-status od-status-queued" id="runtimeCredentialStatus">Missing</span>
                         </div>
-                        <div class="od-info-grid">
-                            <div class="od-info-tile"><span>Status</span><strong id="setupRuntimeInboundStatus">-</strong></div>
+                        <form method="post" asp-page-handler="WizardImportCredentials" id="runtimeImportCredentialForm" data-runtime-wizard-form>
+                            <input type="hidden" name="CredentialImportInput.RuntimeNodeId" data-runtime-field="id" />
+                            <label class="form-label" for="runtimeCredentialsJson">Runtime credentials JSON</label>
+                            <textarea class="form-control font-monospace" id="runtimeCredentialsJson" name="CredentialImportInput.Package" rows="9" placeholder="Paste the Runtime-generated credential package"></textarea>
+                            <div class="d-flex justify-content-end mt-3">
+                                <button type="button" class="btn btn-primary btn-sm" id="runtimeImportCredentialsButton">Import credentials</button>
+                            </div>
+                        </form>
+                        <div class="od-info-grid od-info-grid-compact mt-3">
+                            <div class="od-info-tile"><span>Client ID</span><strong id="runtimeOutboundClientId">-</strong></div>
+                            <div class="od-info-tile"><span>Key ID</span><strong id="runtimeOutboundKeyId">-</strong></div>
+                            <div class="od-info-tile"><span>Scopes</span><strong id="runtimeOutboundScopes">-</strong></div>
                         </div>
                     </section>
-                    <section class="od-setup-panel" data-runtime-setup-panel="designCredentials">
+
+                    <section class="od-setup-panel" data-runtime-step="controlPlaneCredentials">
                         <div class="od-section-head">
                             <div>
-                                <h2 class="od-section-title">Design credentials</h2>
-                                <p class="od-item-meta">Required when Runtime pulls releases from Control Plane.</p>
+                                <h2 class="od-section-title">Control Plane credentials</h2>
+                                <p class="od-item-meta">Required when Runtime pulls artifacts from Control Plane.</p>
                             </div>
-                            <button type="button" class="btn btn-primary btn-sm js-generate-runtime-credentials">Generate design credentials</button>
+                            <span class="od-status od-status-queued" id="runtimeInboundCredentialStatus">Missing</span>
                         </div>
-                        <div class="od-info-grid">
-                            <div class="od-info-tile"><span>Status</span><strong id="setupRuntimeOutboundStatus">-</strong></div>
+                        <form method="post" asp-page-handler="WizardGenerateCredentials" id="runtimeGenerateCredentialForm" data-runtime-wizard-form>
+                            <input type="hidden" name="CredentialInput.RuntimeNodeId" data-runtime-field="id" />
+                            <label class="form-label" for="runtimeIssuerInput">Control Plane public base URL</label>
+                            <input class="form-control" id="runtimeIssuerInput" name="CredentialInput.IssuerBaseUrl" placeholder="https://knowl-control-plane" />
+                            <div class="d-flex justify-content-end mt-3">
+                                <button type="button" class="btn btn-primary btn-sm" id="runtimeGenerateCredentialsButton">Generate credentials</button>
+                            </div>
+                        </form>
+                        <div class="knowl-message-box knowl-message-warning mt-3 d-none" id="runtimeGeneratedCredentialWarning">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <span>Copy these credentials now. The secret is only shown once.</span>
+                        </div>
+                        <div class="mt-3 d-none" id="runtimeGeneratedCredentialOutput">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <label class="form-label">JSON</label>
+                                <button type="button" class="btn btn-secondary btn-sm" data-runtime-copy="#runtimeGeneratedJson">Copy JSON</button>
+                            </div>
+                            <textarea id="runtimeGeneratedJson" class="form-control font-monospace" rows="8" readonly></textarea>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <label class="form-label">Base64</label>
+                                <button type="button" class="btn btn-secondary btn-sm" data-runtime-copy="#runtimeGeneratedBase64">Copy Base64</button>
+                            </div>
+                            <textarea id="runtimeGeneratedBase64" class="form-control font-monospace" rows="4" readonly></textarea>
                         </div>
                     </section>
-                    <section class="od-setup-panel" data-runtime-setup-panel="verify">
+
+                    <section class="od-setup-panel" data-runtime-step="verify">
                         <div class="od-section-head">
                             <div>
-                                <h2 class="od-section-title">Verify connection</h2>
-                                <p class="od-item-meta">Check that credentials and endpoint can communicate.</p>
+                                <h2 class="od-section-title">Verify</h2>
+                                <p class="od-item-meta">Check connection and enable the runtime node.</p>
                             </div>
-                            <form class="d-inline" method="post" asp-page-handler="ValidateConnection">
-                                <input type="hidden" name="runtimeNodeId" id="setupRuntimeValidateId" />
-                                <button class="btn btn-primary btn-sm" type="submit">Check connection</button>
-                            </form>
                         </div>
                         <div class="od-info-grid">
-                            <div class="od-info-tile"><span>Credentials</span><strong id="setupRuntimeCredentialReadiness">-</strong></div>
-                            <div class="od-info-tile"><span>Mode</span><strong id="setupRuntimeVerifyMode">-</strong></div>
+                            <div class="od-info-tile"><span>Environment</span><strong id="runtimeVerifyEnvironment">-</strong></div>
+                            <div class="od-info-tile"><span>Mode</span><strong id="runtimeVerifyMode">-</strong></div>
+                            <div class="od-info-tile"><span>Endpoint</span><strong id="runtimeVerifyEndpoint">-</strong></div>
+                            <div class="od-info-tile"><span>Readiness</span><strong id="runtimeVerifyReadiness">-</strong></div>
+                        </div>
+                        <form method="post" asp-page-handler="WizardValidateConnection" id="runtimeValidateForm" class="d-none" data-runtime-wizard-form>
+                            <input type="hidden" name="runtimeNodeId" data-runtime-field="id" />
+                        </form>
+                        <form method="post" asp-page-handler="WizardSetEnabled" id="runtimeSetEnabledForm" class="d-none" data-runtime-wizard-form>
+                            <input type="hidden" name="runtimeNodeId" data-runtime-field="id" />
+                            <input type="hidden" name="isEnabled" id="runtimeSetEnabledValue" value="true" />
+                        </form>
+                        <div class="d-flex flex-wrap gap-2 mt-3">
+                            <button type="button" class="btn btn-secondary btn-sm" id="runtimeValidateButton">Check connection</button>
+                            <button type="button" class="btn btn-primary btn-sm" id="runtimeEnableButton">Enable runtime node</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="runtimeDisableButton">Disable runtime node</button>
                         </div>
                     </section>
                 </div>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer od-runtime-wizard-footer">
+                <button type="button" class="btn btn-secondary" id="runtimeWizardBack">Back</button>
+                <button type="button" class="btn btn-primary" id="runtimeWizardNext">Next</button>
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
             </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="runtimeNodeModal" tabindex="-1" aria-hidden="true" data-show="@Model.ShowRuntimeNodeModal.ToString().ToLowerInvariant()">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content">
-            <form method="post">
-                <div class="modal-header">
-                    <h5 class="modal-title">Runtime Node</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div asp-validation-summary="All" class="knowl-message-box knowl-message-danger"></div>
-                    <input type="hidden" asp-for="Input.Id" />
-                    <partial name="_RuntimeNodeForm" model="Model" />
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save runtime node</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="generateCredentialsModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content">
-            <form method="post" asp-page-handler="GenerateCredentials">
-                <div class="modal-header">
-                    <h5 class="modal-title">Generate Design credentials</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" asp-for="CredentialInput.RuntimeNodeId" />
-                    <p class="text-muted mb-3" data-runtime-node-name></p>
-                    <label class="form-label" asp-for="CredentialInput.IssuerBaseUrl">KnOwl public base URL</label>
-                    <input class="form-control" asp-for="CredentialInput.IssuerBaseUrl" placeholder="https://knowl-control-plane" />
-                    <div class="form-text">Runtime imports these credentials to pull releases and acknowledge artifacts.</div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Generate credentials</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="generatedCredentialsModal" tabindex="-1" aria-hidden="true" data-show="@Model.ShowGeneratedCredentialModal.ToString().ToLowerInvariant()">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Generated Design credentials</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="knowl-message-box knowl-message-warning">
-                    <i class="bi bi-exclamation-triangle"></i>
-                    <span>Copy these credentials now. They include a secret and will not be shown again after closing this page.</span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center">
-                    <label class="form-label">Base64</label>
-                    <button type="button" class="btn btn-secondary btn-sm" data-copy-target="#generated-runtime-package-base64">Copy Base64</button>
-                </div>
-                <textarea id="generated-runtime-package-base64" class="form-control font-monospace" rows="5" readonly>@Model.GeneratedCredentialPackage?.Base64</textarea>
-                <div class="d-flex justify-content-between align-items-center mt-3">
-                    <label class="form-label">JSON</label>
-                    <button type="button" class="btn btn-secondary btn-sm" data-copy-target="#generated-runtime-package-json">Copy JSON</button>
-                </div>
-                <textarea id="generated-runtime-package-json" class="form-control font-monospace" rows="12" readonly>@Model.GeneratedCredentialPackage?.Json</textarea>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="importCredentialsModal" tabindex="-1" aria-hidden="true" data-show="@Model.ShowImportCredentialModal.ToString().ToLowerInvariant()">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content">
-            <form method="post" asp-page-handler="ImportCredentials">
-                <div class="modal-header">
-                    <h5 class="modal-title">Import Runtime credentials</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div asp-validation-summary="All" class="knowl-message-box knowl-message-danger"></div>
-                    <input type="hidden" asp-for="CredentialImportInput.RuntimeNodeId" />
-                    <p class="text-muted mb-3" data-runtime-node-name></p>
-                    <label class="form-label" asp-for="CredentialImportInput.Package">Runtime credentials</label>
-                    <textarea class="form-control font-monospace" asp-for="CredentialImportInput.Package" rows="10" placeholder="Paste Runtime credentials JSON"></textarea>
-                    <span class="text-danger" asp-validation-for="CredentialImportInput.Package"></span>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Import credentials</button>
-                </div>
-            </form>
         </div>
     </div>
 </div>
@@ -285,200 +296,372 @@
 @section Scripts {
 <script>
 (() => {
-    const modal = document.getElementById('runtimeNodeModal');
-    if (!modal) return;
-    let currentRuntimeNode = null;
-    const setupModal = document.getElementById('runtimeNodeSetupModal');
-    const readNode = element => element?.closest('[data-runtime-node-card]');
-    const setText = (id, value) => {
-        const target = document.getElementById(id);
-        if (target) target.textContent = value && `${value}`.trim() ? value : '-';
-    };
-    const showSetupPanel = key => {
-        setupModal?.querySelectorAll('[data-runtime-setup-step]').forEach(step => step.classList.toggle('active', step.dataset.runtimeSetupStep === key));
-        setupModal?.querySelectorAll('[data-runtime-setup-panel]').forEach(panel => panel.classList.toggle('active', panel.dataset.runtimeSetupPanel === key));
-    };
-    const fillSetup = node => {
-        currentRuntimeNode = node || null;
-        const isNew = !currentRuntimeNode;
-        setText('runtimeNodeSetupModalLabel', isNew ? 'Create runtime node' : currentRuntimeNode.dataset.name);
-        setText('runtimeNodeSetupSubtitle', isNew ? 'Create the node first, then complete credentials and verification.' : `${currentRuntimeNode.dataset.code || '-'} | ${currentRuntimeNode.dataset.distributionMode || '-'}`);
-        setText('setupRuntimeName', currentRuntimeNode?.dataset.name);
-        setText('setupRuntimeCode', currentRuntimeNode?.dataset.code);
-        setText('setupRuntimeEnvironment', currentRuntimeNode?.dataset.environmentName);
-        setText('setupRuntimeStatus', currentRuntimeNode?.dataset.status);
-        setText('setupRuntimeDescription', currentRuntimeNode?.dataset.description);
-        setText('setupRuntimeMode', currentRuntimeNode?.dataset.distributionMode);
-        setText('setupRuntimeEndpoint', currentRuntimeNode?.dataset.endpointBaseUri);
-        setText('setupRuntimeEnabled', currentRuntimeNode?.dataset.enabled === 'true' ? 'Yes' : isNew ? '-' : 'No');
-        setText('setupRuntimeInboundStatus', currentRuntimeNode?.dataset.inboundCredentialStatus);
-        setText('setupRuntimeOutboundStatus', currentRuntimeNode?.dataset.outboundCredentialStatus);
-        setText('setupRuntimeVerifyMode', currentRuntimeNode?.dataset.distributionMode);
-        const ready = currentRuntimeNode?.dataset.inboundCredentialStatus === 'Active' && currentRuntimeNode?.dataset.outboundCredentialStatus === 'Active';
-        setText('setupRuntimeCredentialReadiness', isNew ? '-' : ready ? 'Ready' : 'Pending');
-        const validateInput = document.getElementById('setupRuntimeValidateId');
-        if (validateInput) validateInput.value = currentRuntimeNode?.dataset.id || '';
-        setupModal?.querySelectorAll('.js-import-runtime-credentials, .js-generate-runtime-credentials, #setupRuntimeValidateId + button')
-            .forEach(button => button.disabled = isNew);
-        showSetupPanel('identity');
-        bootstrap.Modal.getOrCreateInstance(setupModal).show();
+    const modalElement = document.getElementById('runtimeWizardModal');
+    if (!modalElement || !window.bootstrap?.Modal) return;
+
+    const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+    const steps = ['basic', 'policy', 'runtimeCredentials', 'controlPlaneCredentials', 'verify'];
+    let activeStep = 'basic';
+    let current = null;
+    let createdDuringSession = false;
+
+    const endpointPanel = modalElement.querySelector('[data-runtime-endpoint-panel]');
+    const stepButtons = Array.from(modalElement.querySelectorAll('[data-runtime-step-target]'));
+    const stepPanels = Array.from(modalElement.querySelectorAll('[data-runtime-step]'));
+    const backButton = document.getElementById('runtimeWizardBack');
+    const nextButton = document.getElementById('runtimeWizardNext');
+    const setEnabledValue = document.getElementById('runtimeSetEnabledValue');
+
+    const showToast = (message, type = 'info') => {
+        const toast = document.createElement('div');
+        toast.className = `knowl-toast knowl-toast-${type}`;
+        toast.setAttribute('role', 'status');
+        toast.setAttribute('data-message-toast', '');
+        toast.innerHTML = `
+            <span class="knowl-toast-icon" aria-hidden="true"><i class="bi bi-info-circle"></i></span>
+            <div><div class="knowl-toast-title">${type === 'error' ? 'Review' : 'Message'}</div><div class="knowl-toast-body"></div></div>
+            <button class="knowl-toast-close" type="button" aria-label="Close message"><i class="bi bi-x-lg"></i></button>`;
+        toast.querySelector('.knowl-toast-body').textContent = message;
+        document.body.appendChild(toast);
+        toast.querySelector('button')?.addEventListener('click', () => toast.remove());
+        window.setTimeout(() => toast.remove(), type === 'error' ? 7200 : 4200);
     };
 
-    document.querySelectorAll('[data-runtime-node-open]').forEach(card => {
-        card.addEventListener('click', event => {
-            if (event.target.closest('a, button, input, select, textarea, form, .dropdown-menu')) {
-                return;
+    const value = key => current?.[key] ?? '';
+    const isPushMode = mode => mode === 'Push' || mode === 'Hybrid';
+    const isPullMode = mode => mode === 'Pull' || mode === 'Hybrid';
+    const isActiveCredential = status => status === 'Active';
+    const environmentText = () => {
+        const select = document.getElementById('runtimeEnvironmentInput');
+        const selected = select?.selectedOptions?.[0]?.textContent || '';
+        return selected.trim() || value('environmentName') || '-';
+    };
+    const pick = (source, ...names) => {
+        for (const name of names) {
+            const next = source?.[name];
+            if (next !== undefined && next !== null) {
+                return next;
             }
+        }
 
-            fillSetup(card);
-        });
+        return '';
+    };
+    const selectedEnvironmentName = () => {
+        const select = document.getElementById('runtimeEnvironmentInput');
+        const selected = select?.selectedOptions?.[0]?.textContent?.trim() || '';
+        return selected.replace(/\s*\([^)]+\)\s*$/, '');
+    };
+    const readBasicState = () => ({
+        id: value('id'),
+        name: document.getElementById('runtimeNameInput')?.value || '',
+        code: document.getElementById('runtimeCodeInput')?.value || '',
+        environmentId: document.getElementById('runtimeEnvironmentInput')?.value || '',
+        environmentName: selectedEnvironmentName(),
+        distributionMode: value('distributionMode') || 'Pull',
+        distributionModeLabel: value('distributionModeLabel') || 'Runtime pulls',
+        endpointBaseUri: value('endpointBaseUri'),
+        status: value('status') || 'Active',
+        isEnabled: value('isEnabled') === true,
+        description: document.getElementById('runtimeDescriptionInput')?.value || '',
+        inboundCredentialStatus: value('inboundCredentialStatus') || 'Missing',
+        outboundCredentialStatus: value('outboundCredentialStatus') || 'Missing'
     });
-    document.querySelectorAll('.js-open-runtime-node-setup').forEach(button => {
-        button.addEventListener('click', event => {
-            event.stopPropagation();
-            fillSetup(button.dataset.mode === 'new' ? null : readNode(button));
-        });
-    });
-    document.querySelectorAll('.js-edit-runtime-node-from-card').forEach(button => {
-        button.addEventListener('click', event => {
-            event.stopPropagation();
-            const node = readNode(button);
-            const trigger = document.createElement('button');
-            trigger.dataset.mode = 'edit';
-            if (node) {
-                Object.assign(trigger.dataset, node.dataset);
-            }
 
-            bootstrap.Modal.getOrCreateInstance(modal).show(trigger);
-        });
-    });
-    document.querySelectorAll('.js-import-runtime-credentials-from-card').forEach(button => {
-        button.addEventListener('click', event => {
-            event.stopPropagation();
-            const node = readNode(button);
-            if (!node) return;
-            const trigger = document.createElement('button');
-            trigger.dataset.id = node.dataset.id;
-            trigger.dataset.name = node.dataset.name;
-            bootstrap.Modal.getOrCreateInstance(document.getElementById('importCredentialsModal')).show(trigger);
-        });
-    });
-    document.querySelectorAll('.js-generate-runtime-credentials-from-card').forEach(button => {
-        button.addEventListener('click', event => {
-            event.stopPropagation();
-            const node = readNode(button);
-            if (!node) return;
-            const trigger = document.createElement('button');
-            trigger.dataset.id = node.dataset.id;
-            trigger.dataset.name = node.dataset.name;
-            bootstrap.Modal.getOrCreateInstance(document.getElementById('generateCredentialsModal')).show(trigger);
-        });
-    });
-    setupModal?.querySelectorAll('[data-runtime-setup-step]').forEach(step => {
-        step.addEventListener('click', () => showSetupPanel(step.dataset.runtimeSetupStep));
-    });
-    setupModal?.querySelectorAll('.js-edit-runtime-node').forEach(button => {
-        button.addEventListener('click', () => {
-            const trigger = document.createElement('button');
-            trigger.dataset.mode = currentRuntimeNode ? 'edit' : 'new';
-            if (currentRuntimeNode) {
-                Object.assign(trigger.dataset, currentRuntimeNode.dataset);
-            }
-            bootstrap.Modal.getOrCreateInstance(setupModal).hide();
-            setTimeout(() => {
-                bootstrap.Modal.getOrCreateInstance(modal).show(trigger);
-            }, 150);
-        });
-    });
-    setupModal?.querySelector('.js-import-runtime-credentials')?.addEventListener('click', () => {
-        if (!currentRuntimeNode) return;
-        const trigger = document.createElement('button');
-        trigger.dataset.id = currentRuntimeNode.dataset.id;
-        trigger.dataset.name = currentRuntimeNode.dataset.name;
-        bootstrap.Modal.getOrCreateInstance(setupModal).hide();
-        setTimeout(() => bootstrap.Modal.getOrCreateInstance(document.getElementById('importCredentialsModal')).show(trigger), 150);
-    });
-    setupModal?.querySelector('.js-generate-runtime-credentials')?.addEventListener('click', () => {
-        if (!currentRuntimeNode) return;
-        const trigger = document.createElement('button');
-        trigger.dataset.id = currentRuntimeNode.dataset.id;
-        trigger.dataset.name = currentRuntimeNode.dataset.name;
-        bootstrap.Modal.getOrCreateInstance(setupModal).hide();
-        setTimeout(() => bootstrap.Modal.getOrCreateInstance(document.getElementById('generateCredentialsModal')).show(trigger), 150);
-    });
-    if (modal.dataset.show === 'true') {
-        bootstrap.Modal.getOrCreateInstance(modal).show();
-    }
-    modal.addEventListener('show.bs.modal', event => {
-        const button = event.relatedTarget;
-        const isEdit = button?.dataset.mode === 'edit';
-        const setValue = (name, value) => {
-            const input = modal.querySelector(`[name="${name}"]`);
-            if (!input) return;
-            const nextValue = value || '';
-            input.value = nextValue;
-            if (input.tagName === 'SELECT' && input.value !== nextValue) {
-                const matchingOption = Array.from(input.options).find(option => option.text === nextValue);
-                if (matchingOption) input.value = matchingOption.value;
-            }
+    const readNodeFromCard = element => {
+        const card = element?.closest('[data-runtime-node-card]');
+        if (!card) return null;
+        return {
+            id: card.dataset.id || '',
+            name: card.dataset.name || '',
+            code: card.dataset.code || '',
+            environmentId: card.dataset.environmentId || '',
+            environmentName: card.dataset.environmentName || '',
+            distributionMode: card.dataset.distributionMode || 'Pull',
+            distributionModeLabel: card.dataset.distributionModeLabel || '',
+            endpointBaseUri: card.dataset.endpointBaseUri || '',
+            status: card.dataset.status || 'Active',
+            isEnabled: card.dataset.enabled === 'true',
+            description: card.dataset.description || '',
+            inboundCredentialStatus: card.dataset.inboundCredentialStatus || 'Missing',
+            outboundCredentialStatus: card.dataset.outboundCredentialStatus || 'Missing',
+            inboundClientId: card.dataset.inboundClientId || '',
+            inboundKeyId: card.dataset.inboundKeyId || '',
+            inboundAllowedScopes: card.dataset.inboundAllowedScopes || '',
+            outboundClientId: card.dataset.outboundClientId || '',
+            outboundKeyId: card.dataset.outboundKeyId || '',
+            outboundRequestedScopes: card.dataset.outboundRequestedScopes || ''
         };
-        setValue('Input.Id', isEdit ? button.dataset.id : '');
-        setValue('Input.Name', isEdit ? button.dataset.name : '');
-        setValue('Input.Code', isEdit ? button.dataset.code : '');
-        setValue('Input.EnvironmentId', isEdit ? button.dataset.environmentId : '');
-        setValue('Input.DistributionMode', isEdit ? button.dataset.distributionMode : 'Pull');
-        setValue('Input.EndpointBaseUri', isEdit ? button.dataset.endpointBaseUri : '');
-        setValue('Input.Status', isEdit ? button.dataset.status : 'Active');
-        setValue('Input.Description', isEdit ? button.dataset.description : '');
-        const enabled = modal.querySelector('[name="Input.IsEnabled"]');
-        if (enabled) enabled.checked = isEdit ? button.dataset.enabled === 'true' : true;
-    });
+    };
 
-    const generated = document.getElementById('generatedCredentialsModal');
-    if (generated?.dataset.show === 'true') {
-        bootstrap.Modal.getOrCreateInstance(generated).show();
-    }
+    const setField = (name, nextValue) => {
+        modalElement.querySelectorAll(`[data-runtime-field="${name}"]`).forEach(input => {
+            if (input.type === 'radio') {
+                input.checked = input.value === String(nextValue || '');
+            } else {
+                input.value = nextValue ?? '';
+            }
+        });
+    };
 
-    const configureCredentialModal = event => {
-        const button = event.relatedTarget;
-        const modal = event.currentTarget;
-        if (!button?.dataset.id) {
+    const syncForms = () => {
+        setField('id', value('id'));
+        setField('name', value('name'));
+        setField('code', value('code'));
+        setField('environmentId', value('environmentId'));
+        setField('distributionMode', value('distributionMode') || 'Pull');
+        setField('endpointBaseUri', value('endpointBaseUri'));
+        setField('status', value('status') || 'Active');
+        setField('isEnabled', value('isEnabled') === true ? 'true' : 'false');
+        setField('description', value('description'));
+
+        modalElement.querySelectorAll('input[name="Input.DistributionMode"]').forEach(input => {
+            input.checked = input.value === (value('distributionMode') || 'Pull');
+        });
+
+        document.getElementById('runtimeCredentialStatus').textContent = value('outboundCredentialStatus') || 'Missing';
+        document.getElementById('runtimeInboundCredentialStatus').textContent = value('inboundCredentialStatus') || 'Missing';
+        document.getElementById('runtimeOutboundClientId').textContent = value('outboundClientId') || '-';
+        document.getElementById('runtimeOutboundKeyId').textContent = value('outboundKeyId') || '-';
+        document.getElementById('runtimeOutboundScopes').textContent = value('outboundRequestedScopes') || '-';
+        document.getElementById('runtimeVerifyEnvironment').textContent = environmentText();
+        document.getElementById('runtimeVerifyMode').textContent = value('distributionModeLabel') || value('distributionMode') || '-';
+        document.getElementById('runtimeVerifyEndpoint').textContent = value('endpointBaseUri') || '-';
+
+        const mode = value('distributionMode') || 'Pull';
+        endpointPanel?.classList.toggle('d-none', !isPushMode(mode));
+        document.querySelector('[data-runtime-step-target="runtimeCredentials"]')?.classList.toggle('is-disabled', !isPushMode(mode));
+        document.querySelector('[data-runtime-step-target="controlPlaneCredentials"]')?.classList.toggle('is-disabled', !isPullMode(mode));
+
+        const ready = (!isPushMode(mode) || isActiveCredential(value('outboundCredentialStatus'))) &&
+            (!isPullMode(mode) || isActiveCredential(value('inboundCredentialStatus')));
+        document.getElementById('runtimeVerifyReadiness').textContent = ready ? 'Ready' : 'Pending credentials';
+        document.getElementById('runtimeEnableButton').classList.toggle('d-none', value('isEnabled') === true);
+        document.getElementById('runtimeDisableButton').classList.toggle('d-none', value('isEnabled') !== true);
+    };
+
+    const setStep = step => {
+        activeStep = step;
+        stepButtons.forEach(button => button.classList.toggle('active', button.dataset.runtimeStepTarget === step));
+        stepPanels.forEach(panel => panel.classList.toggle('active', panel.dataset.runtimeStep === step));
+        backButton.disabled = steps.indexOf(step) === 0;
+        nextButton.classList.toggle('d-none', step === 'verify');
+        syncForms();
+    };
+
+    const applyNode = node => {
+        if (!node) {
+            syncForms();
             return;
         }
 
-        const id = button.dataset.id;
-        const name = button.dataset.name || '';
-        modal.querySelectorAll('[name$=".RuntimeNodeId"]').forEach(input => input.value = id);
-        modal.querySelectorAll('[data-runtime-node-name]').forEach(label => label.textContent = name ? `Runtime node: ${name}` : '');
+        current = {
+            ...current,
+            id: pick(node, 'id', 'Id'),
+            name: pick(node, 'name', 'Name'),
+            code: pick(node, 'code', 'Code'),
+            environmentId: pick(node, 'environmentId', 'EnvironmentId'),
+            environmentName: pick(node, 'environmentName', 'EnvironmentName'),
+            distributionMode: pick(node, 'distributionMode', 'DistributionMode') || 'Pull',
+            distributionModeLabel: pick(node, 'distributionModeLabel', 'DistributionModeLabel') || pick(node, 'distributionMode', 'DistributionMode'),
+            endpointBaseUri: pick(node, 'endpointBaseUri', 'EndpointBaseUri'),
+            status: pick(node, 'status', 'Status') || 'Active',
+            isEnabled: pick(node, 'isEnabled', 'IsEnabled') === true || pick(node, 'isEnabled', 'IsEnabled') === 'true',
+            description: pick(node, 'description', 'Description'),
+            inboundCredentialStatus: pick(node, 'inboundCredentialStatus', 'InboundCredentialStatus') || 'Missing',
+            outboundCredentialStatus: pick(node, 'outboundCredentialStatus', 'OutboundCredentialStatus') || 'Missing',
+            inboundClientId: pick(node, 'inboundClientId', 'InboundClientId'),
+            inboundKeyId: pick(node, 'inboundKeyId', 'InboundKeyId'),
+            inboundAllowedScopes: pick(node, 'inboundAllowedScopes', 'InboundAllowedScopes'),
+            outboundClientId: pick(node, 'outboundClientId', 'OutboundClientId'),
+            outboundKeyId: pick(node, 'outboundKeyId', 'OutboundKeyId'),
+            outboundRequestedScopes: pick(node, 'outboundRequestedScopes', 'OutboundRequestedScopes')
+        };
+        syncForms();
     };
 
-    document.getElementById('generateCredentialsModal')?.addEventListener('show.bs.modal', configureCredentialModal);
-    const importModal = document.getElementById('importCredentialsModal');
-    importModal?.addEventListener('show.bs.modal', configureCredentialModal);
-    if (importModal?.dataset.show === 'true') {
-        bootstrap.Modal.getOrCreateInstance(importModal).show();
-    }
-
-    document.querySelectorAll('[data-copy-target]').forEach(button => {
-        button.addEventListener('click', async () => {
-            const target = document.querySelector(button.dataset.copyTarget || '');
-            const value = target?.value || target?.textContent || '';
-            if (!value.trim()) return;
-
-            const original = button.textContent;
-            try {
-                await navigator.clipboard.writeText(value);
-            } catch {
-                target.focus();
-                target.select?.();
-                document.execCommand('copy');
-            }
-
-            button.textContent = 'Copied';
-            window.setTimeout(() => {
-                button.textContent = original;
-            }, 1500);
+    const postForm = async form => {
+        const response = await fetch(form.action, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
         });
+        const text = await response.text();
+        let payload = {};
+        if (text) {
+            try { payload = JSON.parse(text); } catch { payload = { message: text }; }
+        }
+        if (!response.ok) {
+            throw new Error(payload.message || 'The operation failed.');
+        }
+        return payload;
+    };
+
+    const saveBasic = async () => {
+        const form = document.getElementById('runtimeBasicForm');
+        current = {
+            ...current,
+            ...readBasicState()
+        };
+        syncForms();
+        const payload = await postForm(form);
+        if (!current?.id) createdDuringSession = true;
+        applyNode(payload.node || payload.Node || current);
+        showToast(payload.message || 'Runtime node saved.');
+    };
+
+    const savePolicy = async () => {
+        current = {
+            ...current,
+            distributionMode: modalElement.querySelector('input[name="Input.DistributionMode"]:checked')?.value || 'Pull',
+            endpointBaseUri: document.getElementById('runtimeEndpointInput')?.value || ''
+        };
+        syncForms();
+        const payload = await postForm(document.getElementById('runtimePolicyForm'));
+        applyNode(payload.node || payload.Node || current);
+        showToast(payload.message || 'Policy saved.');
+    };
+
+    const openWizard = trigger => {
+        current = readNodeFromCard(trigger) || {
+            id: '',
+            name: '',
+            code: '',
+            environmentId: '',
+            environmentName: '',
+            distributionMode: 'Pull',
+            distributionModeLabel: 'Runtime pulls',
+            endpointBaseUri: '',
+            status: 'Active',
+            isEnabled: false,
+            description: '',
+            inboundCredentialStatus: 'Missing',
+            outboundCredentialStatus: 'Missing'
+        };
+        document.getElementById('runtimeWizardModalLabel').textContent = current.id ? current.name : 'Create runtime node';
+        document.getElementById('runtimeWizardSubtitle').textContent = current.id ? `${current.code || '-'} - ${current.environmentName || 'No environment'}` : 'Create the node, choose policy, exchange credentials, then verify.';
+        document.getElementById('runtimeCredentialsJson').value = '';
+        document.getElementById('runtimeGeneratedCredentialOutput').classList.add('d-none');
+        document.getElementById('runtimeGeneratedCredentialWarning').classList.add('d-none');
+        setStep('basic');
+        modal.show();
+    };
+
+    document.querySelectorAll('.js-open-runtime-wizard').forEach(button => {
+        button.addEventListener('click', event => {
+            event.stopPropagation();
+            openWizard(button);
+        });
+    });
+
+    document.querySelectorAll('[data-runtime-node-card]').forEach(card => {
+        card.addEventListener('click', event => {
+            if (event.target.closest('a, button, input, select, textarea, form, .dropdown-menu')) return;
+            openWizard(card);
+        });
+    });
+
+    stepButtons.forEach(button => {
+        button.addEventListener('click', () => setStep(button.dataset.runtimeStepTarget));
+    });
+
+    backButton.addEventListener('click', () => {
+        const index = steps.indexOf(activeStep);
+        setStep(steps[Math.max(0, index - 1)]);
+    });
+
+    nextButton.addEventListener('click', async () => {
+        try {
+            if (activeStep === 'basic') {
+                await saveBasic();
+                setStep('policy');
+                return;
+            }
+            if (activeStep === 'policy') {
+                await savePolicy();
+                const mode = value('distributionMode') || 'Pull';
+                setStep(isPushMode(mode) ? 'runtimeCredentials' : 'controlPlaneCredentials');
+                return;
+            }
+            if (activeStep === 'runtimeCredentials') {
+                const mode = value('distributionMode') || 'Pull';
+                if (isPushMode(mode) && !isActiveCredential(value('outboundCredentialStatus'))) {
+                    throw new Error('Import Runtime credentials before continuing.');
+                }
+                setStep(isPullMode(mode) ? 'controlPlaneCredentials' : 'verify');
+                return;
+            }
+            if (activeStep === 'controlPlaneCredentials') {
+                const mode = value('distributionMode') || 'Pull';
+                if (isPullMode(mode) && !isActiveCredential(value('inboundCredentialStatus'))) {
+                    throw new Error('Generate Control Plane credentials before continuing.');
+                }
+                setStep('verify');
+            }
+        } catch (error) {
+            showToast(error.message || 'Review the runtime node setup.', 'error');
+        }
+    });
+
+    document.getElementById('runtimeImportCredentialsButton').addEventListener('click', async () => {
+        try {
+            const payload = await postForm(document.getElementById('runtimeImportCredentialForm'));
+            applyNode(payload.node || payload.Node || current);
+            showToast(payload.message || 'Runtime credentials imported.');
+        } catch (error) {
+            showToast(error.message || 'Credential import failed.', 'error');
+        }
+    });
+
+    document.getElementById('runtimeGenerateCredentialsButton').addEventListener('click', async () => {
+        try {
+            const payload = await postForm(document.getElementById('runtimeGenerateCredentialForm'));
+            applyNode(payload.node || payload.Node || current);
+            document.getElementById('runtimeGeneratedJson').value = payload.credentialsJson || '';
+            document.getElementById('runtimeGeneratedBase64').value = payload.credentialsBase64 || '';
+            document.getElementById('runtimeGeneratedCredentialOutput').classList.remove('d-none');
+            document.getElementById('runtimeGeneratedCredentialWarning').classList.remove('d-none');
+            showToast(payload.message || 'Control Plane credentials generated.');
+        } catch (error) {
+            showToast(error.message || 'Credential generation failed.', 'error');
+        }
+    });
+
+    document.getElementById('runtimeValidateButton').addEventListener('click', async () => {
+        try {
+            const payload = await postForm(document.getElementById('runtimeValidateForm'));
+            applyNode(payload.node || payload.Node || current);
+            showToast(payload.message || 'Connection checked.', payload.succeeded ? 'success' : 'error');
+        } catch (error) {
+            showToast(error.message || 'Connection check failed.', 'error');
+        }
+    });
+
+    const setEnabled = async enabled => {
+        try {
+            setEnabledValue.value = enabled ? 'true' : 'false';
+            const payload = await postForm(document.getElementById('runtimeSetEnabledForm'));
+            applyNode(payload.node || payload.Node || current);
+            showToast(payload.message || (enabled ? 'Runtime node enabled.' : 'Runtime node disabled.'));
+        } catch (error) {
+            showToast(error.message || 'Runtime node status change failed.', 'error');
+        }
+    };
+
+    document.getElementById('runtimeEnableButton').addEventListener('click', () => setEnabled(true));
+    document.getElementById('runtimeDisableButton').addEventListener('click', () => setEnabled(false));
+    document.querySelectorAll('[data-runtime-copy]').forEach(button => {
+        button.addEventListener('click', async () => {
+            const target = document.querySelector(button.dataset.runtimeCopy || '');
+            const text = target?.value || '';
+            if (!text) return;
+            await navigator.clipboard.writeText(text).catch(() => {});
+            showToast('Copied.');
+        });
+    });
+    modalElement.addEventListener('hidden.bs.modal', () => {
+        if (createdDuringSession) {
+            window.location.reload();
+        }
     });
 })();
 </script>

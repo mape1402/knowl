@@ -2,32 +2,203 @@
 @model KnOwl.ControlPlane.WebUI.Pages.Contracts.ContractArtifacts.IndexModel
 @{
     ViewData["Title"] = "Artifacts";
+    var jsonOptions = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase };
+    var artifactDetails = System.Text.Json.JsonSerializer.Serialize(Model.SelectedArtifactDetails, jsonOptions);
+
+    string StatusClass(string kind) => kind switch
+    {
+        "Event" => "od-status od-status-active",
+        "Command" => "od-status od-status-queued",
+        _ => "od-status"
+    };
+
+    string SourceStatusClass(string status) => status switch
+    {
+        "Deployed" => "od-status od-status-completed",
+        "Approved" => "od-status od-status-active",
+        _ => "od-status od-status-queued"
+    };
+
+    string ShortHash(string value)
+        => string.IsNullOrWhiteSpace(value) ? "-" : value[..Math.Min(12, value.Length)];
 }
 
-<section class="dashboard-section">
-    <div class="platform-card">
-        <div class="platform-card-header">
-            <span>Contract Artifacts</span>
-            <a class="btn btn-primary btn-sm" asp-page="/Contracts/ContractReleases/Index">Create release</a>
-        </div>
-        <div class="table-responsive mt-3">
-            <table class="table align-middle">
-                <thead><tr><th>Type</th><th>Topic</th><th>Version</th><th>Name</th><th>Hash</th><th>Created</th></tr></thead>
-                <tbody>
-                @foreach (var artifact in Model.Artifacts)
+<div class="od-page-head">
+    <div>
+        @if (Model.SelectedGroup is null)
+        {
+            <h1 class="od-page-title">Artifacts</h1>
+            <p class="od-page-subtitle">Released Event and Command artifacts grouped by contract element.</p>
+        }
+        else
+        {
+            <h1 class="od-page-title">@Model.SelectedGroup.Name</h1>
+            <p class="od-page-subtitle">@Model.SelectedGroup.Topic</p>
+        }
+    </div>
+    @if (Model.SelectedGroup is not null)
+    {
+        <a class="btn btn-secondary btn-sm" asp-page="/Contracts/ContractArtifacts/Index">Back</a>
+    }
+</div>
+
+@if (Model.SelectedGroup is null)
+{
+    <section class="od-list-shell">
+        @if (!Model.Groups.Any())
+        {
+            <p class="od-empty">No released artifacts found.</p>
+        }
+        else
+        {
+            <div class="od-grid od-artifact-group-grid">
+                @foreach (var group in Model.Groups)
                 {
-                    <tr>
-                        <td>@artifact.ArtifactType</td>
-                        <td>@artifact.Topic</td>
-                        <td>@artifact.VersionNumber</td>
-                        <td>@artifact.Name</td>
-                        <td><code>@artifact.ContentHash</code></td>
-                        <td>@artifact.CreatedAtUtc.ToString("u")</td>
-                    </tr>
+                    <a class="od-item-card od-orch-card text-decoration-none"
+                       asp-page="/Contracts/ContractArtifacts/Index"
+                       asp-route-groupKey="@group.Key">
+                        <div class="od-item-top">
+                            <div>
+                                <h2 class="od-item-title">@group.Name</h2>
+                                <p class="od-item-meta">@group.Topic</p>
+                            </div>
+                            <span class="@StatusClass(group.ContractKind)">@group.ContractKind</span>
+                        </div>
+                        <p class="od-item-description">@(string.IsNullOrWhiteSpace(group.Description) ? "No description." : group.Description)</p>
+                        <div class="od-card-footer">
+                            <span>@group.VersionCount versions</span>
+                            @if (!string.IsNullOrWhiteSpace(group.LatestVersion))
+                            {
+                                <span>Latest @group.LatestVersion</span>
+                            }
+                        </div>
+                    </a>
                 }
-                </tbody>
-            </table>
+            </div>
+        }
+    </section>
+}
+else
+{
+    <section class="od-list-shell">
+        @if (!Model.SelectedArtifacts.Any())
+        {
+            <p class="od-empty">No artifacts found for @Model.SelectedGroup.Name.</p>
+        }
+        else
+        {
+            <div class="od-grid od-artifact-grid">
+                @foreach (var artifact in Model.SelectedArtifacts)
+                {
+                    <button type="button"
+                            class="od-item-card od-artifact-card-button js-open-artifact-detail"
+                            data-artifact-key="@artifact.Key">
+                        <div class="od-item-top">
+                            <div>
+                                <h2 class="od-item-title">@artifact.ContractKind</h2>
+                                <p class="od-item-meta">@artifact.VersionNumber</p>
+                            </div>
+                            <span class="@SourceStatusClass(artifact.SourceStatus)">@artifact.SourceStatus</span>
+                        </div>
+                        <p class="od-item-description">@artifact.SchemaSummary</p>
+                        <div class="od-card-footer">
+                            <span>@artifact.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                            @if (artifact.ContractKind != "Command")
+                            {
+                                var hash = artifact.Artifacts.FirstOrDefault()?.ContentHash ?? string.Empty;
+                                <span>Hash @ShortHash(hash)</span>
+                            }
+                        </div>
+                    </button>
+                }
+            </div>
+        }
+    </section>
+}
+
+<div class="modal fade" id="artifactDetailModal" tabindex="-1" aria-labelledby="artifactDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title" id="artifactDetailModalLabel">Artifact details</h5>
+                    <p class="od-item-meta mb-0" id="artifactDetailSubtitle"></p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="artifactDetailContent"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
         </div>
     </div>
-</section>
+</div>
 
+@section Scripts {
+<script>
+(() => {
+    const modalElement = document.getElementById('artifactDetailModal');
+    const content = document.getElementById('artifactDetailContent');
+    const title = document.getElementById('artifactDetailModalLabel');
+    const subtitle = document.getElementById('artifactDetailSubtitle');
+    if (!modalElement || !content || !window.bootstrap?.Modal) return;
+
+    const artifacts = @Html.Raw(artifactDetails);
+    const artifactByKey = new Map(artifacts.map(item => [item.key.toLowerCase(), item]));
+    const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+
+    const escapeHtml = value => (value ?? '').toString()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    const prettyJson = value => {
+        if (!value || !value.trim()) return '{}';
+        try {
+            return JSON.stringify(JSON.parse(value), null, 2);
+        } catch {
+            return value;
+        }
+    };
+
+    document.querySelectorAll('.js-open-artifact-detail').forEach(card => {
+        card.addEventListener('click', () => {
+            const artifact = artifactByKey.get((card.dataset.artifactKey || '').toLowerCase());
+            if (!artifact) return;
+
+            const schemaSections = (artifact.artifacts || []).map(part => `
+                <section class="od-artifact-schema-section">
+                    <div class="od-item-top">
+                        <div>
+                            <h3 class="od-section-title">${escapeHtml(part.label)}</h3>
+                            <p class="od-item-meta">Payload schema</p>
+                        </div>
+                        <span class="od-item-meta">Hash ${escapeHtml((part.contentHash || '').slice(0, 12) || '-')}</span>
+                    </div>
+                    <pre class="contract-json-output">${escapeHtml(prettyJson(part.payloadSchemaJson))}</pre>
+                </section>`).join('');
+
+            title.textContent = `${artifact.contractKind} artifact`;
+            subtitle.textContent = `${artifact.name} - ${artifact.versionNumber}`;
+            content.innerHTML = `
+                <article class="od-artifact-detail-card">
+                    <div class="od-artifact-meta-strip">
+                        <div class="od-artifact-meta-item"><span>Type</span><strong>${escapeHtml(artifact.contractKind)}</strong></div>
+                        <div class="od-artifact-meta-item od-artifact-meta-topic"><span>Topic</span><strong>${escapeHtml(artifact.topic)}</strong></div>
+                        <div class="od-artifact-meta-item"><span>Version</span><strong>${escapeHtml(artifact.versionNumber)}</strong></div>
+                        <div class="od-artifact-meta-item"><span>Status</span><strong>${escapeHtml(artifact.sourceStatus)}</strong></div>
+                        <div class="od-artifact-meta-item"><span>Created</span><strong>${new Date(artifact.createdAtUtc).toLocaleString()}</strong></div>
+                        <div class="od-artifact-meta-item"><span>Schemas</span><strong>${escapeHtml(artifact.schemaSummary)}</strong></div>
+                    </div>
+                    ${schemaSections}
+                </article>`;
+            modal.show();
+        });
+    });
+})();
+</script>
+}

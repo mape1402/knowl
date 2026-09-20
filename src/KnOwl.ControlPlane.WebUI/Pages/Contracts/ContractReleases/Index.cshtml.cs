@@ -1,4 +1,5 @@
 using KnOwl.Contracts.Artifacts;
+using KnOwl.Contracts.Distribution;
 using KnOwl.ControlPlane.Distribution.Core;
 using KnOwl.ControlPlane.Application.Distribution.ReleaseBundles;
 using KnOwl.ControlPlane.Distribution.Storage;
@@ -18,6 +19,7 @@ public class IndexModel(
     public IReadOnlyList<ContractArtifact> Artifacts { get; private set; } = [];
     public IReadOnlyList<ReleaseContractOption> ReleaseOptions { get; private set; } = [];
     public IReadOnlyList<RuntimeNode> RuntimeNodes { get; private set; } = [];
+    public IReadOnlyList<ReleaseRuntimeEnvironmentGroup> RuntimeEnvironmentGroups { get; private set; } = [];
     public bool ShowReleaseModal { get; private set; }
     public int InitialReleaseStep { get; private set; } = 1;
 
@@ -34,6 +36,9 @@ public class IndexModel(
 
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
+        Input.ArtifactIds = Input.ArtifactIds.Distinct().ToList();
+        Input.RuntimeNodeIds = Input.RuntimeNodeIds.Distinct().ToList();
+
         if (Input.ArtifactIds.Count == 0)
         {
             ModelState.AddModelError(nameof(Input.ArtifactIds), "Select at least one artifact.");
@@ -51,14 +56,18 @@ public class IndexModel(
             return Page();
         }
 
-        var releaseName = $"Release {DateTime.UtcNow:yyyyMMdd-HHmmss}";
+        var releaseName = string.IsNullOrWhiteSpace(Input.Name)
+            ? $"Release {DateTime.UtcNow:yyyyMMdd-HHmmss}"
+            : Input.Name.Trim();
+
         var result = await releaseExecution.CreateAndExecute(
             releaseName,
-            description: null,
+            string.IsNullOrWhiteSpace(Input.Description) ? null : Input.Description.Trim(),
             Input.ArtifactIds,
             Input.RuntimeNodeIds,
             initiatedBy: User?.Identity?.Name ?? "web-ui",
             cancellationToken: cancellationToken);
+
         StatusMessage = $"Release created and distributed. Targets: {result.TotalTargets}. Succeeded: {result.Succeeded}. Pending pull: {result.AvailableForPull}. Failed: {result.Failed}.";
         return RedirectToPage();
     }
@@ -79,23 +88,41 @@ public class IndexModel(
         Artifacts = await artifacts.GetAll(cancellationToken);
         ReleaseOptions = BuildReleaseOptions(Artifacts);
         RuntimeNodes = await runtimeNodes.GetActiveEnabled(cancellationToken);
+        RuntimeEnvironmentGroups = RuntimeNodes
+            .GroupBy(x => new
+            {
+                Id = x.EnvironmentId?.ToString("N") ?? "none",
+                Name = string.IsNullOrWhiteSpace(x.Environment?.Name ?? x.EnvironmentName)
+                    ? "No environment"
+                    : x.Environment?.Name ?? x.EnvironmentName
+            })
+            .Select(group => new ReleaseRuntimeEnvironmentGroup(
+                group.Key.Id,
+                group.Key.Name,
+                group.OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase).ToArray()))
+            .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
-    private static IReadOnlyList<ReleaseContractOption> BuildReleaseOptions(IReadOnlyList<ContractArtifact> sourceArtifacts)
+    internal static IReadOnlyList<ReleaseContractOption> BuildReleaseOptions(IReadOnlyList<ContractArtifact> sourceArtifacts)
     {
         return sourceArtifacts
             .GroupBy(x => new { x.DefinitionId, x.VersionId, x.Topic, x.VersionNumber })
             .Select(group =>
             {
                 var orderedArtifacts = group
-                    .OrderBy(x => x.ArtifactType == ContractArtifactType.Event ? 0 : x.ArtifactType == ContractArtifactType.CommandRequest ? 1 : 2)
+                    .OrderBy(ArtifactTypeOrder)
                     .ToArray();
                 var primary = orderedArtifacts.First();
-                var isCommand = orderedArtifacts.Any(x => x.ArtifactType is ContractArtifactType.CommandRequest or ContractArtifactType.CommandReply);
-                var hasReply = orderedArtifacts.Any(x => x.ArtifactType == ContractArtifactType.CommandReply);
+                var isCommand = orderedArtifacts.Any(x => x.ArtifactType is ContractArtifactType.Command or ContractArtifactType.CommandRequest or ContractArtifactType.CommandReply);
+                var hasReply = orderedArtifacts.Any(x => x.ArtifactType == ContractArtifactType.CommandReply)
+                    || orderedArtifacts
+                        .Where(x => x.ArtifactType == ContractArtifactType.Command)
+                        .Select(x => CommandArtifactPayloadDocument.Read(x.PayloadSchemaJson).ReplyPayloadSchemaJson)
+                        .Any(x => !string.IsNullOrWhiteSpace(x));
                 var label = isCommand ? "Command" : "Event";
                 var details = isCommand
-                    ? hasReply ? "Request and reply artifacts" : "Request artifact"
+                    ? hasReply ? "Request and reply" : "Request only"
                     : "Event artifact";
 
                 return new ReleaseContractOption(
@@ -103,7 +130,7 @@ public class IndexModel(
                     primary.DefinitionId,
                     primary.VersionId,
                     label,
-                    primary.Name,
+                    NormalizeDisplayName(primary.Name, isCommand),
                     group.Key.Topic,
                     group.Key.VersionNumber,
                     details,
@@ -116,13 +143,48 @@ public class IndexModel(
             .ThenByDescending(x => x.CreatedAtUtc)
             .ToArray();
     }
+
+    private static int ArtifactTypeOrder(ContractArtifact artifact)
+        => artifact.ArtifactType switch
+        {
+            ContractArtifactType.Event => 0,
+            ContractArtifactType.Command => 1,
+            ContractArtifactType.CommandRequest => 2,
+            ContractArtifactType.CommandReply => 3,
+            _ => 4
+        };
+
+    private static string NormalizeDisplayName(string name, bool isCommand)
+    {
+        if (!isCommand)
+        {
+            return name;
+        }
+
+        foreach (var suffix in new[] { " Request", " Reply" })
+        {
+            if (name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+            {
+                return name[..^suffix.Length].TrimEnd();
+            }
+        }
+
+        return name;
+    }
 }
 
 public sealed class ReleaseInput
 {
+    public string? Name { get; set; }
+    public string? Description { get; set; }
     public List<Guid> ArtifactIds { get; set; } = [];
     public List<Guid> RuntimeNodeIds { get; set; } = [];
 }
+
+public sealed record ReleaseRuntimeEnvironmentGroup(
+    string Key,
+    string Name,
+    IReadOnlyList<RuntimeNode> Nodes);
 
 public sealed record ReleaseContractOption(
     string Key,
@@ -280,4 +342,3 @@ public sealed record ReleaseTargetCard(
                 or ContractReleaseTargetStatus.Acknowledged,
             target.Status is ContractReleaseTargetStatus.Failed or ContractReleaseTargetStatus.Cancelled);
 }
-

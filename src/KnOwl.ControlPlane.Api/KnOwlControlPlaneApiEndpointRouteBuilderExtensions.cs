@@ -452,8 +452,8 @@ public static class KnOwlControlPlaneApiEndpointRouteBuilderExtensions
 
         group.MapPost("/commands/{versionId:guid}/build", async (Guid versionId, [FromServices] IContractArtifactBuilder builder, CancellationToken cancellationToken) =>
         {
-            var artifacts = await builder.BuildCommandArtifacts(versionId, cancellationToken);
-            return Results.Ok(new BuildArtifactResponse(artifacts.Select(x => x.ToResponse()).ToArray()));
+            var artifact = await builder.BuildCommandArtifact(versionId, cancellationToken);
+            return Results.Ok(new BuildArtifactResponse([artifact.ToResponse()]));
         }).RequireKnOwlPolicy(authorization.ArtifactsBuildPolicy);
     }
 

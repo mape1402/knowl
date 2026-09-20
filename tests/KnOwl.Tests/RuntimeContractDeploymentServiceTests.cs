@@ -104,27 +104,19 @@ public sealed class RuntimeContractDeploymentServiceTests
     }
 
     [Fact]
-    public async Task CatalogReturnsCommandRequestAndReplyArtifacts()
+    public async Task CatalogReturnsRequestAndReplyFromCommandArtifact()
     {
         RuntimeArtifactRepository runtime = new();
         runtime.Items.Add(new RuntimeContractArtifact
         {
-            ArtifactType = ContractArtifactType.CommandRequest,
+            ArtifactType = ContractArtifactType.Command,
             Topic = "customer.register",
             VersionNumber = "1.0.0",
-            ContentHash = "hash-request",
-            Name = "Register Customer Request",
-            PayloadSchemaJson = "{}",
-            DeployedAtUtc = DateTime.UtcNow
-        });
-        runtime.Items.Add(new RuntimeContractArtifact
-        {
-            ArtifactType = ContractArtifactType.CommandReply,
-            Topic = "customer.register",
-            VersionNumber = "1.0.0",
-            ContentHash = "hash-reply",
-            Name = "Register Customer Reply",
-            PayloadSchemaJson = "{}",
+            ContentHash = "hash-command",
+            Name = "Register Customer",
+            PayloadSchemaJson = CommandArtifactPayloadDocument.Compose(
+                "{\"type\":\"object\",\"properties\":{\"customerId\":{\"type\":\"string\"}}}",
+                "{\"type\":\"object\",\"properties\":{\"accepted\":{\"type\":\"boolean\"}}}"),
             DeployedAtUtc = DateTime.UtcNow
         });
 
@@ -134,8 +126,10 @@ public sealed class RuntimeContractDeploymentServiceTests
         var result = await catalog.GetCommand("customer.register", "1.0.0");
 
         Assert.NotNull(result);
-        Assert.Equal("hash-request", result.RequestArtifact.ContentHash);
-        Assert.Equal("hash-reply", result.ReplyArtifact?.ContentHash);
+        Assert.Equal("hash-command", result.RequestArtifact.ContentHash);
+        Assert.Equal("hash-command", result.ReplyArtifact?.ContentHash);
+        Assert.Contains("customerId", result.RequestArtifact.PayloadSchemaJson, StringComparison.Ordinal);
+        Assert.Contains("accepted", result.ReplyArtifact?.PayloadSchemaJson!, StringComparison.Ordinal);
     }
 
     private static RuntimeArtifactDeliveryPackage CreatePackage(string hash)
