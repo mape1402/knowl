@@ -22,9 +22,9 @@ public class MenuService : IMenuService
         Items.Add(contracts);
 
         var distribution = new MenuItem { Text = "Distribution", Icon = "diagram-3" };
-        distribution.Add("Artifacts", "/contracts/contractartifacts", "box")
-                    .Add("Environments", "/contracts/runtimeenvironments", "diagram-3")
+        distribution.Add("Environments", "/contracts/runtimeenvironments", "diagram-3")
                     .Add("Runtime Nodes", "/contracts/runtimenodes", "hdd-network")
+                    .Add("Artifacts", "/contracts/contractartifacts", "box")
                     .Add("Releases", "/contracts/contractreleases", "rocket");
         Items.Add(distribution);
 

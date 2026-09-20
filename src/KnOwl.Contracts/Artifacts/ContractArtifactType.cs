@@ -8,15 +8,20 @@ public enum ContractArtifactType
     /// <summary>
     /// Event contract artifact.
     /// </summary>
-    Event,
+    Event = 0,
 
     /// <summary>
     /// Command request contract artifact.
     /// </summary>
-    CommandRequest,
+    CommandRequest = 1,
 
     /// <summary>
     /// Command reply contract artifact.
     /// </summary>
-    CommandReply
+    CommandReply = 2,
+
+    /// <summary>
+    /// Command contract artifact containing request and optional reply schemas.
+    /// </summary>
+    Command = 3
 }

@@ -95,7 +95,7 @@ public sealed class ContractArtifactBuilderTests
     }
 
     [Fact]
-    public async Task BuildCommandArtifactsCreatesRequestAndReplyArtifacts()
+    public async Task BuildCommandArtifactsCreatesSingleCommandArtifactWithRequestAndReplySchemas()
     {
         var versionId = Guid.NewGuid();
         ArtifactCommandRepository commands = new()
@@ -118,10 +118,14 @@ public sealed class ContractArtifactBuilderTests
 
         var created = await builder.BuildCommandArtifacts(versionId);
 
-        Assert.Equal(2, created.Count);
-        Assert.Contains(created, x => x.ArtifactType == ContractArtifactType.CommandRequest && x.Topic == "customer.register");
-        Assert.Contains(created, x => x.ArtifactType == ContractArtifactType.CommandReply && x.Topic == "customer.register");
-        Assert.Equal(2, artifacts.Items.Count);
+        var artifact = Assert.Single(created);
+        Assert.Equal(ContractArtifactType.Command, artifact.ArtifactType);
+        Assert.Equal("Register Customer", artifact.Name);
+        Assert.Equal("customer.register", artifact.Topic);
+        var payload = CommandArtifactPayloadDocument.Read(artifact.PayloadSchemaJson);
+        Assert.Contains("customerId", payload.RequestPayloadSchemaJson, StringComparison.Ordinal);
+        Assert.Contains("accepted", payload.ReplyPayloadSchemaJson!, StringComparison.Ordinal);
+        Assert.Single(artifacts.Items);
     }
 
     private static ServiceProvider CreateProvider(IEventRepository events, ICommandRepository commands, IContractArtifactRepository artifacts)

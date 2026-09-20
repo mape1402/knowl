@@ -95,6 +95,11 @@ internal sealed class ContractReleaseInteractionService(
                 throw new InvalidOperationException($"Runtime node '{runtimeNode.Name}' is not active and enabled.");
             }
 
+            if (runtimeNode.EnvironmentId is null && string.IsNullOrWhiteSpace(runtimeNode.EnvironmentName))
+            {
+                throw new InvalidOperationException($"Runtime node '{runtimeNode.Name}' must belong to an environment before it can receive releases.");
+            }
+
             selectedNodes.Add(runtimeNode);
         }
 

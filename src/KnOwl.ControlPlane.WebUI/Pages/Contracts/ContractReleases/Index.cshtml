@@ -2,6 +2,9 @@
 @model KnOwl.ControlPlane.WebUI.Pages.Contracts.ContractReleases.IndexModel
 @{
     ViewData["Title"] = "Releases";
+    var jsonOptions = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase };
+    var releaseOptionsJson = System.Text.Json.JsonSerializer.Serialize(Model.ReleaseOptions, jsonOptions);
+    var selectedArtifactIdsJson = System.Text.Json.JsonSerializer.Serialize(Model.Input.ArtifactIds, jsonOptions);
 
     string ReleaseStatusClass(string status) => status switch
     {
@@ -25,7 +28,7 @@
     <div class="release-page-head">
         <div>
             <h1>Contract Releases</h1>
-            <p>Bundle one or more deployed contract artifacts and distribute them to runtime nodes.</p>
+            <p>Bundle released Event and Command artifacts and distribute them to runtime nodes.</p>
         </div>
         <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#releaseModal">
             <i class="bi bi-plus-lg"></i> New release
@@ -39,7 +42,7 @@
         <div class="events-empty-state">
             <i class="bi bi-box-seam"></i>
             <h3>No releases yet</h3>
-            <p>Deploy an Event or Command version, then create a multi-artifact release.</p>
+            <p>Deploy an Event or Command version, then create a release.</p>
             <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#releaseModal">Create release</button>
         </div>
     }
@@ -56,10 +59,10 @@
                                     <span class="@ReleaseStatusClass(release.Status)">@release.Status</span>
                                     <h2>@release.Name</h2>
                                 </div>
-                                <p class="release-card-sub">@release.Id</p>
+                                <p class="release-card-sub">@release.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</p>
                             </div>
                             <div class="dropdown">
-                                <button class="od-kebab" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Release actions">&#8942;</button>
+                                <button class="od-kebab" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Release actions">...</button>
                                 <ul class="dropdown-menu dropdown-menu-end">
                                     <li>
                                         <a class="dropdown-item" asp-page="/Contracts/ContractReleases/View" asp-route-id="@release.Id">Open details</a>
@@ -74,7 +77,6 @@
                             <span>@release.ActivatedCount promoted</span>
                             <span>@release.PendingCount pending</span>
                             <span>@release.FailedCount failed</span>
-                            <span>Created @release.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
                         </div>
                     </div>
                 </article>
@@ -89,14 +91,28 @@
             <form method="post" id="releaseWizardForm">
                 <div class="modal-header">
                     <div>
-                        <h5 class="modal-title">New Release</h5>
-                        <div class="release-step-indicator"><span class="active" data-step-label="1">1. Artifacts</span><span data-step-label="2">2. Runtime nodes</span></div>
+                        <h5 class="modal-title">New release</h5>
+                        <div class="release-step-indicator">
+                            <span class="active" data-step-label="1">1. Artifacts</span>
+                            <span data-step-label="2">2. Runtime nodes</span>
+                        </div>
                     </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <div asp-validation-summary="All" class="knowl-message-box knowl-message-danger"></div>
                     <div class="release-step" data-step="1">
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label" asp-for="Input.Name">Release name</label>
+                                <input class="form-control" asp-for="Input.Name" placeholder="Release 2026-09-19" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" asp-for="Input.Description">Description</label>
+                                <input class="form-control" asp-for="Input.Description" placeholder="Optional notes" />
+                            </div>
+                        </div>
+
                         @if (Model.ReleaseOptions.Count == 0)
                         {
                             <div class="knowl-message-box mb-0">
@@ -106,33 +122,36 @@
                         }
                         else
                         {
-                            <div class="release-contract-picker">
-                                @foreach (var option in Model.ReleaseOptions)
-                                {
-                                    var inputId = $"release_option_{option.Key}";
-                                    var selected = option.ArtifactIds.All(x => Model.Input.ArtifactIds.Contains(x));
-                                    <label class="release-contract-option" for="@inputId">
-                                        <input id="@inputId"
-                                               type="radio"
-                                               name="ReleaseOption"
-                                               value="@option.Key"
-                                               data-artifacts="@string.Join("|", option.ArtifactIds)"
-                                               checked="@selected" />
-                                        <span class="release-contract-option-main">
-                                            <span class="release-contract-title">@option.Name</span>
-                                            <span class="release-contract-meta">@option.ContractType · @option.Topic · @option.VersionNumber</span>
-                                        </span>
-                                        <span class="release-contract-tags">
-                                            @foreach (var artifact in option.Artifacts)
+                            <div class="release-builder">
+                                <div class="release-builder-picker">
+                                    <label class="form-label" for="releaseArtifactPicker">Add artifact</label>
+                                    <div class="input-group">
+                                        <select class="form-select" id="releaseArtifactPicker">
+                                            <option value="">Select Event or Command version</option>
+                                            @foreach (var option in Model.ReleaseOptions)
                                             {
-                                                <span>@artifact.ArtifactType</span>
+                                                <option value="@option.Key">
+                                                    @option.ContractType - @option.Name - @option.VersionNumber
+                                                </option>
                                             }
-                                        </span>
-                                        <span class="release-contract-detail">@option.Details</span>
-                                    </label>
-                                }
+                                        </select>
+                                        <button type="button" class="btn btn-primary" id="releaseAddArtifactButton">
+                                            <i class="bi bi-plus-lg"></i> Add
+                                        </button>
+                                    </div>
+                                    <p class="od-item-meta mt-2">Commands add request and reply artifacts together when both exist.</p>
+                                </div>
+                                <div class="release-builder-selected">
+                                    <div class="od-section-head mb-2">
+                                        <div>
+                                            <h2 class="od-section-title">Selected artifacts</h2>
+                                            <p class="od-item-meta">Add only the artifacts that belong in this release.</p>
+                                        </div>
+                                    </div>
+                                    <div id="releaseSelectedArtifacts" class="release-selected-list"></div>
+                                    <div id="releaseArtifactInputs"></div>
+                                </div>
                             </div>
-                            <div id="releaseArtifactInputs"></div>
                         }
                     </div>
                     <div class="release-step d-none" data-step="2">
@@ -145,16 +164,27 @@
                         }
                         else
                         {
-                            <div class="release-picker-grid runtime-picker-grid">
-                                @foreach (var node in Model.RuntimeNodes.OrderBy(x => x.Name))
+                            <div class="release-runtime-environments">
+                                @foreach (var group in Model.RuntimeEnvironmentGroups)
                                 {
-                                    var inputId = $"node_{node.Id:N}";
-                                    <label class="release-picker-card" for="@inputId">
-                                        <input id="@inputId" type="checkbox" name="Input.RuntimeNodeIds" value="@node.Id" checked="@Model.Input.RuntimeNodeIds.Contains(node.Id)" />
-                                        <span class="release-picker-title">@node.Name</span>
-                                        <span class="release-picker-meta">@node.Code - @DistributionLabel(node.DistributionMode.ToString())</span>
-                                        <span class="release-picker-meta">@(node.Environment?.Name ?? node.EnvironmentName ?? "-")</span>
-                                    </label>
+                                    <section class="release-runtime-environment">
+                                        <div class="release-runtime-environment-head">
+                                            <h3>@group.Name</h3>
+                                            <span>@group.Nodes.Count nodes</span>
+                                        </div>
+                                        <div class="release-picker-grid runtime-picker-grid">
+                                            @foreach (var node in group.Nodes)
+                                            {
+                                                var inputId = $"node_{node.Id:N}";
+                                                <label class="release-picker-card" for="@inputId">
+                                                    <input id="@inputId" type="checkbox" name="Input.RuntimeNodeIds" value="@node.Id" checked="@Model.Input.RuntimeNodeIds.Contains(node.Id)" />
+                                                    <span class="release-picker-title">@node.Name</span>
+                                                    <span class="release-picker-meta">@node.Code - @DistributionLabel(node.DistributionMode.ToString())</span>
+                                                    <span class="release-picker-meta">@(node.Environment?.Name ?? node.EnvironmentName ?? "-")</span>
+                                                </label>
+                                            }
+                                        </div>
+                                    </section>
                                 }
                             </div>
                         }
@@ -179,32 +209,74 @@
     const next = document.getElementById('releaseNextStep');
     const back = document.getElementById('releaseBackStep');
     const submit = document.getElementById('releaseSubmit');
-    const artifactOptions = () => Array.from(document.querySelectorAll('[name="ReleaseOption"]'));
+    const picker = document.getElementById('releaseArtifactPicker');
+    const addButton = document.getElementById('releaseAddArtifactButton');
+    const selectedHost = document.getElementById('releaseSelectedArtifacts');
+    const inputHost = document.getElementById('releaseArtifactInputs');
     const nodeChecks = () => Array.from(document.querySelectorAll('[name="Input.RuntimeNodeIds"]'));
-    const hasChecked = items => items.some(x => x.checked);
-    const syncArtifactInputs = () => {
-        const host = document.getElementById('releaseArtifactInputs');
-        if (!host) return;
-        host.innerHTML = '';
-        const selected = artifactOptions().find(x => x.checked);
-        const ids = (selected?.dataset.artifacts || '').split('|').filter(Boolean);
-        ids.forEach(id => {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'Input.ArtifactIds';
-            input.value = id;
-            host.appendChild(input);
+    const options = @Html.Raw(releaseOptionsJson);
+    const initialSelectedArtifactIds = @Html.Raw(selectedArtifactIdsJson);
+    const selectedKeys = new Set();
+    const selectedArtifactIds = new Set(initialSelectedArtifactIds.map(x => x.toLowerCase()));
+    const optionByKey = new Map(options.map(option => [option.key, option]));
+
+    const escapeHtml = value => (value ?? '').toString()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    const hasSelectedArtifacts = () => selectedKeys.size > 0;
+    const hasSelectedRuntimeNodes = () => nodeChecks().some(x => x.checked);
+
+    const renderSelectedArtifacts = () => {
+        if (!selectedHost || !inputHost) return;
+        inputHost.innerHTML = '';
+        if (selectedKeys.size === 0) {
+            selectedHost.innerHTML = '<div class="release-selected-empty">No artifacts selected.</div>';
+        } else {
+            selectedHost.innerHTML = Array.from(selectedKeys).map(key => {
+                const option = optionByKey.get(key);
+                if (!option) return '';
+                option.artifactIds.forEach(id => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'Input.ArtifactIds';
+                    input.value = id;
+                    inputHost.appendChild(input);
+                });
+                const tags = option.artifacts.map(artifact => `<span>${escapeHtml(artifact.artifactType)}</span>`).join('');
+                return `
+                    <article class="release-selected-item">
+                        <div>
+                            <strong>${escapeHtml(option.name)}</strong>
+                            <span>${escapeHtml(option.contractType)} - ${escapeHtml(option.topic)} - ${escapeHtml(option.versionNumber)}</span>
+                            <div class="release-contract-tags">${tags}</div>
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-sm" data-remove-release-artifact="${escapeHtml(key)}">Remove</button>
+                    </article>`;
+            }).join('');
+        }
+
+        selectedHost.querySelectorAll('[data-remove-release-artifact]').forEach(button => {
+            button.addEventListener('click', () => {
+                selectedKeys.delete(button.dataset.removeReleaseArtifact);
+                renderSelectedArtifacts();
+                updateActions();
+            });
         });
     };
+
     const updateActions = () => {
-        syncArtifactInputs();
-        if (next) next.disabled = !hasChecked(artifactOptions());
-        if (submit) submit.disabled = !hasChecked(nodeChecks());
-        document.querySelectorAll('.release-picker-card, .release-contract-option').forEach(card => {
+        if (next) next.disabled = step === 1 && !hasSelectedArtifacts();
+        if (submit) submit.disabled = !hasSelectedRuntimeNodes() || !hasSelectedArtifacts();
+        document.querySelectorAll('.release-picker-card').forEach(card => {
             const input = card.querySelector('input');
             card.classList.toggle('selected', Boolean(input?.checked));
         });
     };
+
     const setStep = value => {
         step = value;
         document.querySelectorAll('.release-step').forEach(x => x.classList.toggle('d-none', x.dataset.step !== String(step)));
@@ -214,10 +286,29 @@
         submit?.classList.toggle('d-none', step !== 2);
         updateActions();
     };
-    next?.addEventListener('click', () => setStep(2));
+
+    addButton?.addEventListener('click', () => {
+        const key = picker?.value || '';
+        if (!key || !optionByKey.has(key)) return;
+        selectedKeys.add(key);
+        if (picker) picker.value = '';
+        renderSelectedArtifacts();
+        updateActions();
+    });
+
+    options.forEach(option => {
+        if (option.artifactIds.every(id => selectedArtifactIds.has(id.toLowerCase()))) {
+            selectedKeys.add(option.key);
+        }
+    });
+
+    next?.addEventListener('click', () => {
+        if (hasSelectedArtifacts()) setStep(2);
+    });
     back?.addEventListener('click', () => setStep(1));
-    artifactOptions().forEach(x => x.addEventListener('change', updateActions));
     nodeChecks().forEach(x => x.addEventListener('change', updateActions));
+    renderSelectedArtifacts();
+
     if (modal?.dataset.show === 'true') {
         bootstrap.Modal.getOrCreateInstance(modal).show();
         setStep(Number(modal.dataset.initialStep || '1'));

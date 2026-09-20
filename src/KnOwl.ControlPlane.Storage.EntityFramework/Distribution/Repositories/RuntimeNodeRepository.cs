@@ -34,15 +34,7 @@ public sealed class RuntimeNodeRepository(KnOwlDbContext db) : IRuntimeNodeRepos
     /// <inheritdoc />
     public async Task<RuntimeNode?> GetById(Guid id, CancellationToken cancellationToken = default)
     {
-        var runtimeNode = await db.RuntimeNodes.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
-        if (runtimeNode?.EnvironmentId is not null)
-        {
-            runtimeNode.Environment = await db.RuntimeEnvironments
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.Id == runtimeNode.EnvironmentId.Value, cancellationToken);
-        }
-
-        return runtimeNode;
+        return await db.RuntimeNodes.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
     /// <inheritdoc />

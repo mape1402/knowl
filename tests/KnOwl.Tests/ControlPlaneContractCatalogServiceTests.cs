@@ -62,8 +62,7 @@ public sealed class ControlPlaneContractCatalogServiceTests
     public async Task GetCommandReturnsRequestAndOptionalReply()
     {
         ArtifactRepository artifacts = new(
-            CreateArtifact("customer.register", "1.0.0", ContractVersionStatus.Deployed, DateTime.UtcNow, ContractArtifactType.CommandRequest),
-            CreateArtifact("customer.register", "1.0.0", ContractVersionStatus.Deployed, DateTime.UtcNow, ContractArtifactType.CommandReply));
+            CreateCommandArtifact("customer.register", "1.0.0", ContractVersionStatus.Deployed, DateTime.UtcNow));
 
         using var provider = CreateProvider(artifacts);
         var catalog = provider.GetRequiredService<IControlPlaneContractCatalogService>();
@@ -74,6 +73,8 @@ public sealed class ControlPlaneContractCatalogServiceTests
         Assert.Equal("customer.register", result.CommandKey);
         Assert.Equal(ContractArtifactType.CommandRequest, result.RequestArtifact.ArtifactType);
         Assert.Equal(ContractArtifactType.CommandReply, result.ReplyArtifact?.ArtifactType);
+        Assert.Contains("customerId", result.RequestArtifact.PayloadSchemaJson, StringComparison.Ordinal);
+        Assert.Contains("accepted", result.ReplyArtifact?.PayloadSchemaJson!, StringComparison.Ordinal);
     }
 
     private static ServiceProvider CreateProvider(IContractArtifactRepository artifacts)
@@ -105,6 +106,20 @@ public sealed class ControlPlaneContractCatalogServiceTests
             SourceStatus = status.ToString(),
             CreatedAtUtc = createdAtUtc
         };
+    }
+
+    private static ContractArtifact CreateCommandArtifact(
+        string topic,
+        string version,
+        ContractVersionStatus status,
+        DateTime createdAtUtc)
+    {
+        var artifact = CreateArtifact(topic, version, status, createdAtUtc, ContractArtifactType.Command);
+        artifact.Name = "Register Customer";
+        artifact.PayloadSchemaJson = CommandArtifactPayloadDocument.Compose(
+            "{\"type\":\"object\",\"properties\":{\"customerId\":{\"type\":\"string\"}}}",
+            "{\"type\":\"object\",\"properties\":{\"accepted\":{\"type\":\"boolean\"}}}");
+        return artifact;
     }
 
     private sealed class ArtifactRepository(params ContractArtifact[] artifacts) : IContractArtifactRepository
