@@ -4,43 +4,74 @@
     ViewData["Title"] = "Runtime Environments";
 }
 
-<section class="dashboard-section">
-    <div class="platform-card">
-        <div class="platform-card-header">
-            <span>Runtime Environments</span>
-            <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#environmentModal" data-mode="new">New environment</button>
-        </div>
-        <div class="table-responsive mt-3">
-            <table class="table align-middle">
-                <thead><tr><th>Name</th><th>Code</th><th>Enabled</th><th>Description</th><th></th></tr></thead>
-                <tbody>
-                @foreach (var env in Model.Environments)
-                {
-                    <tr>
-                        <td>@env.Name</td>
-                        <td><code>@env.Code</code></td>
-                        <td>@(env.IsEnabled ? "Yes" : "No")</td>
-                        <td>@env.Description</td>
-                        <td>
-                            <button class="btn btn-secondary btn-sm" type="button"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#environmentModal"
-                                    data-mode="edit"
-                                    data-id="@env.Id"
-                                    data-name="@env.Name"
-                                    data-code="@env.Code"
-                                    data-enabled="@env.IsEnabled.ToString().ToLowerInvariant()"
-                                    data-description="@env.Description">
-                                Edit
-                            </button>
-                        </td>
-                    </tr>
-                }
-                </tbody>
-            </table>
-        </div>
+<div class="od-page-head">
+    <div>
+        <h1 class="od-page-title">Environments</h1>
+        <p class="od-page-subtitle">Runtime deployment targets used to organize nodes and releases.</p>
     </div>
-</section>
+    <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#environmentModal" data-mode="new">
+        <i class="bi bi-plus-lg"></i> New environment
+    </button>
+</div>
+
+@if (!Model.Environments.Any())
+{
+    <section class="od-panel">
+        <p class="od-empty">No environments found.</p>
+    </section>
+}
+else
+{
+    <section class="od-list-shell">
+        <div class="od-grid">
+            @foreach (var env in Model.Environments)
+            {
+                <article class="od-item-card">
+                    <div class="od-item-top">
+                        <div>
+                            <h2 class="od-item-title">@env.Name</h2>
+                            <p class="od-item-meta">@env.Code</p>
+                        </div>
+                        <div class="d-flex align-items-start gap-2">
+                            @if (env.IsEnabled)
+                            {
+                                <span class="od-status od-status-active">Enabled</span>
+                            }
+                            else
+                            {
+                                <span class="od-status od-status-inactive">Disabled</span>
+                            }
+                            <div class="dropdown">
+                                <button class="od-kebab" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Environment actions">
+                                    <span aria-hidden="true">...</span>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li>
+                                        <button class="dropdown-item" type="button"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#environmentModal"
+                                                data-mode="edit"
+                                                data-id="@env.Id"
+                                                data-name="@env.Name"
+                                                data-code="@env.Code"
+                                                data-enabled="@env.IsEnabled.ToString().ToLowerInvariant()"
+                                                data-description="@env.Description">
+                                            Edit
+                                        </button>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="od-item-description">@(string.IsNullOrWhiteSpace(env.Description) ? "No description." : env.Description)</p>
+                    <div class="od-card-footer">
+                        <span class="od-card-date">Created @env.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd")</span>
+                    </div>
+                </article>
+            }
+        </div>
+    </section>
+}
 
 <div class="modal fade" id="environmentModal" tabindex="-1" aria-hidden="true" data-show="@Model.ShowEnvironmentModal.ToString().ToLowerInvariant()">
     <div class="modal-dialog modal-lg modal-dialog-centered">
