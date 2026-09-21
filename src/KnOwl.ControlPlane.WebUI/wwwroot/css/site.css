@@ -1956,6 +1956,39 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
     width: 100%;
 }
 
+.od-search-bar {
+    align-items: flex-end;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin: 0.95rem 0 1rem;
+}
+
+.od-search-bar-compact {
+    margin-top: 0;
+}
+
+.od-search-field {
+    display: grid;
+    gap: 0.3rem;
+    min-width: min(30rem, 100%);
+}
+
+.od-search-field span {
+    color: var(--knowl-muted-text, #6b6e8c);
+    font-size: 0.78rem;
+    font-weight: 650;
+}
+
+.od-search-count {
+    align-items: center;
+    align-self: center;
+    color: var(--knowl-muted-text, #6b6e8c);
+    display: inline-flex;
+    font-size: 0.84rem;
+    min-height: 2.25rem;
+}
+
 .od-grid {
     --od-card-min-width: 280px;
     --od-card-max-width: 320px;

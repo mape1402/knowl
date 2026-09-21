@@ -7,7 +7,9 @@ using KnOwl.Runtime.Distribution;
 using KnOwl.Runtime.Storage;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.Extensions.DependencyInjection;
 using ControlPlaneRuntimeNodesPage = KnOwl.ControlPlane.WebUI.Pages.Contracts.RuntimeNodes.IndexModel;
 using RuntimeControlPlanesPage = KnOwl.Runtime.WebUI.Pages.ControlPlanes.IndexModel;
@@ -62,6 +64,38 @@ public sealed class RuntimeConnectionWizardPageModelTests
         Assert.False(node.IsEnabled);
         Assert.Equal(string.Empty, node.EndpointBaseUri);
         Assert.Equal(string.Empty, node.RemoteRuntimeNodeId);
+    }
+
+    [Fact]
+    public async Task RuntimeControlPlanesSearchFiltersConnectionsByPolicyAndEndpoint()
+    {
+        var repository = new RuntimeDesignNodeRepositoryFake(
+        [
+            new RuntimeDesignNode
+            {
+                Id = Guid.NewGuid(),
+                Key = "pull-node",
+                Name = "Pull Node",
+                DistributionMode = DistributionMode.Pull,
+                EndpointBaseUri = string.Empty
+            },
+            new RuntimeDesignNode
+            {
+                Id = Guid.NewGuid(),
+                Key = "push-node",
+                Name = "Push Node",
+                DistributionMode = DistributionMode.Push,
+                EndpointBaseUri = "https://control-plane.example"
+            }
+        ]);
+        var model = CreateRuntimeControlPlanesPage(repository);
+        model.Search = "control-plane.example";
+
+        await model.OnGet(CancellationToken.None);
+
+        var node = Assert.Single(model.DesignNodes);
+        Assert.Equal("Push Node", node.Name);
+        Assert.Equal(2, model.TotalDesignNodes);
     }
 
     [Fact]
@@ -124,6 +158,51 @@ public sealed class RuntimeConnectionWizardPageModelTests
         Assert.Equal(DistributionMode.Pull, node.DistributionMode);
         Assert.False(node.IsEnabled);
         Assert.Equal(string.Empty, node.EndpointBaseUri);
+    }
+
+    [Fact]
+    public async Task ControlPlaneRuntimeNodesSearchFiltersNodesByEnvironmentAndReadiness()
+    {
+        var development = CreateEnvironment();
+        var qa = new RuntimeEnvironment
+        {
+            Id = Guid.NewGuid(),
+            Name = "QA",
+            Code = "qa",
+            IsEnabled = true
+        };
+        var runtimeNodes = new RuntimeNodeRepositoryFake(
+        [
+            new RuntimeNode
+            {
+                Id = Guid.NewGuid(),
+                Name = "Development Runtime",
+                Code = "dev-runtime",
+                EnvironmentId = development.Id,
+                EnvironmentName = development.Name,
+                DistributionMode = DistributionMode.Pull,
+                Status = RuntimeNodeStatus.Active
+            },
+            new RuntimeNode
+            {
+                Id = Guid.NewGuid(),
+                Name = "QA Runtime",
+                Code = "qa-runtime",
+                EnvironmentId = qa.Id,
+                EnvironmentName = qa.Name,
+                DistributionMode = DistributionMode.Hybrid,
+                Status = RuntimeNodeStatus.Active,
+                EndpointBaseUri = "https://runtime.example"
+            }
+        ]);
+        var model = CreateControlPlaneRuntimeNodesPage(runtimeNodes, [development, qa]);
+        model.Search = "runtime.example";
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        var node = Assert.Single(model.RuntimeNodes);
+        Assert.Equal("QA Runtime", node.Name);
+        Assert.Equal(2, model.TotalRuntimeNodes);
     }
 
     [Fact]
@@ -193,7 +272,8 @@ public sealed class RuntimeConnectionWizardPageModelTests
 
         model.PageContext = new PageContext
         {
-            HttpContext = new DefaultHttpContext { RequestServices = services }
+            HttpContext = new DefaultHttpContext { RequestServices = services },
+            ViewData = new ViewDataDictionary(new EmptyModelMetadataProvider(), new ModelStateDictionary())
         };
     }
 

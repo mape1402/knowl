@@ -19,7 +19,26 @@
             </button>
 </div>
 
+<form method="get" class="od-search-bar">
+    <label class="od-search-field" for="types-search">
+        <span>Search data types</span>
+        <input id="types-search" name="search" value="@Model.Search" class="form-control" placeholder="Name, key, description, base type, version, status" />
+    </label>
+    <button type="submit" class="btn btn-secondary"><i class="bi bi-search"></i> Search</button>
+    @if (!string.IsNullOrWhiteSpace(Model.Search))
+    {
+        <a class="btn btn-secondary" asp-page="/Contracts/Types/Index">Clear</a>
+        <span class="od-search-count">@Model.Types.Count of @Model.TotalTypes</span>
+    }
+</form>
+
         <section class="od-list-shell">
+        @if (Model.Types.Count == 0)
+        {
+            <p class="od-empty">@(string.IsNullOrWhiteSpace(Model.Search) ? "No data types found." : "No data types match the current search.")</p>
+        }
+        else
+        {
         <div class="od-grid">
             @foreach (var item in Model.Types)
             {
@@ -77,6 +96,7 @@
                 </article>
             }
         </div>
+        }
         </section>
 
 @section Scripts {

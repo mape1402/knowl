@@ -22,6 +22,17 @@ public sealed class IndexModel(
     public IReadOnlyList<RuntimeDesignNode> DesignNodes { get; private set; } = [];
 
     /// <summary>
+    /// Gets the total connection count before search is applied.
+    /// </summary>
+    public int TotalDesignNodes { get; private set; }
+
+    /// <summary>
+    /// Gets or sets the free-text connection search term.
+    /// </summary>
+    [BindProperty(SupportsGet = true)]
+    public string? Search { get; set; }
+
+    /// <summary>
     /// Gets or sets the connection form input.
     /// </summary>
     [BindProperty]
@@ -301,7 +312,12 @@ public sealed class IndexModel(
 
     private async Task Load(CancellationToken cancellationToken)
     {
-        DesignNodes = (await designNodes.GetAll(cancellationToken))
+        var nodes = await designNodes.GetAll(cancellationToken);
+        TotalDesignNodes = nodes.Count;
+        Search = Normalize(Search);
+        DesignNodes = (string.IsNullOrWhiteSpace(Search)
+                ? nodes
+                : nodes.Where(MatchesSearch))
             .OrderByDescending(x => x.UpdatedAtUtc)
             .ThenBy(x => x.Name)
             .ToList();
@@ -381,6 +397,64 @@ public sealed class IndexModel(
         => node.IsEnabled && node.Status == RuntimeDesignNodeStatus.Enabled
             ? "Enabled"
             : node.Status.ToString();
+
+    private bool MatchesSearch(RuntimeDesignNode node)
+        => Contains(node.Name)
+            || Contains(node.Key)
+            || Contains(node.Description)
+            || Contains(node.EndpointBaseUri)
+            || Contains(node.RemoteRuntimeNodeId)
+            || Contains(node.Status.ToString())
+            || Contains(DisplayStatus(node))
+            || Contains(DisplayDistributionMode(node.DistributionMode))
+            || Contains(node.DistributionMode.ToString())
+            || Contains(RuntimeCredentialReadiness(node))
+            || Contains(ControlPlaneCredentialReadiness(node))
+            || Contains(EndpointReadiness(node))
+            || Contains(node.InboundCredentialStatus.ToString())
+            || Contains(node.OutboundCredentialStatus.ToString());
+
+    private bool Contains(string? value)
+        => !string.IsNullOrWhiteSpace(Search)
+            && !string.IsNullOrWhiteSpace(value)
+            && value.Contains(Search, StringComparison.OrdinalIgnoreCase);
+
+    private static string? Normalize(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string RuntimeCredentialReadiness(RuntimeDesignNode node)
+    {
+        if (node.DistributionMode is not (DistributionMode.Push or DistributionMode.Hybrid))
+        {
+            return "Not required";
+        }
+
+        return node.InboundCredentialStatus == ConnectionCredentialStatus.Active
+            ? "Ready"
+            : "Missing";
+    }
+
+    private static string ControlPlaneCredentialReadiness(RuntimeDesignNode node)
+    {
+        if (node.DistributionMode is not (DistributionMode.Pull or DistributionMode.Hybrid))
+        {
+            return "Not required";
+        }
+
+        return node.OutboundCredentialStatus == ConnectionCredentialStatus.Active
+            ? "Ready"
+            : "Missing";
+    }
+
+    private static string EndpointReadiness(RuntimeDesignNode node)
+    {
+        if (node.DistributionMode is not (DistributionMode.Pull or DistributionMode.Hybrid))
+        {
+            return "Not required";
+        }
+
+        return string.IsNullOrWhiteSpace(node.EndpointBaseUri) ? "Missing" : "Ready";
+    }
 
     private static string DateOrDash(DateTime? value)
         => value.HasValue ? value.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "-";

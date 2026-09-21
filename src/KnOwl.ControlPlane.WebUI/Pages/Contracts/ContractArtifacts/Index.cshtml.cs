@@ -11,7 +11,11 @@ public class IndexModel(IContractArtifactRepository artifacts) : PageModel
     [BindProperty(SupportsGet = true)]
     public string? GroupKey { get; set; }
 
+    [BindProperty(SupportsGet = true)]
+    public string? Search { get; set; }
+
     public IReadOnlyList<ContractArtifactGroup> Groups { get; private set; } = [];
+    public int TotalGroups { get; private set; }
 
     public ContractArtifactGroup? SelectedGroup { get; private set; }
 
@@ -26,14 +30,19 @@ public class IndexModel(IContractArtifactRepository artifacts) : PageModel
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
         var rows = await artifacts.GetAll(cancellationToken);
-        Groups = BuildGroups(rows);
+        var groups = BuildGroups(rows);
+        TotalGroups = groups.Count;
+        Search = Normalize(Search);
 
         SelectedGroup = string.IsNullOrWhiteSpace(GroupKey)
             ? null
-            : Groups.FirstOrDefault(x => string.Equals(x.Key, GroupKey, StringComparison.OrdinalIgnoreCase));
+            : groups.FirstOrDefault(x => string.Equals(x.Key, GroupKey, StringComparison.OrdinalIgnoreCase));
 
         if (SelectedGroup is null)
         {
+            Groups = string.IsNullOrWhiteSpace(Search)
+                ? groups
+                : groups.Where(MatchesGroupSearch).ToArray();
             SelectedVersions = [];
             SelectedVersionDetails = [];
             SelectedArtifacts = [];
@@ -42,7 +51,11 @@ public class IndexModel(IContractArtifactRepository artifacts) : PageModel
         }
 
         GroupKey = SelectedGroup.Key;
+        Groups = groups;
         SelectedArtifacts = BuildArtifactCards(SelectedGroup.Artifacts);
+        SelectedArtifacts = string.IsNullOrWhiteSpace(Search)
+            ? SelectedArtifacts
+            : SelectedArtifacts.Where(MatchesArtifactSearch).ToArray();
         SelectedVersions = BuildVersionGroups(SelectedGroup.Artifacts);
         SelectedArtifactDetails = SelectedArtifacts
             .Select(artifact => new ContractArtifactBundleDetail(
@@ -273,6 +286,40 @@ public class IndexModel(IContractArtifactRepository artifacts) : PageModel
 
         return name;
     }
+
+    private bool MatchesGroupSearch(ContractArtifactGroup group)
+        => Contains(group.ContractKind)
+            || Contains(group.Name)
+            || Contains(group.Topic)
+            || Contains(group.Description)
+            || Contains(group.LatestVersion)
+            || group.Artifacts.Any(MatchesSourceArtifactSearch);
+
+    private bool MatchesArtifactSearch(ContractArtifactCard artifact)
+        => Contains(artifact.ContractKind)
+            || Contains(artifact.Name)
+            || Contains(artifact.Topic)
+            || Contains(artifact.VersionNumber)
+            || Contains(artifact.SourceStatus)
+            || Contains(artifact.SchemaSummary)
+            || artifact.Artifacts.Any(MatchesSourceArtifactSearch);
+
+    private bool MatchesSourceArtifactSearch(ContractArtifact artifact)
+        => Contains(artifact.ArtifactType.ToString())
+            || Contains(artifact.Name)
+            || Contains(artifact.Topic)
+            || Contains(artifact.VersionNumber)
+            || Contains(artifact.Description)
+            || Contains(artifact.SourceStatus)
+            || Contains(artifact.ContentHash);
+
+    private bool Contains(string? value)
+        => !string.IsNullOrWhiteSpace(Search)
+            && !string.IsNullOrWhiteSpace(value)
+            && value.Contains(Search, StringComparison.OrdinalIgnoreCase);
+
+    private static string? Normalize(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
 
 public sealed record ContractArtifactGroup(

@@ -16,6 +16,10 @@ public class IndexModel(
 {
     public IReadOnlyList<RuntimeNode> RuntimeNodes { get; private set; } = [];
     public IReadOnlyList<RuntimeEnvironment> Environments { get; private set; } = [];
+    public int TotalRuntimeNodes { get; private set; }
+
+    [BindProperty(SupportsGet = true)]
+    public string? Search { get; set; }
 
     [BindProperty]
     public RuntimeNodeInput Input { get; set; } = new();
@@ -311,7 +315,12 @@ public class IndexModel(
 
     private async Task Load(CancellationToken cancellationToken)
     {
-        RuntimeNodes = await runtimeNodes.GetAll(cancellationToken);
+        var runtimeNodeRows = await runtimeNodes.GetAll(cancellationToken);
+        TotalRuntimeNodes = runtimeNodeRows.Count;
+        Search = Normalize(Search);
+        RuntimeNodes = string.IsNullOrWhiteSpace(Search)
+            ? runtimeNodeRows
+            : runtimeNodeRows.Where(MatchesSearch).ToArray();
         Environments = await environments.GetEnabled(cancellationToken);
         ViewData["RuntimeEnvironments"] = Environments;
     }
@@ -422,6 +431,74 @@ public class IndexModel(
             DistributionMode.Hybrid => "Both directions",
             _ => mode.ToString()
         };
+
+    private bool MatchesSearch(RuntimeNode node)
+    {
+        var environmentName = node.Environment?.Name ?? node.EnvironmentName;
+        var credentialReadiness = CredentialReadiness(node);
+        var endpointReadiness = EndpointReadiness(node);
+
+        return Contains(node.Name)
+            || Contains(node.Code)
+            || Contains(environmentName)
+            || Contains(node.Description)
+            || Contains(node.EndpointBaseUri)
+            || Contains(node.Status.ToString())
+            || Contains(node.IsEnabled ? "Enabled" : "Disabled")
+            || Contains(DisplayDistributionMode(node.DistributionMode))
+            || Contains(node.DistributionMode.ToString())
+            || Contains(credentialReadiness)
+            || Contains(endpointReadiness)
+            || Contains(node.InboundCredentialStatus.ToString())
+            || Contains(node.OutboundCredentialStatus.ToString());
+    }
+
+    private bool Contains(string? value)
+        => !string.IsNullOrWhiteSpace(Search)
+            && !string.IsNullOrWhiteSpace(value)
+            && value.Contains(Search, StringComparison.OrdinalIgnoreCase);
+
+    private static string? Normalize(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string CredentialReadiness(RuntimeNode node)
+    {
+        var needsRuntimeCredentials = node.DistributionMode is DistributionMode.Push or DistributionMode.Hybrid;
+        var needsControlPlaneCredentials = node.DistributionMode is DistributionMode.Pull or DistributionMode.Hybrid;
+        var hasRuntimeCredentials = node.OutboundCredentialStatus == ConnectionCredentialStatus.Active;
+        var hasControlPlaneCredentials = node.InboundCredentialStatus == ConnectionCredentialStatus.Active;
+
+        if (needsRuntimeCredentials && needsControlPlaneCredentials)
+        {
+            return hasRuntimeCredentials && hasControlPlaneCredentials
+                ? "Ready"
+                : !hasRuntimeCredentials && !hasControlPlaneCredentials
+                    ? "Missing both"
+                    : hasRuntimeCredentials ? "Missing Control Plane" : "Missing Runtime";
+        }
+
+        if (needsRuntimeCredentials)
+        {
+            return hasRuntimeCredentials ? "Ready" : "Missing Runtime";
+        }
+
+        if (needsControlPlaneCredentials)
+        {
+            return hasControlPlaneCredentials ? "Ready" : "Missing Control Plane";
+        }
+
+        return "Not required";
+    }
+
+    private static string EndpointReadiness(RuntimeNode node)
+    {
+        if (node.DistributionMode == DistributionMode.Pull)
+        {
+            return "Not required";
+        }
+
+        return string.IsNullOrWhiteSpace(node.EndpointBaseUri) ? "Missing" : node.EndpointBaseUri;
+    }
 
     private static string DateOrDash(DateTime? value)
         => value.HasValue ? value.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "-";

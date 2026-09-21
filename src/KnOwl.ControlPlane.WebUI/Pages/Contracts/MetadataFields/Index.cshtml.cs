@@ -9,13 +9,24 @@ namespace KnOwl.ControlPlane.WebUI.Pages.Contracts.MetadataFields;
 public class IndexModel(IContractFieldMetadataInteractionService metadataFields) : PageModel
 {
     public IReadOnlyList<MetadataFieldListItem> Fields { get; private set; } = [];
+    public int TotalFields { get; private set; }
+
+    [BindProperty(SupportsGet = true)]
+    public string? Search { get; set; }
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
         var entities = await metadataFields.GetAll(cancellationToken);
 
-        Fields = entities
+        Search = Normalize(Search);
+        var fieldRows = entities
             .Select(CreateListItem)
+            .ToArray();
+
+        TotalFields = fieldRows.Length;
+        Fields = (string.IsNullOrWhiteSpace(Search)
+                ? fieldRows
+                : fieldRows.Where(MatchesSearch))
             .OrderBy(x => x.Name)
             .ToList();
     }
@@ -88,4 +99,22 @@ public class IndexModel(IContractFieldMetadataInteractionService metadataFields)
         IReadOnlyCollection<string> AppliesTo,
         int VersionCount,
         DateTime CreatedAtUtc);
+
+    private bool MatchesSearch(MetadataFieldListItem item)
+        => Contains(item.Name)
+            || Contains(item.Key)
+            || Contains(item.Description)
+            || Contains(item.Version)
+            || Contains(item.DataType)
+            || Contains(item.IsActive ? "Active" : "Inactive")
+            || Contains(item.IsRequired ? "Required" : "Optional")
+            || item.AppliesTo.Any(Contains);
+
+    private bool Contains(string? value)
+        => !string.IsNullOrWhiteSpace(Search)
+            && !string.IsNullOrWhiteSpace(value)
+            && value.Contains(Search, StringComparison.OrdinalIgnoreCase);
+
+    private static string? Normalize(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

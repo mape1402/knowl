@@ -22,7 +22,33 @@
             </div>
         </div>
 
-        <div class="events-list compact-contract-list">
+        <form method="get" class="row g-2 mb-3">
+            <div class="col-md-6 col-lg-4">
+                <label for="page-search" class="form-label">Search pages</label>
+                <input id="page-search" name="search" value="@Model.Search" class="form-control" placeholder="Title, key, or description" />
+            </div>
+            <div class="col-auto d-flex align-items-end">
+                <button type="submit" class="btn btn-secondary"><i class="bi bi-search"></i> Search</button>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(Model.Search))
+            {
+                <div class="col-auto d-flex align-items-end">
+                    <a class="btn btn-secondary" asp-page="/Documentation/Topic" asp-route-id="@Model.Topic?.Id">Clear</a>
+                </div>
+            }
+        </form>
+
+        @if (Model.Pages.Count == 0)
+        {
+            <div class="events-empty-state">
+                <i class="bi bi-file-earmark-text"></i>
+                <h3>@(string.IsNullOrWhiteSpace(Model.Search) ? "No pages" : "No matching pages")</h3>
+                <p>@(string.IsNullOrWhiteSpace(Model.Search) ? "Create a page for this documentation topic." : "Try a different title, key, or description.")</p>
+            </div>
+        }
+        else
+        {
+            <div class="events-list compact-contract-list">
             @foreach (var docPage in Model.Pages)
             {
                 <article class="event-list-card">
@@ -40,7 +66,8 @@
                     </div>
                 </article>
             }
-        </div>
+            </div>
+        }
     </div>
 </section>
 

@@ -19,10 +19,23 @@
             </button>
 </div>
 
+<form method="get" class="od-search-bar">
+    <label class="od-search-field" for="metadata-fields-search">
+        <span>Search custom fields</span>
+        <input id="metadata-fields-search" name="search" value="@Model.Search" class="form-control" placeholder="Name, key, description, data type, applies to, version" />
+    </label>
+    <button type="submit" class="btn btn-secondary"><i class="bi bi-search"></i> Search</button>
+    @if (!string.IsNullOrWhiteSpace(Model.Search))
+    {
+        <a class="btn btn-secondary" asp-page="/Contracts/MetadataFields/Index">Clear</a>
+        <span class="od-search-count">@Model.Fields.Count of @Model.TotalFields</span>
+    }
+</form>
+
 @if (!Model.Fields.Any())
 {
     <section class="od-panel">
-        <p class="od-empty">No custom fields found.</p>
+        <p class="od-empty">@(string.IsNullOrWhiteSpace(Model.Search) ? "No custom fields found." : "No custom fields match the current search.")</p>
     </section>
 }
 else

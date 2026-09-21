@@ -11,8 +11,12 @@ public class ViewModel(IContractFieldMetadataInteractionService metadataFields) 
 {
     public ContractFieldMetadataDefinition? Field { get; private set; }
     public ContractFieldMetadataVersion? SelectedVersion { get; private set; }
+    public IReadOnlyList<ContractFieldMetadataVersion> Versions { get; private set; } = [];
     public string FormattedDefinitionJson { get; private set; } = "{}";
     public string ButterMorphContext { get; private set; } = string.Empty;
+
+    [BindProperty(SupportsGet = true)]
+    public string? Search { get; set; }
 
     public async Task<IActionResult> OnGetAsync(Guid id, string? version = null, CancellationToken cancellationToken = default)
     {
@@ -28,6 +32,12 @@ public class ViewModel(IContractFieldMetadataInteractionService metadataFields) 
         SelectedVersion = string.IsNullOrWhiteSpace(version)
             ? Field.Versions.Where(x => x.IsActive).OrderByDescending(x => x.CreatedAtUtc).FirstOrDefault()
             : Field.Versions.FirstOrDefault(x => x.VersionNumber == version);
+        Search = Normalize(Search);
+        Versions = (string.IsNullOrWhiteSpace(Search)
+                ? Field.Versions
+                : Field.Versions.Where(MatchesSearch))
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ToArray();
 
         if (SelectedVersion is not null)
         {
@@ -62,4 +72,18 @@ public class ViewModel(IContractFieldMetadataInteractionService metadataFields) 
             return json;
         }
     }
+
+    private bool MatchesSearch(ContractFieldMetadataVersion version)
+        => Contains(version.VersionNumber)
+            || Contains(version.Comment)
+            || Contains(version.IsActive ? "Active" : "Inactive")
+            || Contains(version.DefinitionJson);
+
+    private bool Contains(string? value)
+        => !string.IsNullOrWhiteSpace(Search)
+            && !string.IsNullOrWhiteSpace(value)
+            && value.Contains(Search, StringComparison.OrdinalIgnoreCase);
+
+    private static string? Normalize(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

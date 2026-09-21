@@ -42,12 +42,36 @@
     }
 </div>
 
+<form method="get" class="od-search-bar">
+    @if (Model.SelectedGroup is not null)
+    {
+        <input type="hidden" name="groupKey" value="@Model.GroupKey" />
+    }
+    <label class="od-search-field" for="artifacts-search">
+        <span>@(Model.SelectedGroup is null ? "Search artifact groups" : "Search artifacts")</span>
+        <input id="artifacts-search" name="search" value="@Model.Search" class="form-control" placeholder="Contract, topic, version, status, hash" />
+    </label>
+    <button type="submit" class="btn btn-secondary"><i class="bi bi-search"></i> Search</button>
+    @if (!string.IsNullOrWhiteSpace(Model.Search))
+    {
+        if (Model.SelectedGroup is null)
+        {
+            <a class="btn btn-secondary" asp-page="/Contracts/ContractArtifacts/Index">Clear</a>
+            <span class="od-search-count">@Model.Groups.Count of @Model.TotalGroups</span>
+        }
+        else
+        {
+            <a class="btn btn-secondary" asp-page="/Contracts/ContractArtifacts/Index" asp-route-groupKey="@Model.GroupKey">Clear</a>
+        }
+    }
+</form>
+
 @if (Model.SelectedGroup is null)
 {
     <section class="od-list-shell">
         @if (!Model.Groups.Any())
         {
-            <p class="od-empty">No released artifacts found.</p>
+            <p class="od-empty">@(string.IsNullOrWhiteSpace(Model.Search) ? "No released artifacts found." : "No artifact groups match the current search.")</p>
         }
         else
         {
@@ -83,7 +107,7 @@ else
     <section class="od-list-shell">
         @if (!Model.SelectedArtifacts.Any())
         {
-            <p class="od-empty">No artifacts found for @Model.SelectedGroup.Name.</p>
+            <p class="od-empty">@(string.IsNullOrWhiteSpace(Model.Search) ? $"No artifacts found for {Model.SelectedGroup.Name}." : "No artifacts match the current search.")</p>
         }
         else
         {

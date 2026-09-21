@@ -63,11 +63,80 @@ public class ContractArtifactsPageModelTests
             reply => Assert.Equal("Reply", reply.Label));
     }
 
+    [Fact]
+    public async Task OnGetFiltersArtifactGroupsBySearchTerm()
+    {
+        var billingDefinitionId = Guid.NewGuid();
+        var customerDefinitionId = Guid.NewGuid();
+        var repository = new InMemoryContractArtifactRepository(
+            CreateArtifact(
+                billingDefinitionId,
+                Guid.NewGuid(),
+                ContractArtifactType.Event,
+                "Billing Started",
+                topic: "billing.started",
+                description: "Billing workflow artifact."),
+            CreateArtifact(
+                customerDefinitionId,
+                Guid.NewGuid(),
+                ContractArtifactType.Event,
+                "Customer Registered",
+                topic: "customer.registered",
+                description: "Customer workflow artifact."));
+        var model = new IndexModel(repository)
+        {
+            Search = "billing"
+        };
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        var group = Assert.Single(model.Groups);
+        Assert.Equal("Billing Started", group.Name);
+        Assert.Equal(2, model.TotalGroups);
+    }
+
+    [Fact]
+    public async Task OnGetFiltersSelectedArtifactsByVersionSearchTerm()
+    {
+        var definitionId = Guid.NewGuid();
+        var firstVersionId = Guid.NewGuid();
+        var secondVersionId = Guid.NewGuid();
+        var repository = new InMemoryContractArtifactRepository(
+            CreateArtifact(
+                definitionId,
+                firstVersionId,
+                ContractArtifactType.Event,
+                "Customer Registered",
+                topic: "customer.registered",
+                versionNumber: "1.0.0"),
+            CreateArtifact(
+                definitionId,
+                secondVersionId,
+                ContractArtifactType.Event,
+                "Customer Registered",
+                topic: "customer.registered",
+                versionNumber: "2.0.0"));
+        var model = new IndexModel(repository)
+        {
+            GroupKey = $"Event:{definitionId:N}",
+            Search = "2.0.0"
+        };
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        var artifact = Assert.Single(model.SelectedArtifacts);
+        Assert.Equal("2.0.0", artifact.VersionNumber);
+        Assert.Single(model.SelectedArtifactDetails);
+    }
+
     private static ContractArtifact CreateArtifact(
         Guid definitionId,
         Guid versionId,
         ContractArtifactType artifactType,
-        string name)
+        string name,
+        string topic = "customer.register",
+        string versionNumber = "1.0.0",
+        string description = "Registers a customer.")
         => new()
         {
             Id = Guid.NewGuid(),
@@ -75,9 +144,9 @@ public class ContractArtifactsPageModelTests
             DefinitionId = definitionId,
             VersionId = versionId,
             Name = name,
-            Topic = "customer.register",
-            VersionNumber = "1.0.0",
-            Description = "Registers a customer.",
+            Topic = topic,
+            VersionNumber = versionNumber,
+            Description = description,
             PayloadSchemaJson = "{}",
             ContentHash = Guid.NewGuid().ToString("N"),
             SourceStatus = "Deployed",
