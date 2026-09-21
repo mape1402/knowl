@@ -35,6 +35,30 @@
     });
 }());
 
+// ── History back buttons ─────────────────────────────────
+(function () {
+    document.querySelectorAll('[data-history-back]').forEach(button => {
+        button.addEventListener('click', () => {
+            const fallbackUrl = button.getAttribute('data-fallback-url');
+            const referrer = document.referrer ? new URL(document.referrer, window.location.origin) : null;
+
+            if (referrer && referrer.origin === window.location.origin && referrer.href !== window.location.href) {
+                window.history.back();
+                return;
+            }
+
+            if (window.history.length > 1) {
+                window.history.back();
+                return;
+            }
+
+            if (fallbackUrl) {
+                window.location.href = fallbackUrl;
+            }
+        });
+    });
+}());
+
 // ── Card contextual menus ────────────────────────────────
 (function () {
     const openClass = 'od-item-card-menu-open';

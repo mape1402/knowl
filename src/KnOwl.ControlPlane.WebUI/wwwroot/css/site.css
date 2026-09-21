@@ -2003,6 +2003,11 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
     width: 100%;
 }
 
+.od-documentation-grid {
+    --od-card-width: 320px;
+    --od-card-preferred-width: 320px;
+}
+
 .od-item-card {
     border-top: 2px solid color-mix(in srgb, var(--knowl-primary, #7c3aed) 55%, var(--knowl-border, #e2e3ef));
     border-radius: 8px;
@@ -2191,6 +2196,7 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
 }
 
 .od-card-date {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

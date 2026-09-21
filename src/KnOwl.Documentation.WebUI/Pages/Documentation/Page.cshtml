@@ -2,75 +2,95 @@
 @model KnOwl.Documentation.WebUI.Pages.Documentation.DocumentationPageModel
 @{
     ViewData["Title"] = Model.PageItem?.Title ?? "Documentation Page";
+
+    string VersionStatusClass(KnOwl.Documentation.DocPageVersionStatus status)
+        => status switch
+        {
+            KnOwl.Documentation.DocPageVersionStatus.Published => "od-status od-status-active",
+            KnOwl.Documentation.DocPageVersionStatus.Archived => "od-status od-status-inactive",
+            _ => "od-status od-status-queued"
+        };
+
+    string ShortHash(string value)
+        => string.IsNullOrWhiteSpace(value) ? "-" : value[..Math.Min(12, value.Length)];
 }
 
-<section class="dashboard-section">
-    <div class="platform-card">
-        <div class="platform-card-header">
-            <span>@Model.PageItem?.Title</span>
-            <div class="event-list-actions">
-                @if (Model.PageItem is not null)
-                {
-                    <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#newVersionModal">
-                        <i class="bi bi-upload"></i> Upload version
-                    </button>
-                }
-                @if (Model.Topic is not null)
-                {
-                    <a class="btn btn-secondary btn-sm" asp-page="/Documentation/Topic" asp-route-id="@Model.Topic.Id"><i class="bi bi-arrow-left"></i> Back</a>
-                }
-            </div>
-        </div>
-
-        <form method="get" class="row g-2 mb-3">
-            <div class="col-md-6 col-lg-4">
-                <label for="version-search" class="form-label">Search versions</label>
-                <input id="version-search" name="search" value="@Model.Search" class="form-control" placeholder="Version, entry path, or hash" />
-            </div>
-            <div class="col-auto d-flex align-items-end">
-                <button type="submit" class="btn btn-secondary"><i class="bi bi-search"></i> Search</button>
-            </div>
-            @if (!string.IsNullOrWhiteSpace(Model.Search))
-            {
-                <div class="col-auto d-flex align-items-end">
-                    <a class="btn btn-secondary" asp-page="/Documentation/Page" asp-route-id="@Model.PageItem?.Id">Clear</a>
-                </div>
-            }
-        </form>
-
-        @if (Model.Versions.Count == 0)
+<div class="od-page-head">
+    <div>
+        <h1 class="od-page-title">@Model.PageItem?.Title</h1>
+        <p class="od-page-subtitle">@Model.PageItem?.Key</p>
+    </div>
+    <div class="event-list-actions">
+        @if (Model.PageItem is not null)
         {
-            <div class="events-empty-state">
-                <i class="bi bi-file-earmark-text"></i>
-                <h3>@(string.IsNullOrWhiteSpace(Model.Search) ? "No versions" : "No matching versions")</h3>
-                <p>@(string.IsNullOrWhiteSpace(Model.Search) ? "Upload a Markdown file or ZIP package to add the first version." : "Try a different version, entry path, or hash.")</p>
-            </div>
+            <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#newVersionModal">
+                <i class="bi bi-upload"></i> Upload version
+            </button>
         }
-        else
+        @if (Model.Topic is not null)
         {
-            <div class="events-list compact-contract-list">
-                @foreach (var version in Model.Versions)
-                {
-                    <article class="event-list-card">
-                        <h3 class="event-list-title">@version.VersionNumber</h3>
-                        <p class="event-list-topic">@version.EntryPath</p>
-                        <div class="event-list-meta">
-                            <span>Assets: @version.Assets.Count</span>
-                            <span>Uploaded: @version.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+            <a class="btn btn-secondary btn-sm" asp-page="/Documentation/Topic" asp-route-id="@Model.Topic.Id"><i class="bi bi-arrow-left"></i> Back</a>
+        }
+    </div>
+</div>
+
+<form method="get" class="od-search-bar">
+    <label class="od-search-field" for="version-search">
+        <span>Search versions</span>
+        <input id="version-search" name="search" value="@Model.Search" class="form-control" placeholder="Version, entry path, or hash" />
+    </label>
+    <button type="submit" class="btn btn-secondary"><i class="bi bi-search"></i> Search</button>
+    @if (!string.IsNullOrWhiteSpace(Model.Search))
+    {
+        <a class="btn btn-secondary" asp-page="/Documentation/Page" asp-route-id="@Model.PageItem?.Id">Clear</a>
+    }
+</form>
+
+<section class="od-list-shell">
+    @if (Model.Versions.Count == 0)
+    {
+        <div class="events-empty-state">
+            <i class="bi bi-file-earmark-text"></i>
+            <h3>@(string.IsNullOrWhiteSpace(Model.Search) ? "No versions" : "No matching versions")</h3>
+            <p>@(string.IsNullOrWhiteSpace(Model.Search) ? "Upload a Markdown file or ZIP package to add the first version." : "Try a different version, entry path, or hash.")</p>
+        </div>
+    }
+    else
+    {
+        <div class="od-grid od-versions-grid">
+            @foreach (var version in Model.Versions)
+            {
+                var browseUrl = Model.Space is not null && Model.Topic is not null && Model.PageItem is not null
+                    ? Url.Page("/Documentation/View", new { spaceKey = Model.Space.Key, topicKey = Model.Topic.Key, pageKey = Model.PageItem.Key, version = version.VersionNumber })
+                    : null;
+
+                <article class="od-item-card od-version-card" data-open-url="@browseUrl">
+                    <div class="od-item-top">
+                        <div>
+                            <h2 class="od-item-title">@version.VersionNumber</h2>
+                            <p class="od-item-meta">@version.EntryPath</p>
                         </div>
-                        <div class="event-list-actions">
-                            @if (Model.Space is not null && Model.Topic is not null && Model.PageItem is not null)
-                            {
+                        <span class="@VersionStatusClass(version.Status)">@version.Status</span>
+                    </div>
+                    <div class="od-chip-row">
+                        <span class="od-meta-chip">@version.Assets.Count assets</span>
+                        <span class="od-meta-chip">Hash @ShortHash(version.ContentHash)</span>
+                    </div>
+                    <div class="od-card-footer">
+                        <span class="od-card-date">Uploaded @version.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                        @if (Model.Space is not null && Model.Topic is not null && Model.PageItem is not null)
+                        {
+                            <div class="event-list-actions">
                                 <a class="btn btn-secondary btn-sm" asp-page="/Documentation/View" asp-route-spaceKey="@Model.Space.Key" asp-route-topicKey="@Model.Topic.Key" asp-route-pageKey="@Model.PageItem.Key" asp-route-version="@version.VersionNumber">Browse</a>
                                 <a class="btn btn-secondary btn-sm" href="/docs/@Model.Space.Key/@Model.Topic.Key/@Model.PageItem.Key/@version.VersionNumber/source.md">MD</a>
                                 <a class="btn btn-secondary btn-sm" href="/docs/@Model.Space.Key/@Model.Topic.Key/@Model.PageItem.Key/@version.VersionNumber/package.zip">ZIP</a>
-                            }
-                        </div>
-                    </article>
-                }
-            </div>
-        }
-    </div>
+                            </div>
+                        }
+                    </div>
+                </article>
+            }
+        </div>
+    }
 </section>
 
 @if (Model.PageItem is not null)
