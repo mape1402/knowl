@@ -16,6 +16,7 @@ public class IndexModel(
 {
     public IReadOnlyList<ContractRelease> Releases { get; private set; } = [];
     public IReadOnlyList<ReleaseCard> ReleaseCards { get; private set; } = [];
+    public int TotalReleaseCards { get; private set; }
     public IReadOnlyList<ContractArtifact> Artifacts { get; private set; } = [];
     public IReadOnlyList<ReleaseContractOption> ReleaseOptions { get; private set; } = [];
     public IReadOnlyList<RuntimeNode> RuntimeNodes { get; private set; } = [];
@@ -25,6 +26,9 @@ public class IndexModel(
 
     [BindProperty]
     public ReleaseInput Input { get; set; } = new();
+
+    [BindProperty(SupportsGet = true)]
+    public string? Search { get; set; }
 
     [TempData]
     public string? StatusMessage { get; set; }
@@ -84,7 +88,13 @@ public class IndexModel(
         }
 
         Releases = detailedReleases;
-        ReleaseCards = detailedReleases.Select(ReleaseCard.FromRelease).ToList();
+        Search = Normalize(Search);
+        var releaseCards = detailedReleases.Select(ReleaseCard.FromRelease).ToArray();
+        TotalReleaseCards = releaseCards.Length;
+        ReleaseCards = (string.IsNullOrWhiteSpace(Search)
+                ? releaseCards
+                : releaseCards.Where(MatchesSearch))
+            .ToList();
         Artifacts = await artifacts.GetAll(cancellationToken);
         ReleaseOptions = BuildReleaseOptions(Artifacts);
         RuntimeNodes = await runtimeNodes.GetActiveEnabled(cancellationToken);
@@ -171,6 +181,35 @@ public class IndexModel(
 
         return name;
     }
+
+    private bool MatchesSearch(ReleaseCard release)
+        => Contains(release.Name)
+            || Contains(release.Status)
+            || release.Artifacts.Any(artifact =>
+                Contains(artifact.ArtifactType)
+                || Contains(artifact.Name)
+                || Contains(artifact.Topic)
+                || Contains(artifact.VersionNumber)
+                || Contains(artifact.ContentHash)
+                || artifact.Targets.Any(target =>
+                    Contains(target.RuntimeNodeName)
+                    || Contains(target.RuntimeNodeCode)
+                    || Contains(target.DistributionMode)
+                    || Contains(target.ArtifactLabel)
+                    || Contains(target.Status)
+                    || Contains(target.ActivationStatus)))
+            || release.RuntimeNodes.Any(node =>
+                Contains(node.Name)
+                || Contains(node.Code)
+                || Contains(node.DistributionMode));
+
+    private bool Contains(string? value)
+        => !string.IsNullOrWhiteSpace(Search)
+            && !string.IsNullOrWhiteSpace(value)
+            && value.Contains(Search, StringComparison.OrdinalIgnoreCase);
+
+    private static string? Normalize(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
 
 public sealed class ReleaseInput

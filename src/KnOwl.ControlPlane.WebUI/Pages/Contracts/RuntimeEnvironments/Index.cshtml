@@ -14,10 +14,23 @@
     </button>
 </div>
 
+<form method="get" class="od-search-bar">
+    <label class="od-search-field" for="environments-search">
+        <span>Search environments</span>
+        <input id="environments-search" name="search" value="@Model.Search" class="form-control" placeholder="Name, code, description, status" />
+    </label>
+    <button type="submit" class="btn btn-secondary"><i class="bi bi-search"></i> Search</button>
+    @if (!string.IsNullOrWhiteSpace(Model.Search))
+    {
+        <a class="btn btn-secondary" asp-page="/Contracts/RuntimeEnvironments/Index">Clear</a>
+        <span class="od-search-count">@Model.Environments.Count of @Model.TotalEnvironments</span>
+    }
+</form>
+
 @if (!Model.Environments.Any())
 {
     <section class="od-panel">
-        <p class="od-empty">No environments found.</p>
+        <p class="od-empty">@(string.IsNullOrWhiteSpace(Model.Search) ? "No environments found." : "No environments match the current search.")</p>
     </section>
 }
 else

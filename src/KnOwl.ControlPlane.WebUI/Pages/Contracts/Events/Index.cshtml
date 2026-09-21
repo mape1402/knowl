@@ -18,21 +18,37 @@
                 <i class="bi bi-plus-lg"></i> New event
             </button>
 </div>
-        
+
+<form method="get" class="od-search-bar">
+    <label class="od-search-field" for="events-search">
+        <span>Search events</span>
+        <input id="events-search" name="search" value="@Model.Search" class="form-control" placeholder="Name, topic, description, version, status" />
+    </label>
+    <button type="submit" class="btn btn-secondary"><i class="bi bi-search"></i> Search</button>
+    @if (!string.IsNullOrWhiteSpace(Model.Search))
+    {
+        <a class="btn btn-secondary" asp-page="/Contracts/Events/Index">Clear</a>
+        <span class="od-search-count">@Model.Events.Count of @Model.TotalEvents</span>
+    }
+</form>
+
         @if (Model.Events.Count == 0)
         {
             <section class="od-panel">
             <div class="events-empty-state">
                 <i class="bi bi-inbox"></i>
-                <h3>No saved events</h3>
-                <p>Start by creating your first event contract.</p>
-                <button type="button"
-                        class="btn btn-primary btn-sm"
-                        data-buttermorph-url="@newEventUrl"
-                        data-buttermorph-title="New event"
-                        data-buttermorph-event-create="true">
-                    Add event
-                </button>
+                <h3>@(string.IsNullOrWhiteSpace(Model.Search) ? "No saved events" : "No matching events")</h3>
+                <p>@(string.IsNullOrWhiteSpace(Model.Search) ? "Start by creating your first event contract." : "Try another name, topic, description, version, or status.")</p>
+                @if (string.IsNullOrWhiteSpace(Model.Search))
+                {
+                    <button type="button"
+                            class="btn btn-primary btn-sm"
+                            data-buttermorph-url="@newEventUrl"
+                            data-buttermorph-title="New event"
+                            data-buttermorph-event-create="true">
+                        Add event
+                    </button>
+                }
             </div>
             </section>
         }

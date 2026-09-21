@@ -14,9 +14,13 @@ public class ViewModel(
 {
     public CommandDefinition? Command { get; private set; }
     public CommandVersion? SelectedVersion { get; private set; }
+    public IReadOnlyList<CommandVersion> Versions { get; private set; } = [];
     public string FormattedPayloadSchemaJson { get; private set; } = "{}";
     public string FormattedReplyPayloadSchemaJson { get; private set; } = "{}";
     public IReadOnlyCollection<ContractVersionStatus> AllowedTargets { get; private set; } = [];
+
+    [BindProperty(SupportsGet = true)]
+    public string? Search { get; set; }
 
     public IReadOnlyCollection<ContractVersionStatus> GetAllowedTargets(ContractVersionStatus status)
         => promotion.GetAllowedTargets(status);
@@ -41,6 +45,12 @@ public class ViewModel(
         SelectedVersion = string.IsNullOrWhiteSpace(version)
             ? Command.Versions.OrderByDescending(x => x.CreatedAtUtc).FirstOrDefault()
             : Command.Versions.FirstOrDefault(x => x.VersionNumber == version);
+        Search = Normalize(Search);
+        Versions = (string.IsNullOrWhiteSpace(Search)
+                ? Command.Versions
+                : Command.Versions.Where(MatchesSearch))
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ToArray();
 
         if (SelectedVersion is not null)
         {
@@ -92,4 +102,18 @@ public class ViewModel(
             return json;
         }
     }
+
+    private bool MatchesSearch(CommandVersion version)
+        => Contains(version.VersionNumber)
+            || Contains(version.Comment)
+            || Contains(version.Status.ToString())
+            || Contains(string.IsNullOrWhiteSpace(version.ReplyPayloadSchemaJson) ? "Request only" : "Request and reply");
+
+    private bool Contains(string? value)
+        => !string.IsNullOrWhiteSpace(Search)
+            && !string.IsNullOrWhiteSpace(value)
+            && value.Contains(Search, StringComparison.OrdinalIgnoreCase);
+
+    private static string? Normalize(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

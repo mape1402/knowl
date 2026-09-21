@@ -8,10 +8,19 @@ namespace KnOwl.ControlPlane.WebUI.Pages.Contracts.Types;
 public class IndexModel(ISchemaTypeInteractionService schemaTypes) : PageModel
 {
     public IReadOnlyList<SchemaTypeDefinition> Types { get; private set; } = [];
+    public int TotalTypes { get; private set; }
+
+    [BindProperty(SupportsGet = true)]
+    public string? Search { get; set; }
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
-        Types = (await schemaTypes.GetAll(cancellationToken))
+        var typeRows = await schemaTypes.GetAll(cancellationToken);
+        TotalTypes = typeRows.Count;
+        Search = Normalize(Search);
+        Types = (string.IsNullOrWhiteSpace(Search)
+                ? typeRows
+                : typeRows.Where(MatchesSearch))
             .OrderBy(x => x.IsSystem)
             .ThenBy(x => x.Name)
             .ToList();
@@ -34,4 +43,24 @@ public class IndexModel(ISchemaTypeInteractionService schemaTypes) : PageModel
 
         return RedirectToPage();
     }
+
+    private bool MatchesSearch(SchemaTypeDefinition item)
+        => Contains(item.Name)
+            || Contains(item.Key)
+            || Contains(item.Description)
+            || Contains(item.IsSystem ? "System" : "Custom")
+            || Contains(item.IsActive ? "Active" : "Inactive")
+            || item.Versions.Any(version =>
+                Contains(version.VersionNumber)
+                || Contains(version.Comment)
+                || Contains(version.DefinitionJson)
+                || Contains(version.IsActive ? "Active" : "Inactive"));
+
+    private bool Contains(string? value)
+        => !string.IsNullOrWhiteSpace(Search)
+            && !string.IsNullOrWhiteSpace(value)
+            && value.Contains(Search, StringComparison.OrdinalIgnoreCase);
+
+    private static string? Normalize(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

@@ -14,8 +14,12 @@ public class ViewModel(
 {
     public EventDefinition? Event { get; private set; }
     public EventVersion? SelectedVersion { get; private set; }
+    public IReadOnlyList<EventVersion> Versions { get; private set; } = [];
     public string FormattedPayloadSchemaJson { get; private set; } = "{}";
     public IReadOnlyCollection<ContractVersionStatus> AllowedTargets { get; private set; } = [];
+
+    [BindProperty(SupportsGet = true)]
+    public string? Search { get; set; }
 
     public IReadOnlyCollection<ContractVersionStatus> GetAllowedTargets(ContractVersionStatus status)
         => promotion.GetAllowedTargets(status);
@@ -40,6 +44,12 @@ public class ViewModel(
         SelectedVersion = string.IsNullOrWhiteSpace(version)
             ? Event.Versions.OrderByDescending(x => x.CreatedAtUtc).FirstOrDefault()
             : Event.Versions.FirstOrDefault(x => x.VersionNumber == version);
+        Search = Normalize(Search);
+        Versions = (string.IsNullOrWhiteSpace(Search)
+                ? Event.Versions
+                : Event.Versions.Where(MatchesSearch))
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ToArray();
 
         if (SelectedVersion is not null)
         {
@@ -90,4 +100,17 @@ public class ViewModel(
             return json;
         }
     }
+
+    private bool MatchesSearch(EventVersion version)
+        => Contains(version.VersionNumber)
+            || Contains(version.Comment)
+            || Contains(version.Status.ToString());
+
+    private bool Contains(string? value)
+        => !string.IsNullOrWhiteSpace(Search)
+            && !string.IsNullOrWhiteSpace(value)
+            && value.Contains(Search, StringComparison.OrdinalIgnoreCase);
+
+    private static string? Normalize(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

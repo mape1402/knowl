@@ -10,8 +10,12 @@ public class ViewModel(ISchemaTypeInteractionService schemaTypes) : PageModel
 {
     public SchemaTypeDefinition? TypeDefinition { get; private set; }
     public SchemaTypeVersion? SelectedVersion { get; private set; }
+    public IReadOnlyList<SchemaTypeVersion> Versions { get; private set; } = [];
     public string FormattedJsonSchema { get; private set; } = "{}";
     public TypeDefinitionView SelectedDefinition { get; private set; } = new();
+
+    [BindProperty(SupportsGet = true)]
+    public string? Search { get; set; }
 
     public async Task<IActionResult> OnGetAsync(Guid id, string? version = null, CancellationToken cancellationToken = default)
     {
@@ -25,6 +29,12 @@ public class ViewModel(ISchemaTypeInteractionService schemaTypes) : PageModel
         SelectedVersion = string.IsNullOrWhiteSpace(version)
             ? TypeDefinition.Versions.OrderByDescending(x => x.CreatedAtUtc).FirstOrDefault()
             : TypeDefinition.Versions.FirstOrDefault(x => x.VersionNumber == version);
+        Search = Normalize(Search);
+        Versions = (string.IsNullOrWhiteSpace(Search)
+                ? TypeDefinition.Versions
+                : TypeDefinition.Versions.Where(MatchesSearch))
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ToArray();
 
         if (SelectedVersion is not null)
         {
@@ -83,6 +93,20 @@ public class ViewModel(ISchemaTypeInteractionService schemaTypes) : PageModel
     {
         return root.TryGetProperty(propertyName, out var element) ? element.ToString() : string.Empty;
     }
+
+    private bool MatchesSearch(SchemaTypeVersion version)
+        => Contains(version.VersionNumber)
+            || Contains(version.Comment)
+            || Contains(version.IsActive ? "Active" : "Inactive")
+            || Contains(version.DefinitionJson);
+
+    private bool Contains(string? value)
+        => !string.IsNullOrWhiteSpace(Search)
+            && !string.IsNullOrWhiteSpace(value)
+            && value.Contains(Search, StringComparison.OrdinalIgnoreCase);
+
+    private static string? Normalize(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     public sealed class TypeDefinitionView
     {

@@ -14,16 +14,32 @@
     </a>
 </div>
 
+<form method="get" class="od-search-bar">
+    <label class="od-search-field" for="commands-search">
+        <span>Search commands</span>
+        <input id="commands-search" name="search" value="@Model.Search" class="form-control" placeholder="Name, topic, description, version, status" />
+    </label>
+    <button type="submit" class="btn btn-secondary"><i class="bi bi-search"></i> Search</button>
+    @if (!string.IsNullOrWhiteSpace(Model.Search))
+    {
+        <a class="btn btn-secondary" asp-page="/Contracts/Commands/Index">Clear</a>
+        <span class="od-search-count">@Model.Commands.Count of @Model.TotalCommands</span>
+    }
+</form>
+
 @if (Model.Commands.Count == 0)
 {
     <section class="od-panel">
         <div class="events-empty-state">
             <i class="bi bi-inbox"></i>
-            <h3>No saved commands</h3>
-            <p>Start by creating your first command contract.</p>
-            <a class="btn btn-primary btn-sm" asp-page="/Contracts/Commands/New">
-                Add command
-            </a>
+            <h3>@(string.IsNullOrWhiteSpace(Model.Search) ? "No saved commands" : "No matching commands")</h3>
+            <p>@(string.IsNullOrWhiteSpace(Model.Search) ? "Start by creating your first command contract." : "Try another name, topic, description, version, or status.")</p>
+            @if (string.IsNullOrWhiteSpace(Model.Search))
+            {
+                <a class="btn btn-primary btn-sm" asp-page="/Contracts/Commands/New">
+                    Add command
+                </a>
+            }
         </div>
     </section>
 }

@@ -29,10 +29,23 @@
 
 @await Html.PartialAsync("_StatusMessageBox", Model.StatusMessage)
 
+<form method="get" class="od-search-bar">
+    <label class="od-search-field" for="runtime-nodes-search">
+        <span>Search runtime nodes</span>
+        <input id="runtime-nodes-search" name="search" value="@Model.Search" class="form-control" placeholder="Name, code, environment, policy, endpoint, credentials" />
+    </label>
+    <button type="submit" class="btn btn-secondary"><i class="bi bi-search"></i> Search</button>
+    @if (!string.IsNullOrWhiteSpace(Model.Search))
+    {
+        <a class="btn btn-secondary" asp-page="/Contracts/RuntimeNodes/Index">Clear</a>
+        <span class="od-search-count">@Model.RuntimeNodes.Count of @Model.TotalRuntimeNodes</span>
+    }
+</form>
+
 @if (!Model.RuntimeNodes.Any())
 {
     <section class="od-panel">
-        <p class="od-empty">No runtime nodes found.</p>
+        <p class="od-empty">@(string.IsNullOrWhiteSpace(Model.Search) ? "No runtime nodes found." : "No runtime nodes match the current search.")</p>
     </section>
 }
 else

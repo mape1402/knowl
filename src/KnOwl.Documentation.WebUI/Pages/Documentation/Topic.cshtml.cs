@@ -10,14 +10,15 @@ public sealed class TopicModel(IDocumentationInteractionService documentation) :
     public KnOwl.Documentation.DocumentationSpace? Space { get; private set; }
     public KnOwl.Documentation.DocumentationTopic? Topic { get; private set; }
     public IReadOnlyList<KnOwl.Documentation.DocumentationPage> Pages { get; private set; } = [];
+    public string? Search { get; private set; }
     public bool ShowNewPageModal { get; private set; }
 
     [BindProperty]
     public DocumentationPageInput NewPage { get; set; } = new();
 
-    public async Task<IActionResult> OnGetAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> OnGetAsync(Guid id, string? search, CancellationToken cancellationToken)
     {
-        if (!await Load(id, cancellationToken))
+        if (!await Load(id, search, cancellationToken))
         {
             return NotFound();
         }
@@ -25,9 +26,9 @@ public sealed class TopicModel(IDocumentationInteractionService documentation) :
         return Page();
     }
 
-    public async Task<IActionResult> OnPostCreatePageAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> OnPostCreatePageAsync(Guid id, string? search, CancellationToken cancellationToken)
     {
-        if (!await Load(id, cancellationToken))
+        if (!await Load(id, search, cancellationToken))
         {
             return NotFound();
         }
@@ -42,8 +43,9 @@ public sealed class TopicModel(IDocumentationInteractionService documentation) :
         return RedirectToPage("/Documentation/Page", new { id = page.Id });
     }
 
-    private async Task<bool> Load(Guid id, CancellationToken cancellationToken)
+    private async Task<bool> Load(Guid id, string? search, CancellationToken cancellationToken)
     {
+        Search = search;
         Topic = await documentation.GetTopic(id, cancellationToken);
         if (Topic is null)
         {
@@ -57,7 +59,15 @@ public sealed class TopicModel(IDocumentationInteractionService documentation) :
             return false;
         }
 
-        Pages = await documentation.GetPages(Space.Key, Topic.Key, cancellationToken);
+        var pages = await documentation.GetPages(Space.Key, Topic.Key, cancellationToken);
+        Pages = string.IsNullOrWhiteSpace(search)
+            ? pages
+            : pages.Where(page =>
+                page.Title.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                page.Key.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                (page.Description?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (page.IsActive ? "Active" : "Inactive").Contains(search, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
         return true;
     }
 

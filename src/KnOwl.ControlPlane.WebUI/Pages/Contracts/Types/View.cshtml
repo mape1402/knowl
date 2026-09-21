@@ -39,14 +39,27 @@
         </section>
 
         <section class="od-list-shell mt-3">
-            @if (!Model.TypeDefinition.Versions.Any())
+            <form method="get" class="od-search-bar od-search-bar-compact">
+                <label class="od-search-field" for="type-versions-search">
+                    <span>Search versions</span>
+                    <input id="type-versions-search" name="search" value="@Model.Search" class="form-control" placeholder="Version, notes, schema, status" />
+                </label>
+                <button type="submit" class="btn btn-secondary"><i class="bi bi-search"></i> Search</button>
+                @if (!string.IsNullOrWhiteSpace(Model.Search))
+                {
+                    <a class="btn btn-secondary" asp-page="/Contracts/Types/View" asp-route-id="@Model.TypeDefinition.Id">Clear</a>
+                    <span class="od-search-count">@Model.Versions.Count of @Model.TypeDefinition.Versions.Count</span>
+                }
+            </form>
+
+            @if (!Model.Versions.Any())
             {
-                <p class="od-empty">No versions yet.</p>
+                <p class="od-empty">@(string.IsNullOrWhiteSpace(Model.Search) ? "No versions yet." : "No versions match the current search.")</p>
             }
             else
             {
                 <div class="od-grid od-versions-grid">
-                    @foreach (var version in Model.TypeDefinition.Versions.OrderByDescending(x => x.CreatedAtUtc))
+                    @foreach (var version in Model.Versions)
                     {
                         <article class="od-item-card od-version-card"
                                  data-open-url="@Url.Page("/Contracts/Types/Version", new { id = Model.TypeDefinition.Id, versionId = version.Id })">

@@ -37,13 +37,29 @@
 
     @await Html.PartialAsync("_StatusMessageBox", Model.StatusMessage)
 
+    <form method="get" class="od-search-bar">
+        <label class="od-search-field" for="releases-search">
+            <span>Search releases</span>
+            <input id="releases-search" name="search" value="@Model.Search" class="form-control" placeholder="Name, status, contract, runtime node, target status" />
+        </label>
+        <button type="submit" class="btn btn-secondary"><i class="bi bi-search"></i> Search</button>
+        @if (!string.IsNullOrWhiteSpace(Model.Search))
+        {
+            <a class="btn btn-secondary" asp-page="/Contracts/ContractReleases/Index">Clear</a>
+            <span class="od-search-count">@Model.ReleaseCards.Count of @Model.TotalReleaseCards</span>
+        }
+    </form>
+
     @if (Model.ReleaseCards.Count == 0)
     {
         <div class="events-empty-state">
             <i class="bi bi-box-seam"></i>
-            <h3>No releases yet</h3>
-            <p>Deploy an Event or Command version, then create a release.</p>
-            <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#releaseModal">Create release</button>
+            <h3>@(string.IsNullOrWhiteSpace(Model.Search) ? "No releases yet" : "No matching releases")</h3>
+            <p>@(string.IsNullOrWhiteSpace(Model.Search) ? "Deploy an Event or Command version, then create a release." : "Try another name, status, contract, runtime node, or target status.")</p>
+            @if (string.IsNullOrWhiteSpace(Model.Search))
+            {
+                <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#releaseModal">Create release</button>
+            }
         </div>
     }
     else

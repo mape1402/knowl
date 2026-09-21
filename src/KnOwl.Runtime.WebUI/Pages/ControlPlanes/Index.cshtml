@@ -35,9 +35,22 @@
         <div class="alert alert-info mt-3">@Model.StatusMessage</div>
     }
 
+    <form class="filter-bar" method="get">
+        <label>
+            <span>Search</span>
+            <input name="search" value="@Model.Search" placeholder="Name, key, policy, endpoint, credentials, status" />
+        </label>
+        <button class="runtime-button primary" type="submit">Search</button>
+        @if (!string.IsNullOrWhiteSpace(Model.Search))
+        {
+            <a class="runtime-button" asp-page="/ControlPlanes/Index">Clear</a>
+            <span class="count-pill">@Model.DesignNodes.Count of @Model.TotalDesignNodes</span>
+        }
+    </form>
+
     @if (Model.DesignNodes.Count == 0)
     {
-        <div class="empty-state">No control planes are registered.</div>
+        <div class="empty-state">@(string.IsNullOrWhiteSpace(Model.Search) ? "No control planes are registered." : "No control planes match the current search.")</div>
     }
     else
     {

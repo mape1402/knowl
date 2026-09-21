@@ -9,14 +9,18 @@ namespace KnOwl.ControlPlane.WebUI.Pages.Contracts.RuntimeEnvironments;
 public class IndexModel(IRuntimeEnvironmentRepository environments) : PageModel
 {
     public IReadOnlyList<RuntimeEnvironment> Environments { get; private set; } = [];
+    public int TotalEnvironments { get; private set; }
     public bool ShowEnvironmentModal { get; private set; }
+
+    [BindProperty(SupportsGet = true)]
+    public string? Search { get; set; }
 
     [BindProperty]
     public RuntimeEnvironmentInput Input { get; set; } = new();
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
-        Environments = await environments.GetAll(cancellationToken);
+        await Load(cancellationToken);
     }
 
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
@@ -24,7 +28,7 @@ public class IndexModel(IRuntimeEnvironmentRepository environments) : PageModel
         if (!ModelState.IsValid)
         {
             ShowEnvironmentModal = true;
-            Environments = await environments.GetAll(cancellationToken);
+            await Load(cancellationToken);
             return Page();
         }
 
@@ -42,6 +46,30 @@ public class IndexModel(IRuntimeEnvironmentRepository environments) : PageModel
 
         return RedirectToPage();
     }
+
+    private async Task Load(CancellationToken cancellationToken)
+    {
+        var environmentRows = await environments.GetAll(cancellationToken);
+        TotalEnvironments = environmentRows.Count;
+        Search = Normalize(Search);
+        Environments = string.IsNullOrWhiteSpace(Search)
+            ? environmentRows
+            : environmentRows.Where(MatchesSearch).ToArray();
+    }
+
+    private bool MatchesSearch(RuntimeEnvironment environment)
+        => Contains(environment.Name)
+            || Contains(environment.Code)
+            || Contains(environment.Description)
+            || Contains(environment.IsEnabled ? "Enabled" : "Disabled");
+
+    private bool Contains(string? value)
+        => !string.IsNullOrWhiteSpace(Search)
+            && !string.IsNullOrWhiteSpace(value)
+            && value.Contains(Search, StringComparison.OrdinalIgnoreCase);
+
+    private static string? Normalize(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
 
 public sealed class RuntimeEnvironmentInput
