@@ -4,56 +4,59 @@
     ViewData["Title"] = "Runtime Overview";
 }
 
-<section class="runtime-hero">
+<div class="od-page-head">
     <div>
-        <p class="eyebrow">Live contract catalog</p>
-        <h2>Published schemas available to backend services.</h2>
-        <p>Inspect deployed Events and Commands, verify control-plane connections, and copy runtime consumption endpoints.</p>
+        <h1 class="od-page-title">Runtime Overview</h1>
+        <p class="od-page-subtitle">Operational view of deployed contract artifacts and Control Plane connections.</p>
     </div>
-    <div class="runtime-hero-actions">
-        <a class="runtime-button primary" asp-page="/Artifacts/Index">View Artifacts</a>
-        <a class="runtime-button" asp-page="/ControlPlanes/Index">Control Planes</a>
+    <div class="event-list-actions">
+        <a class="btn btn-primary btn-sm" asp-page="/Artifacts/Index"><i class="bi bi-box-seam"></i> View artifacts</a>
+        <a class="btn btn-secondary btn-sm" asp-page="/ControlPlanes/Index"><i class="bi bi-hdd-network"></i> Control planes</a>
     </div>
+</div>
+
+<section class="od-grid runtime-metric-grid">
+    <article class="od-item-card runtime-metric-card">
+        <span class="runtime-metric-value">@Model.TotalArtifacts</span>
+        <strong>Total Artifacts</strong>
+        <p class="od-item-description">Schemas currently stored by this Runtime.</p>
+    </article>
+    <article class="od-item-card runtime-metric-card">
+        <span class="runtime-metric-value">@Model.EventArtifacts</span>
+        <strong>Events</strong>
+        <p class="od-item-description">Published event schemas available to consumers.</p>
+    </article>
+    <article class="od-item-card runtime-metric-card">
+        <span class="runtime-metric-value">@Model.CommandArtifacts</span>
+        <strong>Commands</strong>
+        <p class="od-item-description">Command contracts with request and reply payloads.</p>
+    </article>
+    <article class="od-item-card runtime-metric-card">
+        <span class="runtime-metric-value">@Model.ActiveControlPlanes</span>
+        <strong>Ready Control Planes</strong>
+        <p class="od-item-description">Connections with active credentials.</p>
+    </article>
 </section>
 
-<section class="runtime-metrics">
-    <article class="metric-card">
-        <span>@Model.TotalArtifacts</span>
-        <small>Total artifacts</small>
-    </article>
-    <article class="metric-card">
-        <span>@Model.EventArtifacts</span>
-        <small>Events</small>
-    </article>
-    <article class="metric-card">
-        <span>@Model.CommandArtifacts</span>
-        <small>Commands</small>
-    </article>
-    <article class="metric-card">
-        <span>@Model.ActiveControlPlanes</span>
-        <small>Active control planes</small>
-    </article>
-</section>
-
-<section class="runtime-grid two-columns">
-    <article class="runtime-card">
-        <div class="card-heading">
+<section class="runtime-dashboard-grid">
+    <article class="od-panel">
+        <div class="od-section-head">
             <div>
-                <p class="eyebrow">Recent deployment</p>
-                <h3>Latest Artifacts</h3>
+                <h2 class="od-section-title">Latest Artifacts</h2>
+                <p class="od-page-subtitle">Most recent deployments available in this Runtime.</p>
             </div>
-            <a asp-page="/Artifacts/Index">Open list</a>
+            <a class="btn btn-secondary btn-sm" asp-page="/Artifacts/Index">Open</a>
         </div>
         @if (Model.LatestArtifacts.Count == 0)
         {
-            <div class="empty-state">No artifacts have been deployed into this runtime yet.</div>
+            <div class="empty-state">No artifacts have been deployed into this Runtime yet.</div>
         }
         else
         {
             <div class="runtime-list">
                 @foreach (var artifact in Model.LatestArtifacts)
                 {
-                    <a class="runtime-list-row" asp-page="/Artifacts/View" asp-route-id="@artifact.Id">
+                    <a class="runtime-list-row runtime-list-card" asp-page="/Artifacts/View" asp-route-id="@artifact.Id">
                         <span class="type-badge">@artifact.ArtifactType</span>
                         <span>
                             <strong>@artifact.Name</strong>
@@ -66,13 +69,13 @@
         }
     </article>
 
-    <article class="runtime-card">
-        <div class="card-heading">
+    <article class="od-panel">
+        <div class="od-section-head">
             <div>
-                <p class="eyebrow">Connections</p>
-                <h3>Control Planes</h3>
+                <h2 class="od-section-title">Control Planes</h2>
+                <p class="od-page-subtitle">Configured sources for incoming releases.</p>
             </div>
-            <a asp-page="/ControlPlanes/Index">Open list</a>
+            <a class="btn btn-secondary btn-sm" asp-page="/ControlPlanes/Index">Open</a>
         </div>
         @if (Model.ControlPlanes.Count == 0)
         {
@@ -83,7 +86,7 @@
             <div class="runtime-list">
                 @foreach (var node in Model.ControlPlanes)
                 {
-                    <div class="runtime-list-row">
+                    <div class="runtime-list-row runtime-list-card">
                         <span class="status-dot @(node.IsReady ? "ok" : "warn")"></span>
                         <span>
                             <strong>@node.Name</strong>
@@ -97,11 +100,11 @@
     </article>
 </section>
 
-<section class="runtime-card">
-    <div class="card-heading">
+<section class="od-panel runtime-endpoint-panel">
+    <div class="od-section-head">
         <div>
-            <p class="eyebrow">Consumption</p>
-            <h3>Runtime endpoints</h3>
+            <h2 class="od-section-title">Runtime Endpoints</h2>
+            <p class="od-page-subtitle">Use these routes to consume deployed contracts.</p>
         </div>
     </div>
     <div class="endpoint-grid">

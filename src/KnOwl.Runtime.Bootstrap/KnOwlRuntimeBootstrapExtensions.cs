@@ -117,6 +117,7 @@ public static class KnOwlRuntimeBootstrapExtensions
         target.PrimaryColor = source.PrimaryColor;
         target.PrimaryHoverColor = source.PrimaryHoverColor;
         target.SidebarBackgroundColor = source.SidebarBackgroundColor;
+        target.SidebarBrandBackgroundColor = source.SidebarBrandBackgroundColor;
         target.SidebarTextColor = source.SidebarTextColor;
         target.SidebarMutedTextColor = source.SidebarMutedTextColor;
         target.ContentBackgroundColor = source.ContentBackgroundColor;

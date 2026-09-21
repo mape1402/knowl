@@ -19,82 +19,87 @@
     };
 }
 
-<section class="runtime-card">
-    <div class="card-heading">
-        <div>
-            <p class="eyebrow">Distribution sources</p>
-            <h2>Control Planes</h2>
-        </div>
+<div class="od-page-head">
+    <div>
+        <h1 class="od-page-title">Control Planes</h1>
+        <p class="od-page-subtitle">Distribution sources connected to this Runtime.</p>
+    </div>
+    <div class="event-list-actions">
         <button class="btn btn-primary btn-sm js-open-control-plane-wizard" type="button" data-mode="new">
             <i class="bi bi-plus-lg"></i> New connection
         </button>
     </div>
+</div>
 
-    @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
-    {
-        <div class="alert alert-info mt-3">@Model.StatusMessage</div>
-    }
+@if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+{
+    <section class="od-panel runtime-message-panel">@Model.StatusMessage</section>
+}
 
-    <form class="filter-bar" method="get">
-        <label>
+<section class="od-panel runtime-filter-panel runtime-search-filter">
+    <form method="get">
+        <label class="runtime-filter-search">
             <span>Search</span>
             <input name="search" value="@Model.Search" placeholder="Name, key, policy, endpoint, credentials, status" />
         </label>
-        <button class="runtime-button primary" type="submit">Search</button>
+        <button class="btn btn-primary btn-sm" type="submit">Search</button>
         @if (!string.IsNullOrWhiteSpace(Model.Search))
         {
-            <a class="runtime-button" asp-page="/ControlPlanes/Index">Clear</a>
+            <a class="btn btn-secondary btn-sm" asp-page="/ControlPlanes/Index">Clear</a>
             <span class="count-pill">@Model.DesignNodes.Count of @Model.TotalDesignNodes</span>
         }
     </form>
+</section>
 
-    @if (Model.DesignNodes.Count == 0)
-    {
+@if (Model.DesignNodes.Count == 0)
+{
+    <section class="od-panel">
         <div class="empty-state">@(string.IsNullOrWhiteSpace(Model.Search) ? "No control planes are registered." : "No control planes match the current search.")</div>
-    }
-    else
-    {
-        <div class="runtime-connection-grid">
-            @foreach (var node in Model.DesignNodes)
-            {
-                var isConfigured = (node.DistributionMode is not (DistributionMode.Push or DistributionMode.Hybrid) || node.InboundCredentialStatus == KnOwl.Contracts.Security.ConnectionCredentialStatus.Active) &&
-                    (node.DistributionMode is not (DistributionMode.Pull or DistributionMode.Hybrid) ||
-                     (node.OutboundCredentialStatus == KnOwl.Contracts.Security.ConnectionCredentialStatus.Active &&
-                      !string.IsNullOrWhiteSpace(node.EndpointBaseUri) &&
-                      !string.IsNullOrWhiteSpace(node.RemoteRuntimeNodeId)));
-                var runtimeCredentialReadiness = RuntimeCredentialReadiness(node);
-                var controlPlaneCredentialReadiness = ControlPlaneCredentialReadiness(node);
-                var canCheckConnection = node.IsEnabled &&
-                    node.Status == RuntimeDesignNodeStatus.Enabled &&
-                    node.DistributionMode is DistributionMode.Pull or DistributionMode.Hybrid;
+    </section>
+}
+else
+{
+    <div class="od-grid runtime-connection-grid">
+        @foreach (var node in Model.DesignNodes)
+        {
+            var isConfigured = (node.DistributionMode is not (DistributionMode.Push or DistributionMode.Hybrid) || node.InboundCredentialStatus == KnOwl.Contracts.Security.ConnectionCredentialStatus.Active) &&
+                (node.DistributionMode is not (DistributionMode.Pull or DistributionMode.Hybrid) ||
+                 (node.OutboundCredentialStatus == KnOwl.Contracts.Security.ConnectionCredentialStatus.Active &&
+                  !string.IsNullOrWhiteSpace(node.EndpointBaseUri) &&
+                  !string.IsNullOrWhiteSpace(node.RemoteRuntimeNodeId)));
+            var runtimeCredentialReadiness = RuntimeCredentialReadiness(node);
+            var controlPlaneCredentialReadiness = ControlPlaneCredentialReadiness(node);
+            var canCheckConnection = node.IsEnabled &&
+                node.Status == RuntimeDesignNodeStatus.Enabled &&
+                node.DistributionMode is DistributionMode.Pull or DistributionMode.Hybrid;
 
-                <article class="runtime-connection-card"
-                         data-control-plane-card
-                         data-id="@node.Id"
-                         data-key="@node.Key"
-                         data-name="@node.Name"
-                         data-distribution-mode="@node.DistributionMode"
-                         data-distribution-mode-label="@DistributionLabel(node.DistributionMode)"
-                         data-endpoint-base-uri="@node.EndpointBaseUri"
-                         data-remote-runtime-node-id="@node.RemoteRuntimeNodeId"
-                         data-status="@node.Status"
-                         data-status-label="@(node.IsEnabled ? "Enabled" : node.Status.ToString())"
-                         data-enabled="@node.IsEnabled.ToString().ToLowerInvariant()"
-                         data-description="@node.Description"
-                         data-inbound-credential-status="@node.InboundCredentialStatus"
-                         data-outbound-credential-status="@node.OutboundCredentialStatus"
-                         data-inbound-client-id="@node.InboundClientId"
-                         data-inbound-key-id="@node.InboundKeyId"
-                         data-inbound-allowed-scopes="@node.InboundAllowedScopes"
-                         data-outbound-client-id="@node.OutboundClientId"
-                         data-outbound-key-id="@node.OutboundKeyId"
-                         data-outbound-requested-scopes="@node.OutboundRequestedScopes"
-                         data-inbound-credential-created-at="@(node.InboundCredentialCreatedAtUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-")"
-                         data-outbound-credential-imported-at="@(node.OutboundCredentialImportedAtUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-")"
-                         data-created-at="@node.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")"
-                         data-updated-at="@node.UpdatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")"
-                         data-configured="@isConfigured.ToString().ToLowerInvariant()"
-                         data-can-check-connection="@((node.IsEnabled && node.Status == RuntimeDesignNodeStatus.Enabled && node.DistributionMode is DistributionMode.Pull or DistributionMode.Hybrid).ToString().ToLowerInvariant())">
+            <article class="od-item-card runtime-connection-card"
+                     data-control-plane-card
+                     data-id="@node.Id"
+                     data-key="@node.Key"
+                     data-name="@node.Name"
+                     data-distribution-mode="@node.DistributionMode"
+                     data-distribution-mode-label="@DistributionLabel(node.DistributionMode)"
+                     data-endpoint-base-uri="@node.EndpointBaseUri"
+                     data-remote-runtime-node-id="@node.RemoteRuntimeNodeId"
+                     data-status="@node.Status"
+                     data-status-label="@(node.IsEnabled ? "Enabled" : node.Status.ToString())"
+                     data-enabled="@node.IsEnabled.ToString().ToLowerInvariant()"
+                     data-description="@node.Description"
+                     data-inbound-credential-status="@node.InboundCredentialStatus"
+                     data-outbound-credential-status="@node.OutboundCredentialStatus"
+                     data-inbound-client-id="@node.InboundClientId"
+                     data-inbound-key-id="@node.InboundKeyId"
+                     data-inbound-allowed-scopes="@node.InboundAllowedScopes"
+                     data-outbound-client-id="@node.OutboundClientId"
+                     data-outbound-key-id="@node.OutboundKeyId"
+                     data-outbound-requested-scopes="@node.OutboundRequestedScopes"
+                     data-inbound-credential-created-at="@(node.InboundCredentialCreatedAtUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-")"
+                     data-outbound-credential-imported-at="@(node.OutboundCredentialImportedAtUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-")"
+                     data-created-at="@node.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")"
+                     data-updated-at="@node.UpdatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")"
+                     data-configured="@isConfigured.ToString().ToLowerInvariant()"
+                     data-can-check-connection="@((node.IsEnabled && node.Status == RuntimeDesignNodeStatus.Enabled && node.DistributionMode is DistributionMode.Pull or DistributionMode.Hybrid).ToString().ToLowerInvariant())">
                     <div class="runtime-card-top">
                         <div>
                             <h3>@node.Name</h3>
@@ -122,37 +127,19 @@
                             </details>
                         </div>
                     </div>
-                    <div class="runtime-card-summary">
-                        <div>
-                            <span>Policy</span>
-                            <strong>@DistributionLabel(node.DistributionMode)</strong>
-                        </div>
-                        <div>
-                            <span>Runtime credentials</span>
-                            <strong class="@ReadinessClass(runtimeCredentialReadiness)">@runtimeCredentialReadiness</strong>
-                        </div>
-                        <div>
-                            <span>Control Plane credentials</span>
-                            <strong class="@ReadinessClass(controlPlaneCredentialReadiness)">@controlPlaneCredentialReadiness</strong>
-                        </div>
-                        <div>
-                            <span>Control Plane endpoint</span>
-                            <strong>@EndpointReadiness(node)</strong>
-                        </div>
+                    <div class="od-chip-row runtime-card-chip-row">
+                        <span class="od-meta-chip">@DistributionLabel(node.DistributionMode)</span>
+                        <span class="od-meta-chip @(isConfigured ? "runtime-ready-chip" : "runtime-pending-chip")">@(isConfigured ? "Ready" : "Pending")</span>
                     </div>
                     <p class="runtime-card-description">@(string.IsNullOrWhiteSpace(node.Description) ? "No description." : node.Description)</p>
                     <div class="runtime-card-footer">
                         <span>Updated @node.UpdatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
-                        <span>@(isConfigured ? "Ready" : "Pending")</span>
-                    </div>
-                    <div class="runtime-card-actions">
                         <button class="btn btn-secondary btn-sm js-open-control-plane-wizard" type="button">Configure</button>
                     </div>
                 </article>
-            }
-        </div>
-    }
-</section>
+        }
+    </div>
+}
 
 <div class="modal" id="controlPlaneWizardModal" tabindex="-1" aria-labelledby="controlPlaneWizardModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">

@@ -2,7 +2,6 @@
 @{
     var theme = ThemeOptions.Value;
     var appTitle = string.IsNullOrWhiteSpace(theme.Title) ? "KnOwl Runtime" : theme.Title;
-    var appSubtitle = string.IsNullOrWhiteSpace(theme.Subtitle) ? "Contract storage" : theme.Subtitle;
     var pageTitle = ViewData["Title"]?.ToString() ?? "Runtime";
     var iconCssClass = string.IsNullOrWhiteSpace(theme.IconCssClass) ? "bi bi-hexagon-fill" : theme.IconCssClass;
     var path = Context.Request.Path;
@@ -23,51 +22,66 @@
     <link rel="stylesheet" href="~/_content/KnOwl.Runtime.WebUI/css/runtime.css" asp-append-version="true" />
 </head>
 <body>
-    <div class="runtime-shell">
-        <aside class="runtime-sidebar">
-            <a class="runtime-brand" asp-page="/Index">
-                <span class="runtime-brand-mark">
-                    @if (!string.IsNullOrWhiteSpace(theme.IconImageUrl))
-                    {
-                        <img src="@theme.IconImageUrl" alt="" />
-                    }
-                    else
-                    {
-                        <i class="@iconCssClass"></i>
-                    }
-                </span>
-                <span>
-                    <strong>@appTitle</strong>
-                    <small>@appSubtitle</small>
-                </span>
-            </a>
-            <nav class="runtime-nav" aria-label="Runtime navigation">
-                <a class="@(overviewActive ? "active" : null)" asp-page="/Index">Overview</a>
-                <a class="@(artifactsActive ? "active" : null)" asp-page="/Artifacts/Index">Artifacts</a>
-                <a class="@(controlPlanesActive ? "active" : null)" asp-page="/ControlPlanes/Index">Control Planes</a>
-            </nav>
-            <div class="runtime-sidebar-note">
+    <div class="app-shell runtime-app-shell">
+        <nav id="sidebar" class="sidebar">
+            <div class="sidebar-brand">
+                <a class="brand-link" asp-page="/Index">
+                    <span class="brand-icon">
+                        @if (!string.IsNullOrWhiteSpace(theme.IconImageUrl))
+                        {
+                            <img src="@theme.IconImageUrl" alt="" />
+                        }
+                        else
+                        {
+                            <i class="@iconCssClass"></i>
+                        }
+                    </span>
+                    <span class="brand-name">@appTitle</span>
+                </a>
+            </div>
+
+            <div class="sidebar-nav" role="navigation" aria-label="Runtime navigation">
+                <a class="nav-item-link @(overviewActive ? "active" : null)" asp-page="/Index">
+                    <i class="bi bi-speedometer2 nav-icon"></i>
+                    <span>Overview</span>
+                </a>
+                <a class="nav-item-link @(artifactsActive ? "active" : null)" asp-page="/Artifacts/Index">
+                    <i class="bi bi-box-seam nav-icon"></i>
+                    <span>Artifacts</span>
+                </a>
+                <a class="nav-item-link @(controlPlanesActive ? "active" : null)" asp-page="/ControlPlanes/Index">
+                    <i class="bi bi-hdd-network nav-icon"></i>
+                    <span>Control Planes</span>
+                </a>
+            </div>
+
+            <div class="sidebar-note">
                 Runtime is read-only for contracts. New artifacts arrive through Distribution.
             </div>
-        </aside>
+        </nav>
 
-        <div class="runtime-main">
-            <header class="runtime-topbar">
-                <div>
-                    <span class="eyebrow">Runtime host</span>
-                    <h1>@pageTitle</h1>
+        <div class="content-shell">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button id="sidebar-toggle" class="hamburger-btn" type="button" aria-label="Toggle sidebar">
+                        <i class="bi bi-list"></i>
+                    </button>
+                    <span class="topbar-title">@pageTitle</span>
                 </div>
-                <div class="runtime-topbar-actions">
+                <div class="topbar-actions">
                     <button id="theme-toggle" class="theme-toggle-btn" type="button" aria-label="Switch color mode" title="Switch color mode">
                         <i class="bi bi-moon-stars"></i>
                         <span>Dark</span>
                     </button>
-                    <a class="status-pill" href="/health">Health</a>
+                    <a class="btn btn-secondary btn-sm" href="/health">Health</a>
                 </div>
             </header>
-            <main class="runtime-content">
+            <main class="content-body">
                 @RenderBody()
             </main>
+            <footer class="content-footer">
+                &copy; 2026 @appTitle
+            </footer>
         </div>
     </div>
 
