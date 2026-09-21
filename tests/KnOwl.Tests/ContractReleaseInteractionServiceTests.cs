@@ -303,6 +303,7 @@ public sealed class ContractReleaseInteractionServiceTests
         public Task Create(RuntimeNode runtimeNode, CancellationToken cancellationToken = default) { runtimeNodes.Add(runtimeNode); return Task.CompletedTask; }
         public Task Update(RuntimeNode runtimeNode, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task SetIsEnabled(Guid id, bool isEnabled, DateTime updatedAtUtc, CancellationToken cancellationToken = default) { runtimeNodes.First(x => x.Id == id).IsEnabled = isEnabled; return Task.CompletedTask; }
+        public Task Delete(Guid id, DateTime deletedAtUtc, CancellationToken cancellationToken = default) { var node = runtimeNodes.First(x => x.Id == id); node.IsDeleted = true; node.DeletedAtUtc = deletedAtUtc; node.IsEnabled = false; return Task.CompletedTask; }
     }
 
     private sealed class ReleaseTargetRepository(

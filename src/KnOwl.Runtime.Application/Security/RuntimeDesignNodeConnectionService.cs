@@ -121,8 +121,6 @@ public sealed class RuntimeDesignNodeConnectionService(
         node.OutboundRequestedScopes = package.Scopes;
         node.OutboundCredentialStatus = ConnectionCredentialStatus.Active;
         node.OutboundCredentialImportedAtUtc = DateTime.UtcNow;
-        node.Status = RuntimeDesignNodeStatus.Enabled;
-        node.IsEnabled = true;
         await designNodes.Upsert(node, cancellationToken);
     }
 

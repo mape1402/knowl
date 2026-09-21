@@ -46,4 +46,9 @@ public interface IRuntimeNodeRepository
     /// Enables or disables a runtime node without deleting it.
     /// </summary>
     Task SetIsEnabled(Guid id, bool isEnabled, DateTime updatedAtUtc, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes a runtime node from active configuration while preserving historical references.
+    /// </summary>
+    Task Delete(Guid id, DateTime deletedAtUtc, CancellationToken cancellationToken = default);
 }

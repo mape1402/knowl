@@ -6,7 +6,6 @@ using KnOwl.ControlPlane.Application.Distribution.Security;
 using KnOwl.ControlPlane.Distribution.Storage;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.EntityFrameworkCore;
 
 namespace KnOwl.ControlPlane.WebUI.Pages.Contracts.RuntimeNodes;
 
@@ -48,9 +47,9 @@ public class IndexModel(
         {
             await UpsertRuntimeNode(cancellationToken);
         }
-        catch (Exception ex) when (ex is InvalidOperationException or DbUpdateException)
+        catch (Exception ex) when (ex is InvalidOperationException || IsPersistenceException(ex))
         {
-            ModelState.AddModelError(string.Empty, ex.Message);
+            ModelState.AddModelError(string.Empty, BuildPersistenceMessage(ex));
             await Load(cancellationToken);
             return Page();
         }
@@ -65,7 +64,7 @@ public class IndexModel(
             return NotFound();
         }
 
-        var issuerBaseUrl = ResolveIssuerBaseUrl(CredentialInput.IssuerBaseUrl);
+        var issuerBaseUrl = ResolveIssuerBaseUrl();
 
         try
         {
@@ -77,6 +76,7 @@ public class IndexModel(
             return new JsonResult(new
             {
                 message = "Control Plane credentials generated.",
+                runtimeNodeId = CredentialInput.RuntimeNodeId,
                 credentialsJson = package.Json,
                 credentialsBase64 = package.Base64,
                 node = await ToClientNode(CredentialInput.RuntimeNodeId, cancellationToken)
@@ -112,6 +112,7 @@ public class IndexModel(
             return new JsonResult(new
             {
                 message = "Runtime credentials imported.",
+                runtimeNodeId = CredentialImportInput.RuntimeNodeId,
                 node = await ToClientNode(CredentialImportInput.RuntimeNodeId, cancellationToken)
             });
         }
@@ -131,15 +132,28 @@ public class IndexModel(
         try
         {
             var result = await runtimeNodeConnections.ValidateConnection(runtimeNodeId, cancellationToken);
+            if (!IsAjaxRequest())
+            {
+                StatusMessage = result.Message;
+                return RedirectToPage();
+            }
+
             return new JsonResult(new
             {
                 message = result.Message,
                 succeeded = result.Succeeded,
+                runtimeNodeId,
                 node = await ToClientNode(runtimeNodeId, cancellationToken)
             });
         }
         catch (Exception ex) when (ex is InvalidOperationException or KeyNotFoundException or HttpRequestException)
         {
+            if (!IsAjaxRequest())
+            {
+                StatusMessage = ex.Message;
+                return RedirectToPage();
+            }
+
             return BadRequest(new { message = ex.Message });
         }
     }
@@ -158,12 +172,13 @@ public class IndexModel(
             return new JsonResult(new
             {
                 message = "Runtime node saved.",
+                runtimeNodeId = runtimeNode.Id,
                 node = ToClientNode(runtimeNode)
             });
         }
-        catch (Exception ex) when (ex is InvalidOperationException or DbUpdateException)
+        catch (Exception ex) when (ex is InvalidOperationException || IsPersistenceException(ex))
         {
-            return BadRequest(new { message = ex.Message });
+            return BadRequest(new { message = BuildPersistenceMessage(ex) });
         }
     }
 
@@ -176,7 +191,37 @@ public class IndexModel(
     public Task<IActionResult> OnPostWizardValidateConnectionAsync(Guid runtimeNodeId, CancellationToken cancellationToken)
         => OnPostValidateConnectionAsync(runtimeNodeId, cancellationToken);
 
+    public Task<IActionResult> OnPostSetEnabledAsync(Guid runtimeNodeId, bool isEnabled, CancellationToken cancellationToken)
+        => ChangeEnabledState(runtimeNodeId, isEnabled, redirect: true, cancellationToken);
+
     public async Task<IActionResult> OnPostWizardSetEnabledAsync(Guid runtimeNodeId, bool isEnabled, CancellationToken cancellationToken)
+        => await ChangeEnabledState(runtimeNodeId, isEnabled, redirect: false, cancellationToken);
+
+    public async Task<IActionResult> OnPostDeleteAsync(Guid runtimeNodeId, CancellationToken cancellationToken)
+    {
+        if (runtimeNodeId == Guid.Empty)
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            await runtimeNodes.Delete(runtimeNodeId, DateTime.UtcNow, cancellationToken);
+            StatusMessage = "Runtime node deleted.";
+            return RedirectToPage();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            StatusMessage = ex.Message;
+            return RedirectToPage();
+        }
+    }
+
+    private async Task<IActionResult> ChangeEnabledState(
+        Guid runtimeNodeId,
+        bool isEnabled,
+        bool redirect,
+        CancellationToken cancellationToken)
     {
         if (runtimeNodeId == Guid.Empty)
         {
@@ -194,21 +239,38 @@ public class IndexModel(
             }
 
             await runtimeNodes.SetIsEnabled(runtimeNodeId, isEnabled, DateTime.UtcNow, cancellationToken);
+            if (redirect)
+            {
+                StatusMessage = isEnabled ? "Runtime node enabled." : "Runtime node disabled.";
+                return RedirectToPage();
+            }
+
             return new JsonResult(new
             {
                 message = isEnabled ? "Runtime node enabled." : "Runtime node disabled.",
+                runtimeNodeId,
                 node = await ToClientNode(runtimeNodeId, cancellationToken)
             });
         }
         catch (Exception ex) when (ex is InvalidOperationException or KeyNotFoundException)
         {
+            if (redirect)
+            {
+                StatusMessage = ex.Message;
+                return RedirectToPage();
+            }
+
             return BadRequest(new { message = ex.Message });
         }
     }
 
+    private bool IsAjaxRequest()
+        => string.Equals(Request.Headers["X-Requested-With"].ToString(), "XMLHttpRequest", StringComparison.OrdinalIgnoreCase);
+
     private async Task<RuntimeNode> UpsertRuntimeNode(CancellationToken cancellationToken)
     {
         var environment = await ResolveEnvironment(cancellationToken);
+        await EnsureCodeAvailable(cancellationToken);
 
         RuntimeNode runtimeNode;
         if (Input.Id is null || Input.Id == Guid.Empty)
@@ -224,6 +286,16 @@ public class IndexModel(
         Input.ApplyTo(runtimeNode, environment);
         await runtimeNodes.Update(runtimeNode, cancellationToken);
         return runtimeNode;
+    }
+
+    private async Task EnsureCodeAvailable(CancellationToken cancellationToken)
+    {
+        var code = Input.Code.Trim();
+        var existing = await runtimeNodes.GetByCode(code, cancellationToken);
+        if (existing is not null && existing.Id != Input.Id.GetValueOrDefault())
+        {
+            throw new InvalidOperationException($"Runtime node code '{code}' already exists.");
+        }
     }
 
     private async Task<RuntimeEnvironment> ResolveEnvironment(CancellationToken cancellationToken)
@@ -244,12 +316,8 @@ public class IndexModel(
         ViewData["RuntimeEnvironments"] = Environments;
     }
 
-    private string ResolveIssuerBaseUrl(string configured)
-    {
-        return string.IsNullOrWhiteSpace(configured)
-            ? $"{Request.Scheme}://{Request.Host}".TrimEnd('/')
-            : configured.Trim().TrimEnd('/');
-    }
+    private string ResolveIssuerBaseUrl()
+        => $"{Request.Scheme}://{Request.Host}".TrimEnd('/');
 
     private async Task<RuntimeNodeClientModel> ToClientNode(Guid runtimeNodeId, CancellationToken cancellationToken)
     {
@@ -330,6 +398,22 @@ public class IndexModel(
             : string.Join(Environment.NewLine, errors);
     }
 
+    private string BuildPersistenceMessage(Exception exception)
+    {
+        if (IsPersistenceException(exception))
+        {
+            var code = Input.Code.Trim();
+            return string.IsNullOrWhiteSpace(code)
+                ? "Unable to save the runtime node."
+                : $"Runtime node code '{code}' already exists.";
+        }
+
+        return exception.Message;
+    }
+
+    private static bool IsPersistenceException(Exception exception)
+        => exception.GetType().Name == "DbUpdateException";
+
     private static string DisplayDistributionMode(DistributionMode mode)
         => mode switch
         {
@@ -349,9 +433,6 @@ public class IndexModel(
 public sealed class RuntimeNodeCredentialInput
 {
     public Guid RuntimeNodeId { get; set; }
-
-    [MaxLength(500)]
-    public string IssuerBaseUrl { get; set; } = string.Empty;
 }
 
 public sealed record RuntimeNodeClientModel(

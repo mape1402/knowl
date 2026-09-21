@@ -42,12 +42,7 @@
     <input class="form-check-input" asp-for="Input.IsEnabled" />
     <label class="form-check-label" asp-for="Input.IsEnabled"></label>
 </div>
-<div class="row g-3">
-    <div class="col-md-12">
-        <label class="form-label" asp-for="Input.EndpointBaseUri"></label>
-        <input class="form-control" asp-for="Input.EndpointBaseUri" placeholder="https://runtime-host" />
-    </div>
-</div>
+<input type="hidden" asp-for="Input.EndpointBaseUri" />
 <div class="mt-3 mb-3">
     <label class="form-label" asp-for="Input.Description"></label>
     <textarea class="form-control" asp-for="Input.Description"></textarea>

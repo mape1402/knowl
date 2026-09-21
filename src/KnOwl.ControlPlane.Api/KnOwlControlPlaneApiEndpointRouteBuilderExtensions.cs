@@ -568,6 +568,17 @@ public static class KnOwlControlPlaneApiEndpointRouteBuilderExtensions
             return Results.Ok(item.ToResponse());
         }).RequireKnOwlPolicy(authorization.RuntimeNodesManagePolicy);
 
+        group.MapDelete("/{id:guid}", async (Guid id, [FromServices] IRuntimeNodeRepository repository, CancellationToken cancellationToken) =>
+        {
+            if (await repository.GetById(id, cancellationToken) is null)
+            {
+                return Results.NotFound();
+            }
+
+            await repository.Delete(id, DateTime.UtcNow, cancellationToken);
+            return Results.NoContent();
+        }).RequireKnOwlPolicy(authorization.RuntimeNodesManagePolicy);
+
         group.MapPost("/{id:guid}/credentials/generate", async (Guid id, string issuerBaseUrl, [FromServices] IRuntimeNodeConnectionInteractionService service, [FromServices] IRuntimeNodeRepository repository, CancellationToken cancellationToken) =>
         {
             if (await repository.GetById(id, cancellationToken) is null)

@@ -26,7 +26,7 @@ public sealed class RuntimeNodeInput
     public DistributionMode DistributionMode { get; set; } = DistributionMode.Pull;
 
     [MaxLength(500)]
-    [Display(Name = "Runtime base URL")]
+    [Display(Name = "Runtime endpoint")]
     public string? EndpointBaseUri { get; set; }
 
     [Display(Name = "Status")]
