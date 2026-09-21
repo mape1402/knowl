@@ -1,5 +1,13 @@
 # Changelog
 
+## [v2.1.0]
+
+- Adds consistent search bars across Control Plane operational views for events, commands, data types, custom fields, environments, runtime nodes, artifacts, releases, and version details.
+- Adds search support to Runtime Control Plane connections while preserving the existing Runtime artifact filters.
+- Adds page search to Documentation topics so spaces, topics, pages, and page versions can all be filtered from the reusable UI.
+- Keeps search state in query strings so filtered views can be refreshed, linked, and cleared without losing the current context.
+- Adds tests for artifact grouping search and runtime connection/runtime node filtering.
+
 ## [v2.0.0]
 
 - Adds host-configurable UI branding for Control Plane and Runtime bootstrap options, including title, sidebar icon, and theme colors.
