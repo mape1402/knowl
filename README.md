@@ -16,7 +16,9 @@ The goal is to keep product hosts thin. Your app owns the executable project, co
 - Promote versions through lifecycle states and generate immutable artifacts.
 - Distribute deployed artifacts from a Control Plane to one or more Runtime hosts.
 - Expose deployed schemas through split event and command catalog endpoints.
-- Navigate reusable Web UI screens with searchable operational lists and version details.
+- Navigate reusable Web UI screens with card-based browsing, searchable operational lists, and version details.
+- Browse Markdown documentation spaces, topics, pages, and page versions from the Control Plane UI.
+- Theme Control Plane and Runtime hosts with light and dark palettes, custom titles, icons, and sidebar branding.
 - Keep host-specific database migrations outside the reusable NuGet libraries.
 
 ## Packages
@@ -121,6 +123,7 @@ Control Plane list and detail screens include query-string search for contracts,
 The bootstrap package also maps the Control Plane REST API at `/api/v1/control-plane`.
 
 Theme configuration is optional. When omitted, the reusable Web UI uses KnOwl's default purple and white theme. Hosts can override the title, icon, and colors from `AddKnOwlControlPlane` without changing package assets.
+The Control Plane UI uses the same card-based navigation patterns across contracts, distribution, documentation, and administrative views so hosts get a complete management experience without rebuilding screens.
 
 To use a different EF Core provider, install that provider in the host and configure storage with that provider:
 
@@ -177,6 +180,7 @@ builder.Services.AddKnOwlRuntime(builder.Configuration, options =>
     options.Theme.PrimaryColor = "#2563eb";
     options.Theme.PrimaryHoverColor = "#1d4ed8";
     options.Theme.SidebarBackgroundColor = "#0f2a44";
+    options.Theme.SidebarBrandBackgroundColor = "#0b1f33";
 });
 
 var app = builder.Build();
@@ -220,8 +224,9 @@ dotnet ef database update --context KnOwlSecurityDbContext
 
 The bootstrap package also maps the Runtime REST API at `/api/v1/runtime`.
 
-Runtime theme configuration is optional and follows the same host-owned pattern as the Control Plane. Hosts can set the sidebar title, subtitle, icon, and colors directly on `options.Theme`.
-The Runtime UI includes searchable Control Plane connections and artifact catalog filters for deployed contract caches.
+Runtime theme configuration is optional and follows the same host-owned pattern as the Control Plane. Hosts can set the sidebar title, subtitle, icon, colors, and sidebar brand color directly on `options.Theme`.
+If `SidebarBrandBackgroundColor` is not set, the Runtime sidebar header falls back to `SidebarBackgroundColor` so the host theme remains consistent.
+The Runtime UI includes Control Plane-aligned navigation, searchable Control Plane connections, and artifact catalog filters for deployed contract caches.
 
 ### 3. Connect Runtime to Control Plane
 
