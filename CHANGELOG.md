@@ -1,5 +1,14 @@
 # Changelog
 
+## [v2.2.0]
+
+- Aligns the Runtime Web UI with the Control Plane shell, including collapsible sidebar navigation, card-based lists, overview content, search, and consistent English text.
+- Updates Documentation spaces, topics, pages, and page versions to use the same card-driven browsing experience as the rest of KnOwl.
+- Refines Distribution artifact browsing so released events and commands are grouped first, with artifact details opened from focused cards.
+- Improves card sizing, contextual menus, message boxes, toasts, and dark-mode contrast across Control Plane and Runtime screens.
+- Adds Runtime sidebar brand color support and keeps the brand header aligned with the injected host theme when no separate brand color is configured.
+- Adds tests for Runtime Web UI markup, artifact grouping, and theme variable behavior.
+
 ## [v2.1.0]
 
 - Adds consistent search bars across Control Plane operational views for events, commands, data types, custom fields, environments, runtime nodes, artifacts, releases, and version details.
