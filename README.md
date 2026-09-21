@@ -16,6 +16,7 @@ The goal is to keep product hosts thin. Your app owns the executable project, co
 - Promote versions through lifecycle states and generate immutable artifacts.
 - Distribute deployed artifacts from a Control Plane to one or more Runtime hosts.
 - Expose deployed schemas through split event and command catalog endpoints.
+- Navigate reusable Web UI screens with searchable operational lists and version details.
 - Keep host-specific database migrations outside the reusable NuGet libraries.
 
 ## Packages
@@ -115,6 +116,7 @@ dotnet ef database update --context KnOwlSecurityDbContext
 ```
 
 Run the host and open the Control Plane UI. From there you can create data types, custom metadata fields, events, commands, versions, artifacts, runtime environments, runtime nodes, and releases.
+Control Plane list and detail screens include query-string search for contracts, versions, artifacts, releases, environments, and runtime node setup, so teams can filter large catalogs without custom host code.
 
 The bootstrap package also maps the Control Plane REST API at `/api/v1/control-plane`.
 
@@ -219,6 +221,7 @@ dotnet ef database update --context KnOwlSecurityDbContext
 The bootstrap package also maps the Runtime REST API at `/api/v1/runtime`.
 
 Runtime theme configuration is optional and follows the same host-owned pattern as the Control Plane. Hosts can set the sidebar title, subtitle, icon, and colors directly on `options.Theme`.
+The Runtime UI includes searchable Control Plane connections and artifact catalog filters for deployed contract caches.
 
 ### 3. Connect Runtime to Control Plane
 
