@@ -13,6 +13,7 @@ public sealed class RuntimeNodeRepository(KnOwlDbContext db) : IRuntimeNodeRepos
     {
         var nodes = await db.RuntimeNodes
             .AsNoTracking()
+            .Where(x => !x.IsDeleted)
             .ToListAsync(cancellationToken);
 
         await HydrateEnvironments(nodes, cancellationToken);
@@ -24,7 +25,7 @@ public sealed class RuntimeNodeRepository(KnOwlDbContext db) : IRuntimeNodeRepos
     {
         var nodes = await db.RuntimeNodes
             .AsNoTracking()
-            .Where(x => x.IsEnabled && x.Status == RuntimeNodeStatus.Active)
+            .Where(x => !x.IsDeleted && x.IsEnabled && x.Status == RuntimeNodeStatus.Active)
             .ToListAsync(cancellationToken);
 
         await HydrateEnvironments(nodes, cancellationToken);
@@ -74,6 +75,19 @@ public sealed class RuntimeNodeRepository(KnOwlDbContext db) : IRuntimeNodeRepos
 
         runtimeNode.IsEnabled = isEnabled;
         runtimeNode.LastUpdatedAtUtc = updatedAtUtc;
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task Delete(Guid id, DateTime deletedAtUtc, CancellationToken cancellationToken = default)
+    {
+        var runtimeNode = await db.RuntimeNodes.FirstOrDefaultAsync(x => x.Id == id, cancellationToken)
+            ?? throw new KeyNotFoundException($"Runtime node '{id}' was not found.");
+
+        runtimeNode.IsDeleted = true;
+        runtimeNode.DeletedAtUtc = deletedAtUtc;
+        runtimeNode.IsEnabled = false;
+        runtimeNode.LastUpdatedAtUtc = deletedAtUtc;
         await db.SaveChangesAsync(cancellationToken);
     }
 

@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using KnOwl.Contracts.Distribution;
+using KnOwl.Contracts.Security;
 using KnOwl.Runtime.Application.Security;
 using KnOwl.Runtime.Distribution;
 using KnOwl.Runtime.Storage;
@@ -19,26 +20,6 @@ public sealed class IndexModel(
     /// Gets the configured Control Plane design nodes.
     /// </summary>
     public IReadOnlyList<RuntimeDesignNode> DesignNodes { get; private set; } = [];
-
-    /// <summary>
-    /// Gets whether the connection modal should reopen after validation errors.
-    /// </summary>
-    public bool ShowConnectionModal { get; private set; }
-
-    /// <summary>
-    /// Gets whether the generated package modal should be shown.
-    /// </summary>
-    public bool ShowGeneratedCredentialModal { get; private set; }
-
-    /// <summary>
-    /// Gets whether the import modal should reopen after validation errors.
-    /// </summary>
-    public bool ShowImportCredentialModal { get; private set; }
-
-    /// <summary>
-    /// Gets the generated Runtime credential package.
-    /// </summary>
-    public RuntimeDesignNodeCredentialPackageModel? GeneratedCredentialPackage { get; private set; }
 
     /// <summary>
     /// Gets or sets the connection form input.
@@ -73,87 +54,74 @@ public sealed class IndexModel(
     }
 
     /// <summary>
-    /// Creates or updates a Control Plane connection.
+    /// Creates or updates a Control Plane connection from the wizard.
     /// </summary>
-    public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
+    public async Task<IActionResult> OnPostWizardUpsertAsync(CancellationToken cancellationToken)
     {
         ModelState.Clear();
         if (!TryValidateModel(Input, nameof(Input)))
         {
-            ShowConnectionModal = true;
-            await Load(cancellationToken);
-            return Page();
+            return BadRequest(new { message = BuildModelStateMessage() });
         }
 
         try
         {
-            await connections.UpsertDesignNode(
-                Input.Id,
-                Input.Key,
-                Input.Name,
-                Input.DistributionMode,
-                Input.EndpointBaseUri,
-                Input.RemoteRuntimeNodeId,
-                Input.IsEnabled,
-                cancellationToken);
+            var node = await UpsertDesignNode(cancellationToken);
+            return new JsonResult(new
+            {
+                message = "Control Plane connection saved.",
+                designNodeId = node.Id,
+                node = ToClientNode(node)
+            });
         }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or KeyNotFoundException)
+        catch (Exception ex) when ((ex is ArgumentException or InvalidOperationException or KeyNotFoundException) || IsPersistenceException(ex))
         {
-            ModelState.AddModelError(string.Empty, ex.Message);
-            ShowConnectionModal = true;
-            await Load(cancellationToken);
-            return Page();
+            return BadRequest(new { message = BuildPersistenceMessage(ex) });
         }
-
-        return RedirectToPage();
     }
 
     /// <summary>
     /// Generates Runtime credentials for Control Plane push flows.
     /// </summary>
-    public async Task<IActionResult> OnPostGenerateCredentialsAsync(CancellationToken cancellationToken)
+    public async Task<IActionResult> OnPostWizardGenerateCredentialsAsync(Guid designNodeId, CancellationToken cancellationToken)
     {
-        ModelState.Clear();
-        if (!TryValidateModel(CredentialInput, nameof(CredentialInput)) ||
-            CredentialInput.DesignNodeId == Guid.Empty)
+        if (designNodeId == Guid.Empty)
         {
-            StatusMessage = "Select a Control Plane connection before generating credentials.";
-            return RedirectToPage();
+            return BadRequest(new { message = "Select a Control Plane connection." });
         }
 
         try
         {
-            var issuerBaseUrl = string.IsNullOrWhiteSpace(CredentialInput.IssuerBaseUrl)
-                ? $"{Request.Scheme}://{Request.Host}".TrimEnd('/')
-                : CredentialInput.IssuerBaseUrl.Trim().TrimEnd('/');
-
-            GeneratedCredentialPackage = await connections.GenerateCredentialPackage(
-                CredentialInput.DesignNodeId,
-                issuerBaseUrl,
+            var package = await connections.GenerateCredentialPackage(
+                designNodeId,
+                ResolveCurrentBaseUrl(),
                 cancellationToken);
-            ShowGeneratedCredentialModal = true;
-            await Load(cancellationToken);
-            return Page();
+
+            return new JsonResult(new
+            {
+                message = "Runtime credentials generated.",
+                designNodeId,
+                credentialsJson = package.Json,
+                credentialsBase64 = package.Base64,
+                node = await ToClientNode(designNodeId, cancellationToken)
+            });
         }
         catch (Exception ex) when (ex is InvalidOperationException or KeyNotFoundException)
         {
-            StatusMessage = ex.Message;
-            return RedirectToPage();
+            return BadRequest(new { message = ex.Message });
         }
     }
 
     /// <summary>
     /// Imports Control Plane credentials for Runtime pull flows.
     /// </summary>
-    public async Task<IActionResult> OnPostImportCredentialsAsync(CancellationToken cancellationToken)
+    public async Task<IActionResult> OnPostWizardImportCredentialsAsync(CancellationToken cancellationToken)
     {
         ModelState.Clear();
         if (!TryValidateModel(CredentialImportInput, nameof(CredentialImportInput)) ||
             CredentialImportInput.DesignNodeId == Guid.Empty)
         {
-            ShowImportCredentialModal = true;
-            await Load(cancellationToken);
-            return Page();
+            return BadRequest(new { message = BuildModelStateMessage() });
         }
 
         try
@@ -163,32 +131,172 @@ public sealed class IndexModel(
                 DesignNodeId = CredentialImportInput.DesignNodeId,
                 Package = CredentialImportInput.Package
             }, cancellationToken);
-            StatusMessage = "Control Plane credentials imported.";
+
+            return new JsonResult(new
+            {
+                message = "Control Plane credentials imported.",
+                designNodeId = CredentialImportInput.DesignNodeId,
+                node = await ToClientNode(CredentialImportInput.DesignNodeId, cancellationToken)
+            });
         }
         catch (Exception ex) when (ex is InvalidOperationException or KeyNotFoundException or FormatException)
         {
-            ModelState.AddModelError(nameof(CredentialImportInput.Package), ex.Message);
-            ShowImportCredentialModal = true;
-            await Load(cancellationToken);
-            return Page();
+            return BadRequest(new { message = ex.Message });
         }
-
-        return RedirectToPage();
     }
 
     /// <summary>
     /// Validates Runtime outbound connectivity to Control Plane.
     /// </summary>
+    public async Task<IActionResult> OnPostWizardValidateConnectionAsync(Guid designNodeId, CancellationToken cancellationToken)
+        => await ValidateConnection(designNodeId, redirect: false, cancellationToken);
+
+    /// <summary>
+    /// Validates a Control Plane connection from a card action.
+    /// </summary>
     public async Task<IActionResult> OnPostValidateConnectionAsync(Guid designNodeId, CancellationToken cancellationToken)
+        => await ValidateConnection(designNodeId, redirect: true, cancellationToken);
+
+    private async Task<IActionResult> ValidateConnection(Guid designNodeId, bool redirect, CancellationToken cancellationToken)
     {
         if (designNodeId == Guid.Empty)
         {
-            return NotFound();
+            return BadRequest(new { message = "Select a Control Plane connection." });
         }
 
-        var result = await connections.ValidateConnection(designNodeId, cancellationToken);
-        StatusMessage = result.Message;
-        return RedirectToPage();
+        try
+        {
+            var result = await connections.ValidateConnection(designNodeId, cancellationToken);
+            if (redirect)
+            {
+                StatusMessage = result.Message;
+                return RedirectToPage();
+            }
+
+            return new JsonResult(new
+            {
+                message = result.Message,
+                succeeded = result.Succeeded,
+                designNodeId,
+                node = await ToClientNode(designNodeId, cancellationToken)
+            });
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or KeyNotFoundException or HttpRequestException)
+        {
+            if (redirect)
+            {
+                StatusMessage = ex.Message;
+                return RedirectToPage();
+            }
+
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Enables or suspends a Runtime-side Control Plane connection.
+    /// </summary>
+    public async Task<IActionResult> OnPostWizardSetEnabledAsync(Guid designNodeId, bool isEnabled, CancellationToken cancellationToken)
+        => await SetEnabledState(designNodeId, isEnabled, redirect: false, cancellationToken);
+
+    /// <summary>
+    /// Enables or suspends a Runtime-side Control Plane connection from a card action.
+    /// </summary>
+    public async Task<IActionResult> OnPostSetEnabledAsync(Guid designNodeId, bool isEnabled, CancellationToken cancellationToken)
+        => await SetEnabledState(designNodeId, isEnabled, redirect: true, cancellationToken);
+
+    private async Task<IActionResult> SetEnabledState(Guid designNodeId, bool isEnabled, bool redirect, CancellationToken cancellationToken)
+    {
+        if (designNodeId == Guid.Empty)
+        {
+            return BadRequest(new { message = "Select a Control Plane connection." });
+        }
+
+        try
+        {
+            var node = await GetDesignNode(designNodeId, cancellationToken);
+            if (isEnabled)
+            {
+                EnsureConfigured(node);
+                node.Status = RuntimeDesignNodeStatus.Enabled;
+                node.IsEnabled = true;
+            }
+            else
+            {
+                node.Status = RuntimeDesignNodeStatus.Suspended;
+                node.IsEnabled = false;
+            }
+
+            await designNodes.Upsert(node, cancellationToken);
+            if (redirect)
+            {
+                StatusMessage = isEnabled ? "Control Plane connection enabled." : "Control Plane connection suspended.";
+                return RedirectToPage();
+            }
+
+            return new JsonResult(new
+            {
+                message = isEnabled ? "Control Plane connection enabled." : "Control Plane connection suspended.",
+                designNodeId,
+                node = ToClientNode(node)
+            });
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or KeyNotFoundException)
+        {
+            if (redirect)
+            {
+                StatusMessage = ex.Message;
+                return RedirectToPage();
+            }
+
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    private async Task<RuntimeDesignNode> UpsertDesignNode(CancellationToken cancellationToken)
+    {
+        RuntimeDesignNode? current = null;
+        if (Input.Id is not null && Input.Id.Value != Guid.Empty)
+        {
+            current = await designNodes.GetById(Input.Id.Value, cancellationToken)
+                ?? throw new KeyNotFoundException($"Control Plane connection '{Input.Id}' was not found.");
+        }
+
+        await EnsureKeyAvailable(cancellationToken);
+
+        var node = current ?? new RuntimeDesignNode
+        {
+            Id = Input.Id.GetValueOrDefault(Guid.NewGuid()),
+            CreatedAtUtc = DateTime.UtcNow,
+            Status = RuntimeDesignNodeStatus.Pending,
+            IsEnabled = false
+        };
+
+        node.Key = Input.Key.Trim();
+        node.Name = Input.Name.Trim();
+        node.DistributionMode = Input.DistributionMode;
+        node.EndpointBaseUri = current?.EndpointBaseUri ?? Input.EndpointBaseUri?.Trim().TrimEnd('/') ?? string.Empty;
+        node.RemoteRuntimeNodeId = current?.RemoteRuntimeNodeId ?? Input.RemoteRuntimeNodeId?.Trim() ?? string.Empty;
+        node.Description = string.IsNullOrWhiteSpace(Input.Description) ? null : Input.Description.Trim();
+
+        if (node.IsEnabled && !IsConfigured(node))
+        {
+            node.IsEnabled = false;
+            node.Status = RuntimeDesignNodeStatus.Pending;
+        }
+
+        await designNodes.Upsert(node, cancellationToken);
+        return node;
+    }
+
+    private async Task EnsureKeyAvailable(CancellationToken cancellationToken)
+    {
+        var key = Input.Key.Trim();
+        var existing = await designNodes.GetByKey(key, cancellationToken);
+        if (existing is not null && existing.Id != Input.Id.GetValueOrDefault())
+        {
+            throw new InvalidOperationException($"Control Plane connection key '{key}' already exists.");
+        }
     }
 
     private async Task Load(CancellationToken cancellationToken)
@@ -198,6 +306,119 @@ public sealed class IndexModel(
             .ThenBy(x => x.Name)
             .ToList();
     }
+
+    private async Task<RuntimeDesignNode> GetDesignNode(Guid designNodeId, CancellationToken cancellationToken)
+        => await designNodes.GetById(designNodeId, cancellationToken)
+            ?? throw new KeyNotFoundException($"Control Plane connection '{designNodeId}' was not found.");
+
+    private async Task<RuntimeDesignNodeClientModel> ToClientNode(Guid designNodeId, CancellationToken cancellationToken)
+        => ToClientNode(await GetDesignNode(designNodeId, cancellationToken));
+
+    private static RuntimeDesignNodeClientModel ToClientNode(RuntimeDesignNode node)
+        => new(
+            node.Id,
+            node.Key,
+            node.Name,
+            DisplayDistributionMode(node.DistributionMode),
+            node.DistributionMode.ToString(),
+            node.EndpointBaseUri,
+            node.RemoteRuntimeNodeId,
+            node.Status.ToString(),
+            DisplayStatus(node),
+            node.IsEnabled,
+            node.Description ?? string.Empty,
+            node.InboundCredentialStatus.ToString(),
+            node.OutboundCredentialStatus.ToString(),
+            node.InboundClientId,
+            node.InboundKeyId,
+            node.InboundAllowedScopes,
+            DateOrDash(node.InboundCredentialCreatedAtUtc),
+            node.OutboundClientId,
+            node.OutboundKeyId,
+            node.OutboundRequestedScopes,
+            DateOrDash(node.OutboundCredentialImportedAtUtc),
+            DateOrDash(node.CreatedAtUtc),
+            DateOrDash(node.UpdatedAtUtc),
+            IsConfigured(node),
+            CanCheckConnection(node));
+
+    private static void EnsureConfigured(RuntimeDesignNode node)
+    {
+        if (!IsConfigured(node))
+        {
+            throw new InvalidOperationException("Complete the required credentials before enabling this Control Plane connection.");
+        }
+    }
+
+    private static bool IsConfigured(RuntimeDesignNode node)
+    {
+        var needsRuntimeCredentials = node.DistributionMode is DistributionMode.Push or DistributionMode.Hybrid;
+        var needsControlPlaneCredentials = node.DistributionMode is DistributionMode.Pull or DistributionMode.Hybrid;
+        var hasRuntimeCredentials = node.InboundCredentialStatus == ConnectionCredentialStatus.Active;
+        var hasControlPlaneCredentials = node.OutboundCredentialStatus == ConnectionCredentialStatus.Active;
+        var hasControlPlaneEndpoint = !string.IsNullOrWhiteSpace(node.EndpointBaseUri);
+        var hasRemoteRuntimeNodeId = !string.IsNullOrWhiteSpace(node.RemoteRuntimeNodeId);
+
+        return (!needsRuntimeCredentials || hasRuntimeCredentials) &&
+            (!needsControlPlaneCredentials || (hasControlPlaneCredentials && hasControlPlaneEndpoint && hasRemoteRuntimeNodeId));
+    }
+
+    private static bool CanCheckConnection(RuntimeDesignNode node)
+        => node.IsEnabled &&
+           node.Status == RuntimeDesignNodeStatus.Enabled &&
+           node.DistributionMode is DistributionMode.Pull or DistributionMode.Hybrid;
+
+    private static string DisplayDistributionMode(DistributionMode mode)
+        => mode switch
+        {
+            DistributionMode.Push => "Control Plane pushes",
+            DistributionMode.Pull => "Runtime pulls",
+            DistributionMode.Hybrid => "Both directions",
+            _ => mode.ToString()
+        };
+
+    private static string DisplayStatus(RuntimeDesignNode node)
+        => node.IsEnabled && node.Status == RuntimeDesignNodeStatus.Enabled
+            ? "Enabled"
+            : node.Status.ToString();
+
+    private static string DateOrDash(DateTime? value)
+        => value.HasValue ? value.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "-";
+
+    private static string DateOrDash(DateTime value)
+        => value.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+
+    private string ResolveCurrentBaseUrl()
+        => $"{Request.Scheme}://{Request.Host}".TrimEnd('/');
+
+    private string BuildModelStateMessage()
+    {
+        var errors = ModelState.Values
+            .SelectMany(x => x.Errors)
+            .Select(x => x.ErrorMessage)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .ToArray();
+
+        return errors.Length == 0
+            ? "Review the Control Plane connection capture."
+            : string.Join(Environment.NewLine, errors);
+    }
+
+    private string BuildPersistenceMessage(Exception exception)
+    {
+        if (IsPersistenceException(exception))
+        {
+            var key = Input.Key.Trim();
+            return string.IsNullOrWhiteSpace(key)
+                ? "Unable to save the Control Plane connection."
+                : $"Control Plane connection key '{key}' already exists.";
+        }
+
+        return exception.Message;
+    }
+
+    private static bool IsPersistenceException(Exception exception)
+        => exception.GetType().Name == "DbUpdateException";
 }
 
 /// <summary>
@@ -230,26 +451,26 @@ public sealed class ControlPlaneConnectionInput
     public DistributionMode DistributionMode { get; set; } = DistributionMode.Hybrid;
 
     /// <summary>
-    /// Gets or sets the Control Plane base URL for pull and validation calls.
+    /// Gets or sets the Control Plane endpoint imported from the credential package.
     /// </summary>
     [MaxLength(500)]
-    public string EndpointBaseUri { get; set; } = string.Empty;
+    public string? EndpointBaseUri { get; set; }
 
     /// <summary>
     /// Gets or sets the Runtime node id assigned by the Control Plane.
     /// </summary>
     [MaxLength(100)]
-    public string RemoteRuntimeNodeId { get; set; } = string.Empty;
+    public string? RemoteRuntimeNodeId { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the connection can be used.
+    /// </summary>
+    public bool IsEnabled { get; set; }
 
     /// <summary>
     /// Gets or sets the optional operator description.
     /// </summary>
     public string? Description { get; set; }
-
-    /// <summary>
-    /// Gets or sets whether the connection can be used.
-    /// </summary>
-    public bool IsEnabled { get; set; } = true;
 }
 
 /// <summary>
@@ -261,12 +482,6 @@ public sealed class RuntimeCredentialGenerationInput
     /// Gets or sets the Runtime-side Control Plane connection id.
     /// </summary>
     public Guid DesignNodeId { get; set; }
-
-    /// <summary>
-    /// Gets or sets the public Runtime base URL included in the generated package.
-    /// </summary>
-    [MaxLength(500)]
-    public string IssuerBaseUrl { get; set; } = string.Empty;
 }
 
 /// <summary>
@@ -285,3 +500,30 @@ public sealed class RuntimeCredentialImportInput
     [Required]
     public string Package { get; set; } = string.Empty;
 }
+
+public sealed record RuntimeDesignNodeClientModel(
+    Guid Id,
+    string Key,
+    string Name,
+    string DistributionModeLabel,
+    string DistributionMode,
+    string EndpointBaseUri,
+    string RemoteRuntimeNodeId,
+    string Status,
+    string StatusLabel,
+    bool IsEnabled,
+    string Description,
+    string InboundCredentialStatus,
+    string OutboundCredentialStatus,
+    string InboundClientId,
+    string InboundKeyId,
+    string InboundAllowedScopes,
+    string InboundCredentialCreatedAt,
+    string OutboundClientId,
+    string OutboundKeyId,
+    string OutboundRequestedScopes,
+    string OutboundCredentialImportedAt,
+    string CreatedAt,
+    string UpdatedAt,
+    bool IsConfigured,
+    bool CanCheckConnection);

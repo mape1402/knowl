@@ -540,6 +540,15 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
     color: #d97706;
 }
 
+.knowl-message-info {
+    background: color-mix(in srgb, var(--knowl-primary, #7c3aed) 10%, var(--knowl-surface, #ffffff));
+    border-color: color-mix(in srgb, var(--knowl-primary, #7c3aed) 34%, var(--knowl-border, #e2e3ef));
+}
+
+.knowl-message-info i {
+    color: var(--knowl-primary, #7c3aed);
+}
+
 [data-knowl-theme="dark"] .knowl-message-danger i {
     color: #fca5a5;
 }
@@ -2060,27 +2069,18 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
 
 .dropdown-menu {
     background: var(--knowl-surface, #fff);
-    border-color: var(--knowl-border, #e2e3ef);
-    border-radius: 8px;
-    box-shadow: 0 12px 28px color-mix(in srgb, var(--knowl-shadow-color, rgba(15, 23, 42, 0.18)) 70%, transparent);
+    border: 1px solid var(--knowl-border, #e2e3ef);
+    border-radius: 10px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.13);
     color: var(--knowl-text, #1f1433);
-    min-width: 12.5rem;
-    padding: 0.35rem;
     z-index: 1100;
 }
 
 .dropdown-item {
-    align-items: center;
-    border-radius: 6px;
     color: var(--knowl-text, #1f1433);
-    display: flex;
-    font-size: 0.86rem;
-    font-weight: 600;
-    gap: 0.5rem;
-    line-height: 1.25;
-    min-height: 2.15rem;
-    padding: 0.48rem 0.65rem;
-    white-space: normal;
+    font-size: 0.9rem;
+    padding-top: 0.84rem;
+    padding-bottom: 0.84rem;
     width: 100%;
 }
 
@@ -2122,6 +2122,26 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
     overflow: hidden;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+}
+
+.od-runtime-card-ready {
+    color: #0e7a4d !important;
+}
+
+.od-runtime-card-warning {
+    color: #a16207 !important;
+}
+
+.od-runtime-card-muted {
+    color: var(--knowl-muted-text, #6b6e8c) !important;
+}
+
+[data-knowl-theme="dark"] .od-runtime-card-ready {
+    color: #86efac !important;
+}
+
+[data-knowl-theme="dark"] .od-runtime-card-warning {
+    color: #fde68a !important;
 }
 
 .od-card-footer {
@@ -2569,32 +2589,6 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
     opacity: 0.55;
 }
 
-.od-runtime-card-summary {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.45rem;
-}
-
-.od-runtime-card-summary div {
-    border: 1px solid var(--knowl-border, #e2e3ef);
-    border-radius: 8px;
-    background: var(--knowl-subtle-bg, #f1f3fb);
-    padding: 0.45rem 0.55rem;
-}
-
-.od-runtime-card-summary span {
-    display: block;
-    color: var(--knowl-muted-text, #6b6e8c);
-    font-size: 0.7rem;
-    font-weight: 650;
-}
-
-.od-runtime-card-summary strong {
-    color: var(--knowl-text, #1f1433);
-    font-size: 0.78rem;
-    overflow-wrap: anywhere;
-}
-
 .od-runtime-setup-body {
     display: grid;
     grid-template-columns: 230px minmax(0, 1fr);
@@ -2827,4 +2821,137 @@ textarea.font-monospace[readonly] {
         padding-right: 0;
         padding-bottom: 0.75rem;
     }
+}
+
+@media (min-width: 981px) {
+    .od-grid.od-runtime-node-grid {
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important;
+    }
+}
+
+@media (max-width: 980px) {
+    .od-grid.od-runtime-node-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+.od-runtime-node-card {
+    min-height: 218px;
+    gap: 0.55rem;
+    padding: 0.85rem;
+}
+
+.od-runtime-node-card .od-item-title {
+    font-size: 1rem;
+    font-weight: 650;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.od-runtime-node-card .od-item-meta,
+.od-runtime-node-card .od-item-description {
+    color: var(--knowl-muted-text, #6b6e8c);
+    font-size: 0.88rem;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.od-runtime-node-card .od-item-meta {
+    white-space: nowrap;
+}
+
+.od-runtime-node-card .od-item-description {
+    display: -webkit-box;
+    min-height: 2.2rem;
+    white-space: normal;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.od-runtime-node-card .od-status {
+    align-items: center;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    display: inline-flex;
+    font-size: 0.75rem;
+    font-weight: 400;
+    justify-content: center;
+    padding: 0.3rem 1.2rem;
+    white-space: nowrap;
+}
+
+.od-runtime-node-card .od-status-active {
+    background: #e6f7ef;
+    border-color: #bde9d2;
+    color: #0e7a4d;
+}
+
+.od-runtime-node-card .od-status-inactive {
+    background: #ecf0fa;
+    border-color: #d3dbef;
+    color: #55607c;
+}
+
+.od-runtime-node-card .od-runtime-card-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.48rem 0.8rem;
+    padding: 0.58rem 0;
+}
+
+.od-runtime-node-card .od-runtime-card-summary span {
+    color: var(--knowl-muted-text, #6b6e8c);
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 400;
+    line-height: 1.15;
+    text-transform: uppercase;
+}
+
+.od-runtime-node-card .od-runtime-card-summary strong {
+    color: var(--knowl-text, #1f1433);
+    display: block;
+    font-size: 0.88rem;
+    line-height: 1.25;
+    margin-top: 0.18rem;
+    overflow-wrap: anywhere;
+}
+
+.od-runtime-node-card .od-kebab {
+    background: var(--knowl-subtle-bg, #f1f3fb);
+    border: 1px solid var(--knowl-border, #e2e3ef);
+    border-radius: 8px;
+    color: #2b3259;
+    font-size: 1.05rem;
+    font-weight: 700;
+    height: 32px;
+    line-height: 1;
+    padding: 0;
+    width: 32px;
+}
+
+.od-runtime-node-card .od-kebab:hover,
+.od-runtime-node-card .od-kebab:focus {
+    background: color-mix(in srgb, var(--knowl-primary, #7c3aed) 10%, var(--knowl-surface, #ffffff));
+    border-color: color-mix(in srgb, var(--knowl-primary, #7c3aed) 42%, var(--knowl-border, #e2e3ef));
+}
+
+.od-runtime-node-card .od-card-actions {
+    display: flex;
+    gap: 0.45rem;
+    justify-content: flex-end;
+    margin-top: auto;
+}
+
+[data-knowl-theme="dark"] .od-runtime-node-card .od-status-inactive {
+    background: color-mix(in srgb, #64748b 26%, var(--knowl-surface, #111827));
+    border-color: color-mix(in srgb, #94a3b8 40%, var(--knowl-border, #334155));
+    color: #cbd5e1;
+}
+
+[data-knowl-theme="dark"] .od-runtime-node-card .od-kebab {
+    color: var(--knowl-text, #f8fafc);
 }

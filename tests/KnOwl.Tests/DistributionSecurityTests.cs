@@ -235,6 +235,17 @@ public sealed class DistributionSecurityTests
             node.LastUpdatedAtUtc = updatedAtUtc;
             return Task.CompletedTask;
         }
+
+        public Task Delete(Guid id, DateTime deletedAtUtc, CancellationToken cancellationToken = default)
+        {
+            var node = nodes.FirstOrDefault(x => x.Id == id)
+                ?? throw new KeyNotFoundException($"Runtime node '{id}' was not found.");
+            node.IsDeleted = true;
+            node.DeletedAtUtc = deletedAtUtc;
+            node.IsEnabled = false;
+            node.LastUpdatedAtUtc = deletedAtUtc;
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class RuntimeDesignNodeRepositoryFake(List<RuntimeDesignNode> nodes) : IRuntimeDesignNodeRepository

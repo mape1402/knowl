@@ -1,8 +1,22 @@
 @page
 @using KnOwl.Contracts.Distribution
+@using KnOwl.Runtime.Distribution
 @model KnOwl.Runtime.WebUI.Pages.ControlPlanes.IndexModel
 @{
     ViewData["Title"] = "Control Planes";
+
+    static string StatusClass(RuntimeDesignNode node)
+        => node.IsEnabled && node.Status == RuntimeDesignNodeStatus.Enabled
+            ? "status-label ok"
+            : "status-label warn";
+
+    static string DistributionLabel(DistributionMode mode) => mode switch
+    {
+        DistributionMode.Push => "Control Plane pushes",
+        DistributionMode.Pull => "Runtime pulls",
+        DistributionMode.Hybrid => "Both directions",
+        _ => mode.ToString()
+    };
 }
 
 <section class="runtime-card">
@@ -11,7 +25,9 @@
             <p class="eyebrow">Distribution sources</p>
             <h2>Control Planes</h2>
         </div>
-        <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#controlPlaneModal" data-mode="new">New connection</button>
+        <button class="btn btn-primary btn-sm js-open-control-plane-wizard" type="button" data-mode="new">
+            <i class="bi bi-plus-lg"></i> New connection
+        </button>
     </div>
 
     @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
@@ -25,285 +41,791 @@
     }
     else
     {
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Key</th>
-                        <th>Mode</th>
-                        <th>Status</th>
-                        <th>Credentials</th>
-                        <th>Endpoint</th>
-                        <th>Updated</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var node in Model.DesignNodes)
-                    {
-                        <tr>
-                            <td>
-                                <strong>@node.Name</strong>
-                                <small class="block-muted">Remote node: @(string.IsNullOrWhiteSpace(node.RemoteRuntimeNodeId) ? "-" : node.RemoteRuntimeNodeId)</small>
-                            </td>
-                            <td><code>@node.Key</code></td>
-                            <td>@node.DistributionMode</td>
-                            <td>
-                                <span class="status-label @(node.IsEnabled ? "ok" : "warn")">@node.Status</span>
-                            </td>
-                            <td>
-                                <span class="block-muted">Runtime package: @node.InboundCredentialStatus</span>
-                                <span class="block-muted">Control Plane package: @node.OutboundCredentialStatus</span>
-                            </td>
-                            <td><code class="endpoint-text">@node.EndpointBaseUri</code></td>
-                            <td>@node.UpdatedAtUtc.ToString("u")</td>
-                            <td class="text-end">
-                                <button class="btn btn-secondary btn-sm" type="button"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#controlPlaneModal"
-                                        data-mode="edit"
-                                        data-id="@node.Id"
-                                        data-key="@node.Key"
-                                        data-name="@node.Name"
-                                        data-distribution-mode="@node.DistributionMode"
-                                        data-endpoint-base-uri="@node.EndpointBaseUri"
-                                        data-remote-runtime-node-id="@node.RemoteRuntimeNodeId"
-                                        data-enabled="@node.IsEnabled.ToString().ToLowerInvariant()"
-                                        data-description="@node.Description">
-                                    Configure
-                                </button>
-                                <button class="btn btn-secondary btn-sm" type="button"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#generateCredentialsModal"
-                                        data-id="@node.Id"
-                                        data-name="@node.Name">
-                                    Generate package
-                                </button>
-                                <button class="btn btn-secondary btn-sm" type="button"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#importCredentialsModal"
-                                        data-id="@node.Id"
-                                        data-name="@node.Name">
-                                    Import package
-                                </button>
-                                <form class="d-inline" method="post" asp-page-handler="ValidateConnection">
-                                    <input type="hidden" name="designNodeId" value="@node.Id" />
-                                    <button class="btn btn-secondary btn-sm" type="submit">Validate</button>
-                                </form>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+        <div class="runtime-connection-grid">
+            @foreach (var node in Model.DesignNodes)
+            {
+                var isConfigured = (node.DistributionMode is not (DistributionMode.Push or DistributionMode.Hybrid) || node.InboundCredentialStatus == KnOwl.Contracts.Security.ConnectionCredentialStatus.Active) &&
+                    (node.DistributionMode is not (DistributionMode.Pull or DistributionMode.Hybrid) ||
+                     (node.OutboundCredentialStatus == KnOwl.Contracts.Security.ConnectionCredentialStatus.Active &&
+                      !string.IsNullOrWhiteSpace(node.EndpointBaseUri) &&
+                      !string.IsNullOrWhiteSpace(node.RemoteRuntimeNodeId)));
+                var runtimeCredentialReadiness = RuntimeCredentialReadiness(node);
+                var controlPlaneCredentialReadiness = ControlPlaneCredentialReadiness(node);
+                var canCheckConnection = node.IsEnabled &&
+                    node.Status == RuntimeDesignNodeStatus.Enabled &&
+                    node.DistributionMode is DistributionMode.Pull or DistributionMode.Hybrid;
+
+                <article class="runtime-connection-card"
+                         data-control-plane-card
+                         data-id="@node.Id"
+                         data-key="@node.Key"
+                         data-name="@node.Name"
+                         data-distribution-mode="@node.DistributionMode"
+                         data-distribution-mode-label="@DistributionLabel(node.DistributionMode)"
+                         data-endpoint-base-uri="@node.EndpointBaseUri"
+                         data-remote-runtime-node-id="@node.RemoteRuntimeNodeId"
+                         data-status="@node.Status"
+                         data-status-label="@(node.IsEnabled ? "Enabled" : node.Status.ToString())"
+                         data-enabled="@node.IsEnabled.ToString().ToLowerInvariant()"
+                         data-description="@node.Description"
+                         data-inbound-credential-status="@node.InboundCredentialStatus"
+                         data-outbound-credential-status="@node.OutboundCredentialStatus"
+                         data-inbound-client-id="@node.InboundClientId"
+                         data-inbound-key-id="@node.InboundKeyId"
+                         data-inbound-allowed-scopes="@node.InboundAllowedScopes"
+                         data-outbound-client-id="@node.OutboundClientId"
+                         data-outbound-key-id="@node.OutboundKeyId"
+                         data-outbound-requested-scopes="@node.OutboundRequestedScopes"
+                         data-inbound-credential-created-at="@(node.InboundCredentialCreatedAtUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-")"
+                         data-outbound-credential-imported-at="@(node.OutboundCredentialImportedAtUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-")"
+                         data-created-at="@node.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")"
+                         data-updated-at="@node.UpdatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")"
+                         data-configured="@isConfigured.ToString().ToLowerInvariant()"
+                         data-can-check-connection="@((node.IsEnabled && node.Status == RuntimeDesignNodeStatus.Enabled && node.DistributionMode is DistributionMode.Pull or DistributionMode.Hybrid).ToString().ToLowerInvariant())">
+                    <div class="runtime-card-top">
+                        <div>
+                            <h3>@node.Name</h3>
+                            <p>@node.Key</p>
+                        </div>
+                        <div class="runtime-card-controls">
+                            <span class="@StatusClass(node)">@(node.IsEnabled ? "Enabled" : node.Status)</span>
+                            <details class="runtime-card-menu">
+                                <summary aria-label="Connection actions">...</summary>
+                                <div class="runtime-card-menu-items">
+                                    <button class="runtime-menu-item js-open-control-plane-wizard" type="button">Configure</button>
+                                    <form method="post" asp-page-handler="SetEnabled" class="runtime-inline-form">
+                                        <input type="hidden" name="designNodeId" value="@node.Id" />
+                                        <input type="hidden" name="isEnabled" value="@(!node.IsEnabled)" />
+                                        <button class="runtime-menu-item" type="submit">@(node.IsEnabled ? "Suspend connection" : "Enable connection")</button>
+                                    </form>
+                                    @if (canCheckConnection)
+                                    {
+                                        <form method="post" asp-page-handler="ValidateConnection" class="runtime-inline-form">
+                                            <input type="hidden" name="designNodeId" value="@node.Id" />
+                                            <button class="runtime-menu-item" type="submit">Check connection</button>
+                                        </form>
+                                    }
+                                </div>
+                            </details>
+                        </div>
+                    </div>
+                    <div class="runtime-card-summary">
+                        <div>
+                            <span>Policy</span>
+                            <strong>@DistributionLabel(node.DistributionMode)</strong>
+                        </div>
+                        <div>
+                            <span>Runtime credentials</span>
+                            <strong class="@ReadinessClass(runtimeCredentialReadiness)">@runtimeCredentialReadiness</strong>
+                        </div>
+                        <div>
+                            <span>Control Plane credentials</span>
+                            <strong class="@ReadinessClass(controlPlaneCredentialReadiness)">@controlPlaneCredentialReadiness</strong>
+                        </div>
+                        <div>
+                            <span>Control Plane endpoint</span>
+                            <strong>@EndpointReadiness(node)</strong>
+                        </div>
+                    </div>
+                    <p class="runtime-card-description">@(string.IsNullOrWhiteSpace(node.Description) ? "No description." : node.Description)</p>
+                    <div class="runtime-card-footer">
+                        <span>Updated @node.UpdatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                        <span>@(isConfigured ? "Ready" : "Pending")</span>
+                    </div>
+                    <div class="runtime-card-actions">
+                        <button class="btn btn-secondary btn-sm js-open-control-plane-wizard" type="button">Configure</button>
+                    </div>
+                </article>
+            }
         </div>
     }
 </section>
 
-<div class="modal fade" id="controlPlaneModal" tabindex="-1" aria-hidden="true" data-show="@Model.ShowConnectionModal.ToString().ToLowerInvariant()">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content">
-            <form method="post">
-                <div class="modal-header">
-                    <h5 class="modal-title">Control Plane connection</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div asp-validation-summary="All" class="text-danger mb-3"></div>
-                    <input type="hidden" asp-for="Input.Id" />
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label" asp-for="Input.Name">Name</label>
-                            <input class="form-control" asp-for="Input.Name" />
-                            <span class="text-danger" asp-validation-for="Input.Name"></span>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label" asp-for="Input.Key">Key</label>
-                            <input class="form-control" asp-for="Input.Key" />
-                            <span class="text-danger" asp-validation-for="Input.Key"></span>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label" asp-for="Input.DistributionMode">Distribution mode</label>
-                            <select class="form-select" asp-for="Input.DistributionMode" asp-items="Html.GetEnumSelectList<DistributionMode>()"></select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label" asp-for="Input.RemoteRuntimeNodeId">Control Plane runtime node id</label>
-                            <input class="form-control" asp-for="Input.RemoteRuntimeNodeId" />
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label" asp-for="Input.EndpointBaseUri">Control Plane base URL</label>
-                            <input class="form-control" asp-for="Input.EndpointBaseUri" placeholder="https://knowl-control-plane" />
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label" asp-for="Input.Description">Description</label>
-                            <textarea class="form-control" asp-for="Input.Description" rows="2"></textarea>
-                        </div>
-                        <div class="col-12">
-                            <div class="form-check">
-                                <input class="form-check-input" asp-for="Input.IsEnabled" />
-                                <label class="form-check-label" asp-for="Input.IsEnabled">Enabled</label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save connection</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="generateCredentialsModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content">
-            <form method="post" asp-page-handler="GenerateCredentials">
-                <div class="modal-header">
-                    <h5 class="modal-title">Generate Runtime package</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" asp-for="CredentialInput.DesignNodeId" />
-                    <p class="text-muted mb-3" data-control-plane-name></p>
-                    <label class="form-label" asp-for="CredentialInput.IssuerBaseUrl">Runtime public base URL</label>
-                    <input class="form-control" asp-for="CredentialInput.IssuerBaseUrl" placeholder="https://knowl-runtime" />
-                    <div class="form-text">The Control Plane imports this package when it will push artifacts into this Runtime.</div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Generate package</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="generatedCredentialsModal" tabindex="-1" aria-hidden="true" data-show="@Model.ShowGeneratedCredentialModal.ToString().ToLowerInvariant()">
+<div class="modal" id="controlPlaneWizardModal" tabindex="-1" aria-labelledby="controlPlaneWizardModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Generated Runtime package</h5>
+                <div>
+                    <h5 class="modal-title" id="controlPlaneWizardModalLabel">Control Plane setup</h5>
+                    <p class="text-muted mb-0" id="controlPlaneWizardSubtitle">Create the connection, choose policy, exchange credentials, then verify.</p>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
-                <div class="alert alert-warning">Copy this package now. It includes a secret and will not be shown again after closing this page.</div>
-                <div class="d-flex justify-content-between align-items-center">
-                    <label class="form-label">Base64</label>
-                    <button type="button" class="btn btn-secondary btn-sm" data-copy-target="#generated-runtime-package-base64">Copy Base64</button>
+            <div class="modal-body runtime-wizard-body">
+                <aside class="runtime-wizard-rail" aria-label="Control Plane setup steps">
+                    <button type="button" class="runtime-wizard-step active" data-control-plane-step-target="basic"><span>1</span> Basic data</button>
+                    <button type="button" class="runtime-wizard-step" data-control-plane-step-target="policy"><span>2</span> Policy</button>
+                    <button type="button" class="runtime-wizard-step" data-control-plane-step-target="runtimeCredentials"><span>3</span> Runtime credentials</button>
+                    <button type="button" class="runtime-wizard-step" data-control-plane-step-target="controlPlaneCredentials"><span>4</span> Control Plane credentials</button>
+                    <button type="button" class="runtime-wizard-step" data-control-plane-step-target="verify"><span>5</span> Verify</button>
+                </aside>
+
+                <div class="runtime-wizard-panels">
+                    <section class="runtime-wizard-panel active" data-control-plane-step="basic">
+                        <div class="runtime-section-head">
+                            <div>
+                                <h2>Basic data</h2>
+                                <p>Runtime-local identity for the Control Plane.</p>
+                            </div>
+                        </div>
+                        <form method="post" asp-page-handler="WizardUpsert" id="controlPlaneBasicForm" data-control-plane-wizard-form>
+                            <input type="hidden" name="Input.Id" data-control-plane-field="id" />
+                            <input type="hidden" name="Input.DistributionMode" data-control-plane-field="distributionMode" value="Hybrid" />
+                            <input type="hidden" name="Input.EndpointBaseUri" data-control-plane-field="endpointBaseUri" />
+                            <input type="hidden" name="Input.RemoteRuntimeNodeId" data-control-plane-field="remoteRuntimeNodeId" />
+                            <input type="hidden" name="Input.IsEnabled" data-control-plane-field="isEnabled" value="false" />
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label" for="controlPlaneNameInput">Name</label>
+                                    <input class="form-control" id="controlPlaneNameInput" name="Input.Name" data-control-plane-field="name" autocomplete="off" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="controlPlaneKeyInput">Key</label>
+                                    <input class="form-control" id="controlPlaneKeyInput" name="Input.Key" data-control-plane-field="key" autocomplete="off" />
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label" for="controlPlaneDescriptionInput">Description</label>
+                                    <textarea class="form-control" id="controlPlaneDescriptionInput" name="Input.Description" data-control-plane-field="description" rows="3"></textarea>
+                                </div>
+                            </div>
+                        </form>
+                    </section>
+
+                    <section class="runtime-wizard-panel" data-control-plane-step="policy">
+                        <div class="runtime-section-head">
+                            <div>
+                                <h2>Distribution policy</h2>
+                                <p>Choose how this Runtime and Control Plane exchange releases.</p>
+                            </div>
+                        </div>
+                        <form method="post" asp-page-handler="WizardUpsert" id="controlPlanePolicyForm" data-control-plane-wizard-form>
+                            <input type="hidden" name="Input.Id" data-control-plane-field="id" />
+                            <input type="hidden" name="Input.Name" data-control-plane-field="name" />
+                            <input type="hidden" name="Input.Key" data-control-plane-field="key" />
+                            <input type="hidden" name="Input.Description" data-control-plane-field="description" />
+                            <input type="hidden" name="Input.EndpointBaseUri" data-control-plane-field="endpointBaseUri" />
+                            <input type="hidden" name="Input.RemoteRuntimeNodeId" data-control-plane-field="remoteRuntimeNodeId" />
+                            <input type="hidden" name="Input.IsEnabled" data-control-plane-field="isEnabled" value="false" />
+                            <div class="runtime-policy-options">
+                                <label class="runtime-policy-option">
+                                    <input type="radio" name="Input.DistributionMode" value="Push" />
+                                    <span><strong>Control Plane pushes</strong><small>Control Plane sends artifacts into this Runtime.</small></span>
+                                </label>
+                                <label class="runtime-policy-option">
+                                    <input type="radio" name="Input.DistributionMode" value="Pull" />
+                                    <span><strong>Runtime pulls</strong><small>Runtime imports available releases from Control Plane.</small></span>
+                                </label>
+                                <label class="runtime-policy-option">
+                                    <input type="radio" name="Input.DistributionMode" value="Hybrid" />
+                                    <span><strong>Both directions</strong><small>Control Plane can push and Runtime can pull.</small></span>
+                                </label>
+                            </div>
+                        </form>
+                    </section>
+
+                    <section class="runtime-wizard-panel" data-control-plane-step="runtimeCredentials">
+                        <div class="runtime-section-head">
+                            <div>
+                                <h2>Runtime credentials</h2>
+                                <p>Generate these when Control Plane will push artifacts into Runtime.</p>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="status-label warn" id="runtimeCredentialStatus">Missing</span>
+                                <button type="button" class="btn btn-primary btn-sm" id="controlPlaneGenerateCredentialsButton">Generate credentials</button>
+                            </div>
+                        </div>
+                        <form method="post" asp-page-handler="WizardGenerateCredentials" id="controlPlaneGenerateCredentialForm" class="d-none" data-control-plane-wizard-form>
+                            <input type="hidden" name="designNodeId" data-control-plane-field="id" />
+                        </form>
+                        <div class="runtime-info-grid">
+                            <div><span>Client ID</span><strong id="runtimeInboundClientId">-</strong></div>
+                            <div><span>Key ID</span><strong id="runtimeInboundKeyId">-</strong></div>
+                            <div><span>Scopes</span><strong id="runtimeInboundScopes">-</strong></div>
+                            <div><span>Created</span><strong id="runtimeInboundCreatedAt">-</strong></div>
+                        </div>
+                    </section>
+
+                    <section class="runtime-wizard-panel" data-control-plane-step="controlPlaneCredentials">
+                        <div class="runtime-section-head">
+                            <div>
+                                <h2>Control Plane credentials</h2>
+                                <p>Import the JSON generated by Control Plane when Runtime will pull releases.</p>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="status-label warn" id="controlPlaneCredentialStatus">Missing</span>
+                                <button type="button" class="btn btn-primary btn-sm" id="controlPlaneOpenImportCredentialsButton">Import credentials</button>
+                            </div>
+                        </div>
+                        <div class="runtime-info-grid">
+                            <div><span>Control Plane endpoint</span><strong id="controlPlaneEndpointSummary">-</strong></div>
+                            <div><span>Remote runtime node</span><strong id="remoteRuntimeNodeSummary">-</strong></div>
+                            <div><span>Client ID</span><strong id="controlPlaneOutboundClientId">-</strong></div>
+                            <div><span>Key ID</span><strong id="controlPlaneOutboundKeyId">-</strong></div>
+                            <div><span>Scopes</span><strong id="controlPlaneOutboundScopes">-</strong></div>
+                            <div><span>Imported</span><strong id="controlPlaneOutboundImportedAt">-</strong></div>
+                        </div>
+                    </section>
+
+                    <section class="runtime-wizard-panel" data-control-plane-step="verify">
+                        <div class="runtime-section-head">
+                            <div>
+                                <h2>Verify</h2>
+                                <p>Check Runtime outbound connectivity to Control Plane when the connection is enabled.</p>
+                            </div>
+                        </div>
+                        <div class="runtime-info-grid">
+                            <div><span>Mode</span><strong id="controlPlaneVerifyMode">-</strong></div>
+                            <div><span>Endpoint</span><strong id="controlPlaneVerifyEndpoint">-</strong></div>
+                            <div><span>Remote runtime node</span><strong id="controlPlaneVerifyRemoteNode">-</strong></div>
+                            <div><span>Readiness</span><strong id="controlPlaneVerifyReadiness">-</strong></div>
+                        </div>
+                        <form method="post" asp-page-handler="WizardValidateConnection" id="controlPlaneValidateForm" class="d-none" data-control-plane-wizard-form>
+                            <input type="hidden" name="designNodeId" data-control-plane-field="id" />
+                        </form>
+                        <div class="d-flex flex-wrap gap-2 mt-3">
+                            <button type="button" class="btn btn-secondary btn-sm" id="controlPlaneValidateButton">Check connection</button>
+                        </div>
+                    </section>
                 </div>
-                <textarea id="generated-runtime-package-base64" class="form-control font-monospace" rows="5" readonly>@Model.GeneratedCredentialPackage?.Base64</textarea>
-                <div class="d-flex justify-content-between align-items-center mt-3">
-                    <label class="form-label">JSON</label>
-                    <button type="button" class="btn btn-secondary btn-sm" data-copy-target="#generated-runtime-package-json">Copy JSON</button>
-                </div>
-                <textarea id="generated-runtime-package-json" class="form-control font-monospace" rows="12" readonly>@Model.GeneratedCredentialPackage?.Json</textarea>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-secondary" id="controlPlaneWizardBack">Back</button>
+                <button type="button" class="btn btn-primary" id="controlPlaneWizardNext">Next</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
 </div>
 
-<div class="modal fade" id="importCredentialsModal" tabindex="-1" aria-hidden="true" data-show="@Model.ShowImportCredentialModal.ToString().ToLowerInvariant()">
+<div class="modal" id="runtimeGeneratedCredentialsModal" tabindex="-1" aria-labelledby="runtimeGeneratedCredentialsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
-            <form method="post" asp-page-handler="ImportCredentials">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title" id="runtimeGeneratedCredentialsModalLabel">Generated Runtime credentials</h5>
+                    <p class="text-muted mb-0" id="runtimeGeneratedCredentialNodeName">Control Plane</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">Copy this package now. It includes a secret and will not be shown again after closing this modal.</div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <label class="form-label">JSON</label>
+                    <button type="button" class="btn btn-secondary btn-sm" data-runtime-copy="#runtimeGeneratedJson">Copy JSON</button>
+                </div>
+                <textarea id="runtimeGeneratedJson" class="form-control font-monospace" rows="10" readonly></textarea>
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <label class="form-label">Base64</label>
+                    <button type="button" class="btn btn-secondary btn-sm" data-runtime-copy="#runtimeGeneratedBase64">Copy Base64</button>
+                </div>
+                <textarea id="runtimeGeneratedBase64" class="form-control font-monospace" rows="4" readonly></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Done</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="controlPlaneImportCredentialsModal" tabindex="-1" aria-labelledby="controlPlaneImportCredentialsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="WizardImportCredentials" id="controlPlaneImportCredentialForm" data-control-plane-wizard-form>
                 <div class="modal-header">
-                    <h5 class="modal-title">Import Control Plane package</h5>
+                    <div>
+                        <h5 class="modal-title" id="controlPlaneImportCredentialsModalLabel">Import Control Plane credentials</h5>
+                        <p class="text-muted mb-0">Paste the JSON generated by the Control Plane.</p>
+                    </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div asp-validation-summary="All" class="text-danger mb-3"></div>
-                    <input type="hidden" asp-for="CredentialImportInput.DesignNodeId" />
-                    <p class="text-muted mb-3" data-control-plane-name></p>
-                    <label class="form-label" asp-for="CredentialImportInput.Package">Control Plane package</label>
-                    <textarea class="form-control font-monospace" asp-for="CredentialImportInput.Package" rows="10" placeholder="Paste JSON or Base64 package"></textarea>
-                    <span class="text-danger" asp-validation-for="CredentialImportInput.Package"></span>
+                    <input type="hidden" name="CredentialImportInput.DesignNodeId" data-control-plane-field="id" />
+                    <label class="form-label" for="controlPlaneCredentialsJson">Control Plane credentials JSON</label>
+                    <textarea class="form-control font-monospace" id="controlPlaneCredentialsJson" name="CredentialImportInput.Package" rows="12" placeholder="Paste JSON or Base64 package"></textarea>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Import package</button>
+                    <button type="submit" class="btn btn-primary">Import and continue</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+
+@functions {
+    private static string RuntimeCredentialReadiness(RuntimeDesignNode node)
+    {
+        if (node.DistributionMode is not (DistributionMode.Push or DistributionMode.Hybrid))
+        {
+            return "Not required";
+        }
+
+        return node.InboundCredentialStatus == KnOwl.Contracts.Security.ConnectionCredentialStatus.Active
+            ? "Ready"
+            : "Missing";
+    }
+
+    private static string ControlPlaneCredentialReadiness(RuntimeDesignNode node)
+    {
+        if (node.DistributionMode is not (DistributionMode.Pull or DistributionMode.Hybrid))
+        {
+            return "Not required";
+        }
+
+        return node.OutboundCredentialStatus == KnOwl.Contracts.Security.ConnectionCredentialStatus.Active
+            ? "Ready"
+            : "Missing";
+    }
+
+    private static string EndpointReadiness(RuntimeDesignNode node)
+    {
+        if (node.DistributionMode is not (DistributionMode.Pull or DistributionMode.Hybrid))
+        {
+            return "Not required";
+        }
+
+        return string.IsNullOrWhiteSpace(node.EndpointBaseUri) ? "Missing" : "Ready";
+    }
+
+    private static string ReadinessClass(string value)
+        => value switch
+        {
+            "Ready" => "runtime-card-ready",
+            "Not required" => "runtime-card-muted",
+            _ => "runtime-card-warning"
+        };
+}
 
 @section Scripts {
 <script>
 (() => {
-    const connectionModal = document.getElementById('controlPlaneModal');
-    const setValue = (root, name, value) => {
-        const input = root?.querySelector(`[name="${name}"]`);
-        if (!input) return;
-        if (input.type === 'checkbox') {
-            input.checked = value === true || value === 'true';
-            return;
-        }
-        input.value = value || '';
+    const modalElement = document.getElementById('controlPlaneWizardModal');
+    if (!modalElement || !window.bootstrap?.Modal) return;
+
+    const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+    const generatedModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('runtimeGeneratedCredentialsModal'));
+    const importModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('controlPlaneImportCredentialsModal'));
+    const baseSteps = {
+        Push: ['basic', 'policy', 'runtimeCredentials'],
+        Pull: ['basic', 'policy', 'controlPlaneCredentials'],
+        Hybrid: ['basic', 'policy', 'runtimeCredentials', 'controlPlaneCredentials']
+    };
+    let steps = [...baseSteps.Hybrid];
+    let activeStep = 'basic';
+    let current = null;
+    let createdDuringSession = false;
+
+    const stepButtons = Array.from(modalElement.querySelectorAll('[data-control-plane-step-target]'));
+    const stepPanels = Array.from(modalElement.querySelectorAll('[data-control-plane-step]'));
+    const backButton = document.getElementById('controlPlaneWizardBack');
+    const nextButton = document.getElementById('controlPlaneWizardNext');
+
+    const showToast = (message, type = 'info') => {
+        const toast = document.createElement('div');
+        toast.className = `runtime-toast runtime-toast-${type}`;
+        toast.innerHTML = `<strong>${type === 'error' ? 'Review' : 'Message'}</strong><span></span><button type="button" aria-label="Close">x</button>`;
+        toast.querySelector('span').textContent = message;
+        document.body.appendChild(toast);
+        toast.querySelector('button')?.addEventListener('click', () => toast.remove());
+        window.setTimeout(() => toast.remove(), type === 'error' ? 7200 : 4200);
     };
 
-    if (connectionModal?.dataset.show === 'true') {
-        bootstrap.Modal.getOrCreateInstance(connectionModal).show();
-    }
+    const value = key => current?.[key] ?? '';
+    const isPushMode = mode => mode === 'Push' || mode === 'Hybrid';
+    const isPullMode = mode => mode === 'Pull' || mode === 'Hybrid';
+    const isActiveCredential = status => status === 'Active';
+    const canCheckConnection = () => value('isEnabled') === true && value('status') === 'Enabled' && isPullMode(value('distributionMode') || 'Hybrid');
+    const isConfigured = () => {
+        const mode = value('distributionMode') || 'Hybrid';
+        return (!isPushMode(mode) || isActiveCredential(value('inboundCredentialStatus'))) &&
+            (!isPullMode(mode) || (isActiveCredential(value('outboundCredentialStatus')) &&
+                !!String(value('endpointBaseUri') || '').trim() &&
+                !!String(value('remoteRuntimeNodeId') || '').trim()));
+    };
+    const pick = (source, ...names) => {
+        for (const name of names) {
+            const next = source?.[name];
+            if (next !== undefined && next !== null) return next;
+        }
+        return '';
+    };
 
-    connectionModal?.addEventListener('show.bs.modal', event => {
-        const button = event.relatedTarget;
-        const isEdit = button?.dataset.mode === 'edit';
-        setValue(connectionModal, 'Input.Id', isEdit ? button.dataset.id : '');
-        setValue(connectionModal, 'Input.Name', isEdit ? button.dataset.name : '');
-        setValue(connectionModal, 'Input.Key', isEdit ? button.dataset.key : '');
-        setValue(connectionModal, 'Input.DistributionMode', isEdit ? button.dataset.distributionMode : 'Hybrid');
-        setValue(connectionModal, 'Input.EndpointBaseUri', isEdit ? button.dataset.endpointBaseUri : '');
-        setValue(connectionModal, 'Input.RemoteRuntimeNodeId', isEdit ? button.dataset.remoteRuntimeNodeId : '');
-        setValue(connectionModal, 'Input.Description', isEdit ? button.dataset.description : '');
-        setValue(connectionModal, 'Input.IsEnabled', isEdit ? button.dataset.enabled : true);
+    const readBasicState = () => ({
+        id: value('id'),
+        name: document.getElementById('controlPlaneNameInput')?.value || '',
+        key: document.getElementById('controlPlaneKeyInput')?.value || '',
+        description: document.getElementById('controlPlaneDescriptionInput')?.value || '',
+        distributionMode: value('distributionMode') || 'Hybrid',
+        distributionModeLabel: value('distributionModeLabel') || 'Both directions',
+        endpointBaseUri: value('endpointBaseUri'),
+        remoteRuntimeNodeId: value('remoteRuntimeNodeId'),
+        status: value('status') || 'Pending',
+        statusLabel: value('statusLabel') || 'Pending',
+        isEnabled: value('isEnabled') === true,
+        inboundCredentialStatus: value('inboundCredentialStatus') || 'Missing',
+        outboundCredentialStatus: value('outboundCredentialStatus') || 'Missing'
     });
 
-    const configureCredentialModal = event => {
-        const button = event.relatedTarget;
-        const modal = event.currentTarget;
-        if (!button?.dataset.id) return;
+    const readNodeFromCard = element => {
+        const card = element?.closest('[data-control-plane-card]');
+        if (!card) return null;
+        return {
+            id: card.dataset.id || '',
+            key: card.dataset.key || '',
+            name: card.dataset.name || '',
+            distributionMode: card.dataset.distributionMode || 'Hybrid',
+            distributionModeLabel: card.dataset.distributionModeLabel || 'Both directions',
+            endpointBaseUri: card.dataset.endpointBaseUri || '',
+            remoteRuntimeNodeId: card.dataset.remoteRuntimeNodeId || '',
+            status: card.dataset.status || 'Pending',
+            statusLabel: card.dataset.statusLabel || 'Pending',
+            isEnabled: card.dataset.enabled === 'true',
+            description: card.dataset.description || '',
+            inboundCredentialStatus: card.dataset.inboundCredentialStatus || 'Missing',
+            outboundCredentialStatus: card.dataset.outboundCredentialStatus || 'Missing',
+            inboundClientId: card.dataset.inboundClientId || '',
+            inboundKeyId: card.dataset.inboundKeyId || '',
+            inboundAllowedScopes: card.dataset.inboundAllowedScopes || '',
+            inboundCredentialCreatedAt: card.dataset.inboundCredentialCreatedAt || '-',
+            outboundClientId: card.dataset.outboundClientId || '',
+            outboundKeyId: card.dataset.outboundKeyId || '',
+            outboundRequestedScopes: card.dataset.outboundRequestedScopes || '',
+            outboundCredentialImportedAt: card.dataset.outboundCredentialImportedAt || '-',
+            createdAt: card.dataset.createdAt || '-',
+            updatedAt: card.dataset.updatedAt || '-',
+            isConfigured: card.dataset.configured === 'true',
+            canCheckConnection: card.dataset.canCheckConnection === 'true'
+        };
+    };
 
-        modal.querySelectorAll('[name$=".DesignNodeId"]').forEach(input => input.value = button.dataset.id);
-        modal.querySelectorAll('[data-control-plane-name]').forEach(label => {
-            label.textContent = button.dataset.name ? `Control Plane: ${button.dataset.name}` : '';
+    const setField = (name, nextValue) => {
+        document.querySelectorAll(`[data-control-plane-field="${name}"]`).forEach(input => {
+            if (input.type === 'radio') {
+                input.checked = input.value === String(nextValue || '');
+            } else {
+                input.value = nextValue ?? '';
+            }
         });
     };
 
-    document.getElementById('generateCredentialsModal')?.addEventListener('show.bs.modal', configureCredentialModal);
-    const importModal = document.getElementById('importCredentialsModal');
-    importModal?.addEventListener('show.bs.modal', configureCredentialModal);
-    if (importModal?.dataset.show === 'true') {
-        bootstrap.Modal.getOrCreateInstance(importModal).show();
-    }
+    const setText = (id, nextValue) => {
+        const element = document.getElementById(id);
+        if (element) element.textContent = nextValue || '-';
+    };
 
-    const generated = document.getElementById('generatedCredentialsModal');
-    if (generated?.dataset.show === 'true') {
-        bootstrap.Modal.getOrCreateInstance(generated).show();
-    }
+    const syncForms = () => {
+        setField('id', value('id'));
+        setField('key', value('key'));
+        setField('name', value('name'));
+        setField('distributionMode', value('distributionMode') || 'Hybrid');
+        setField('endpointBaseUri', value('endpointBaseUri'));
+        setField('remoteRuntimeNodeId', value('remoteRuntimeNodeId'));
+        setField('isEnabled', value('isEnabled') === true ? 'true' : 'false');
+        setField('description', value('description'));
 
-    document.querySelectorAll('[data-copy-target]').forEach(button => {
-        button.addEventListener('click', async () => {
-            const target = document.querySelector(button.dataset.copyTarget || '');
-            const value = target?.value || target?.textContent || '';
-            if (!value.trim()) return;
+        modalElement.querySelectorAll('input[name="Input.DistributionMode"]').forEach(input => {
+            input.checked = input.value === (value('distributionMode') || 'Hybrid');
+        });
 
-            const original = button.textContent;
-            try {
-                await navigator.clipboard.writeText(value);
-            } catch {
-                target.focus();
-                target.select?.();
-                document.execCommand('copy');
+        setText('runtimeCredentialStatus', value('inboundCredentialStatus') || 'Missing');
+        setText('controlPlaneCredentialStatus', value('outboundCredentialStatus') || 'Missing');
+        setText('runtimeInboundClientId', value('inboundClientId'));
+        setText('runtimeInboundKeyId', value('inboundKeyId'));
+        setText('runtimeInboundScopes', value('inboundAllowedScopes'));
+        setText('runtimeInboundCreatedAt', value('inboundCredentialCreatedAt'));
+        setText('controlPlaneEndpointSummary', value('endpointBaseUri'));
+        setText('remoteRuntimeNodeSummary', value('remoteRuntimeNodeId'));
+        setText('controlPlaneOutboundClientId', value('outboundClientId'));
+        setText('controlPlaneOutboundKeyId', value('outboundKeyId'));
+        setText('controlPlaneOutboundScopes', value('outboundRequestedScopes'));
+        setText('controlPlaneOutboundImportedAt', value('outboundCredentialImportedAt'));
+        setText('controlPlaneVerifyMode', value('distributionModeLabel') || value('distributionMode'));
+        setText('controlPlaneVerifyEndpoint', value('endpointBaseUri'));
+        setText('controlPlaneVerifyRemoteNode', value('remoteRuntimeNodeId'));
+        setText('controlPlaneVerifyReadiness', isConfigured() ? 'Ready' : 'Pending credentials');
+
+        const mode = value('distributionMode') || 'Hybrid';
+        steps = [...(baseSteps[mode] || baseSteps.Hybrid)];
+        if (canCheckConnection()) {
+            steps.push('verify');
+        }
+
+        stepButtons.forEach(button => {
+            const target = button.dataset.controlPlaneStepTarget;
+            const enabled = steps.includes(target) && (target === 'basic' || !!value('id'));
+            button.disabled = !enabled;
+            button.classList.toggle('is-disabled', !enabled);
+        });
+
+    };
+
+    const setStep = step => {
+        if (!steps.includes(step)) step = steps[0] || 'basic';
+        activeStep = step;
+        stepButtons.forEach(button => button.classList.toggle('active', button.dataset.controlPlaneStepTarget === step));
+        stepPanels.forEach(panel => panel.classList.toggle('active', panel.dataset.controlPlaneStep === step));
+        syncForms();
+        const index = steps.indexOf(activeStep);
+        backButton.disabled = index === 0;
+        nextButton.textContent = index === steps.length - 1 ? 'Done' : 'Next';
+    };
+
+    const applyNode = node => {
+        if (!node) {
+            syncForms();
+            return;
+        }
+
+        current = {
+            ...current,
+            id: pick(node, 'id', 'Id') || value('id'),
+            key: pick(node, 'key', 'Key'),
+            name: pick(node, 'name', 'Name'),
+            distributionModeLabel: pick(node, 'distributionModeLabel', 'DistributionModeLabel') || pick(node, 'distributionMode', 'DistributionMode'),
+            distributionMode: pick(node, 'distributionMode', 'DistributionMode') || 'Hybrid',
+            endpointBaseUri: pick(node, 'endpointBaseUri', 'EndpointBaseUri'),
+            remoteRuntimeNodeId: pick(node, 'remoteRuntimeNodeId', 'RemoteRuntimeNodeId'),
+            status: pick(node, 'status', 'Status') || 'Pending',
+            statusLabel: pick(node, 'statusLabel', 'StatusLabel') || pick(node, 'status', 'Status'),
+            isEnabled: pick(node, 'isEnabled', 'IsEnabled') === true || pick(node, 'isEnabled', 'IsEnabled') === 'true',
+            description: pick(node, 'description', 'Description'),
+            inboundCredentialStatus: pick(node, 'inboundCredentialStatus', 'InboundCredentialStatus') || 'Missing',
+            outboundCredentialStatus: pick(node, 'outboundCredentialStatus', 'OutboundCredentialStatus') || 'Missing',
+            inboundClientId: pick(node, 'inboundClientId', 'InboundClientId'),
+            inboundKeyId: pick(node, 'inboundKeyId', 'InboundKeyId'),
+            inboundAllowedScopes: pick(node, 'inboundAllowedScopes', 'InboundAllowedScopes'),
+            inboundCredentialCreatedAt: pick(node, 'inboundCredentialCreatedAt', 'InboundCredentialCreatedAt'),
+            outboundClientId: pick(node, 'outboundClientId', 'OutboundClientId'),
+            outboundKeyId: pick(node, 'outboundKeyId', 'OutboundKeyId'),
+            outboundRequestedScopes: pick(node, 'outboundRequestedScopes', 'OutboundRequestedScopes'),
+            outboundCredentialImportedAt: pick(node, 'outboundCredentialImportedAt', 'OutboundCredentialImportedAt'),
+            createdAt: pick(node, 'createdAt', 'CreatedAt'),
+            updatedAt: pick(node, 'updatedAt', 'UpdatedAt')
+        };
+        syncForms();
+    };
+
+    const readDesignNodeId = payload =>
+        payload?.designNodeId ||
+        payload?.DesignNodeId ||
+        payload?.node?.id ||
+        payload?.node?.Id ||
+        payload?.Node?.id ||
+        payload?.Node?.Id ||
+        '';
+
+    const ensureDesignNodeId = payload => {
+        const designNodeId = readDesignNodeId(payload);
+        if (designNodeId) {
+            current = { ...current, id: designNodeId };
+            syncForms();
+        }
+    };
+
+    const applyPayloadNode = payload => {
+        ensureDesignNodeId(payload);
+        applyNode(payload.node || payload.Node || current);
+        ensureDesignNodeId(payload);
+    };
+
+    const postForm = async form => {
+        const response = await fetch(form.action, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const text = await response.text();
+        let payload = {};
+        if (text) {
+            try { payload = JSON.parse(text); } catch { payload = { message: text }; }
+        }
+        if (!response.ok) {
+            throw new Error(payload.message || 'The operation failed.');
+        }
+        return payload;
+    };
+
+    const saveBasic = async () => {
+        current = { ...current, ...readBasicState() };
+        syncForms();
+        const payload = await postForm(document.getElementById('controlPlaneBasicForm'));
+        if (!value('id')) createdDuringSession = true;
+        applyPayloadNode(payload);
+        showToast(payload.message || 'Control Plane connection saved.');
+    };
+
+    const savePolicy = async () => {
+        current = {
+            ...current,
+            distributionMode: modalElement.querySelector('input[name="Input.DistributionMode"]:checked')?.value || 'Hybrid'
+        };
+        syncForms();
+        const payload = await postForm(document.getElementById('controlPlanePolicyForm'));
+        applyPayloadNode(payload);
+        showToast(payload.message || 'Distribution policy saved.');
+    };
+
+    const moveNextOrComplete = async () => {
+        const index = steps.indexOf(activeStep);
+        const next = steps[index + 1];
+        if (next) {
+            setStep(next);
+            return;
+        }
+
+        modal.hide();
+        if (createdDuringSession) {
+            window.location.reload();
+        }
+    };
+
+    const openWizard = trigger => {
+        current = readNodeFromCard(trigger) || {
+            id: '',
+            key: '',
+            name: '',
+            distributionMode: 'Hybrid',
+            distributionModeLabel: 'Both directions',
+            endpointBaseUri: '',
+            remoteRuntimeNodeId: '',
+            status: 'Pending',
+            statusLabel: 'Pending',
+            isEnabled: false,
+            description: '',
+            inboundCredentialStatus: 'Missing',
+            outboundCredentialStatus: 'Missing'
+        };
+        document.getElementById('controlPlaneWizardModalLabel').textContent = current.id ? current.name : 'Create Control Plane connection';
+        document.getElementById('controlPlaneWizardSubtitle').textContent = current.id ? `${current.key || '-'} - ${current.distributionModeLabel || '-'}` : 'Create the connection, choose policy, exchange credentials, then verify.';
+        document.getElementById('controlPlaneCredentialsJson').value = '';
+        setStep('basic');
+        modal.show();
+    };
+
+    document.querySelectorAll('.js-open-control-plane-wizard').forEach(button => {
+        button.addEventListener('click', event => {
+            event.stopPropagation();
+            openWizard(button);
+        });
+    });
+
+    document.querySelectorAll('[data-control-plane-card]').forEach(card => {
+        card.addEventListener('click', event => {
+            if (event.target.closest('a, button, input, select, textarea, form, .runtime-card-menu')) return;
+            openWizard(card);
+        });
+    });
+
+    stepButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            if (!button.disabled) setStep(button.dataset.controlPlaneStepTarget);
+        });
+    });
+
+    modalElement.querySelectorAll('input[name="Input.DistributionMode"]').forEach(input => {
+        input.addEventListener('change', event => {
+            current = { ...current, distributionMode: event.target.value };
+            syncForms();
+        });
+    });
+
+    backButton.addEventListener('click', () => {
+        const index = steps.indexOf(activeStep);
+        setStep(steps[Math.max(0, index - 1)]);
+    });
+
+    nextButton.addEventListener('click', async () => {
+        try {
+            if (activeStep === 'basic') {
+                await saveBasic();
+                setStep('policy');
+                return;
+            }
+            if (activeStep === 'policy') {
+                await savePolicy();
+                await moveNextOrComplete();
+                return;
+            }
+            if (activeStep === 'runtimeCredentials') {
+                if (isPushMode(value('distributionMode')) && !isActiveCredential(value('inboundCredentialStatus'))) {
+                    throw new Error('Generate Runtime credentials before continuing.');
+                }
+                await moveNextOrComplete();
+                return;
+            }
+            if (activeStep === 'controlPlaneCredentials') {
+                if (isPullMode(value('distributionMode')) && !isConfigured()) {
+                    throw new Error('Import Control Plane credentials before continuing.');
+                }
+                await moveNextOrComplete();
+                return;
+            }
+            if (activeStep === 'verify') {
+                await moveNextOrComplete();
+            }
+        } catch (error) {
+            showToast(error.message || 'Review the Control Plane setup.', 'error');
+        }
+    });
+
+    document.getElementById('controlPlaneGenerateCredentialsButton').addEventListener('click', async () => {
+        try {
+            if (!value('id')) {
+                throw new Error('Save basic data before generating Runtime credentials.');
             }
 
-            button.textContent = 'Copied';
-            window.setTimeout(() => {
-                button.textContent = original;
-            }, 1500);
+            const payload = await postForm(document.getElementById('controlPlaneGenerateCredentialForm'));
+            applyPayloadNode(payload);
+            document.getElementById('runtimeGeneratedJson').value = payload.credentialsJson || '';
+            document.getElementById('runtimeGeneratedBase64').value = payload.credentialsBase64 || '';
+            document.getElementById('runtimeGeneratedCredentialNodeName').textContent = value('name') || 'Control Plane';
+            generatedModal.show();
+            showToast(payload.message || 'Runtime credentials generated.');
+        } catch (error) {
+            showToast(error.message || 'Credential generation failed.', 'error');
+        }
+    });
+
+    document.getElementById('controlPlaneOpenImportCredentialsButton').addEventListener('click', () => {
+        if (!value('id')) {
+            showToast('Save basic data before importing Control Plane credentials.', 'error');
+            return;
+        }
+
+        document.getElementById('controlPlaneCredentialsJson').value = '';
+        importModal.show();
+    });
+
+    document.getElementById('controlPlaneImportCredentialForm').addEventListener('submit', async event => {
+        event.preventDefault();
+        event.stopPropagation();
+        try {
+            const payload = await postForm(event.currentTarget);
+            applyPayloadNode(payload);
+            importModal.hide();
+            showToast(payload.message || 'Control Plane credentials imported.');
+        } catch (error) {
+            showToast(error.message || 'Credential import failed.', 'error');
+        }
+    });
+
+    document.getElementById('controlPlaneValidateButton').addEventListener('click', async () => {
+        try {
+            const payload = await postForm(document.getElementById('controlPlaneValidateForm'));
+            applyPayloadNode(payload);
+            showToast(payload.message || 'Connection checked.', payload.succeeded ? 'success' : 'error');
+        } catch (error) {
+            showToast(error.message || 'Connection check failed.', 'error');
+        }
+    });
+
+    document.querySelectorAll('[data-runtime-copy]').forEach(button => {
+        button.addEventListener('click', async () => {
+            const target = document.querySelector(button.dataset.runtimeCopy || '');
+            const text = target?.value || '';
+            if (!text) return;
+            await navigator.clipboard.writeText(text).catch(() => {});
+            showToast('Copied.');
         });
     });
 })();
