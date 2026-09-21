@@ -4,7 +4,7 @@
 :root {
     --sb-width:           256px;
     --sb-bg:              var(--knowl-sidebar-bg, #4c1d95);
-    --sb-brand-bg:        var(--knowl-sidebar-brand-bg, #3b0764);
+    --sb-brand-bg:        var(--knowl-sidebar-brand-bg, var(--knowl-sidebar-bg, #4c1d95));
     --sb-border:          color-mix(in srgb, var(--knowl-sidebar-text, #ffffff) 16%, transparent);
     --sb-text:            var(--knowl-sidebar-text, #ffffff);
     --sb-muted:           var(--knowl-sidebar-muted, #ddd6fe);
@@ -1993,18 +1993,17 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
     --od-card-min-width: 280px;
     --od-card-max-width: 320px;
     --od-card-preferred-width: 300px;
-    --od-card-width: var(--od-card-preferred-width);
     display: grid;
-    grid-template-columns: repeat(auto-fill, var(--od-card-width));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--od-card-min-width)), 1fr));
     gap: 0.75rem;
     align-items: stretch;
-    justify-content: start;
+    justify-content: stretch;
     overflow: visible;
     width: 100%;
 }
 
 .od-documentation-grid {
-    --od-card-width: 320px;
+    --od-card-min-width: 320px;
     --od-card-preferred-width: 320px;
 }
 
@@ -2078,6 +2077,25 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
     font-weight: 650;
     line-height: 1.28;
     overflow-wrap: anywhere;
+}
+
+.od-list-shell > .od-grid:not(.od-versions-grid):not(.od-runtime-node-grid) > .od-item-card {
+    height: 142px;
+}
+
+.od-list-shell > .od-grid:not(.od-versions-grid):not(.od-runtime-node-grid) .od-item-title {
+    display: -webkit-box;
+    overflow: hidden;
+    overflow-wrap: normal;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.od-list-shell > .od-grid:not(.od-versions-grid):not(.od-runtime-node-grid) .od-item-meta {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .od-kebab {
@@ -2160,6 +2178,11 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
     overflow: hidden;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+}
+
+.od-list-shell > .od-grid:not(.od-versions-grid):not(.od-runtime-node-grid) .od-item-description {
+    max-height: 2.32rem;
+    min-height: 2.32rem;
 }
 
 .od-runtime-card-ready {
@@ -2875,7 +2898,8 @@ textarea.font-monospace[readonly] {
 }
 
 .od-runtime-node-card {
-    min-height: 218px;
+    height: 286px;
+    min-height: 286px;
     gap: 0.55rem;
     padding: 0.85rem;
 }
@@ -2904,9 +2928,9 @@ textarea.font-monospace[readonly] {
 
 .od-runtime-node-card .od-item-description {
     display: -webkit-box;
-    min-height: 2.2rem;
+    min-height: 1.25rem;
     white-space: normal;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
 }
 
@@ -2956,7 +2980,10 @@ textarea.font-monospace[readonly] {
     font-size: 0.88rem;
     line-height: 1.25;
     margin-top: 0.18rem;
-    overflow-wrap: anywhere;
+    overflow: hidden;
+    overflow-wrap: normal;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .od-runtime-node-card .od-kebab {

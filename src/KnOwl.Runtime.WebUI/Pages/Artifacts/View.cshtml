@@ -6,23 +6,29 @@
 
 @if (Model.Artifact is null)
 {
-    <section class="runtime-card">
-        <p class="eyebrow">Not found</p>
-        <h2>Artifact was not found.</h2>
-        <a class="runtime-button" asp-page="/Artifacts/Index">Back to artifacts</a>
+    <section class="od-panel">
+        <div class="od-section-head">
+            <div>
+                <h1 class="od-section-title">Artifact was not found.</h1>
+                <p class="od-page-subtitle">The requested artifact does not exist in this Runtime.</p>
+            </div>
+            <a class="btn btn-secondary btn-sm" asp-page="/Artifacts/Index">Back to artifacts</a>
+        </div>
     </section>
 }
 else
 {
-    <section class="runtime-card artifact-detail">
-        <div class="card-heading">
-            <div>
-                <p class="eyebrow">@Model.Artifact.ArtifactType artifact</p>
-                <h2>@Model.Artifact.Name</h2>
-            </div>
-            <a class="runtime-button" asp-page="/Artifacts/Index">Back</a>
+    <div class="od-page-head">
+        <div>
+            <h1 class="od-page-title">@Model.Artifact.Name</h1>
+            <p class="od-page-subtitle">@Model.Artifact.ArtifactType artifact · @Model.Artifact.Topic</p>
         </div>
+        <div class="event-list-actions">
+            <a class="btn btn-secondary btn-sm" asp-page="/Artifacts/Index">Back</a>
+        </div>
+    </div>
 
+    <section class="od-panel artifact-detail">
         <div class="detail-grid">
             <div>
                 <span>Topic</span>
@@ -56,11 +62,11 @@ else
         }
     </section>
 
-    <section class="runtime-card">
-        <div class="card-heading">
+    <section class="od-panel">
+        <div class="od-section-head">
             <div>
-                <p class="eyebrow">Consumption</p>
-                <h3>Endpoints</h3>
+                <h2 class="od-section-title">Endpoints</h2>
+                <p class="od-page-subtitle">Routes available for consumers.</p>
             </div>
         </div>
         <div class="endpoint-grid">
@@ -69,11 +75,11 @@ else
         </div>
     </section>
 
-    <section class="runtime-card schema-card">
-        <div class="card-heading">
+    <section class="od-panel schema-card">
+        <div class="od-section-head">
             <div>
-                <p class="eyebrow">Snapshot</p>
-                <h3>Payload Schema</h3>
+                <h2 class="od-section-title">Payload Schema</h2>
+                <p class="od-page-subtitle">Stored artifact snapshot.</p>
             </div>
         </div>
         <pre class="json-panel"><code>@Model.PrettyPayloadSchemaJson</code></pre>

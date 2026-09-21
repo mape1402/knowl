@@ -4,17 +4,19 @@
     ViewData["Title"] = "Runtime Artifacts";
 }
 
-<section class="runtime-card">
-    <div class="card-heading">
-        <div>
-            <p class="eyebrow">Published catalog</p>
-            <h2>Artifacts</h2>
-        </div>
+<div class="od-page-head">
+    <div>
+        <h1 class="od-page-title">Runtime Artifacts</h1>
+        <p class="od-page-subtitle">Read-only catalog of deployed event and command contracts stored by this Runtime.</p>
+    </div>
+    <div class="event-list-actions">
         <span class="count-pill">@Model.FilteredArtifacts.Count of @Model.TotalArtifacts</span>
     </div>
+</div>
 
-    <form class="filter-bar" method="get">
-        <label>
+<section class="od-panel runtime-filter-panel runtime-artifact-filter">
+    <form method="get">
+        <label class="runtime-filter-type">
             <span>Type</span>
             <select name="type">
                 <option value="">All</option>
@@ -24,50 +26,48 @@
                 }
             </select>
         </label>
-        <label>
+        <label class="runtime-filter-search">
             <span>Search</span>
             <input name="query" value="@Model.Query" placeholder="Topic, name, version or hash" />
         </label>
-        <button class="runtime-button primary" type="submit">Apply</button>
-        <a class="runtime-button" asp-page="/Artifacts/Index">Clear</a>
+        <button class="btn btn-primary btn-sm" type="submit">Apply</button>
+        <a class="btn btn-secondary btn-sm" asp-page="/Artifacts/Index">Clear</a>
     </form>
-
-    @if (Model.FilteredArtifacts.Count == 0)
-    {
-        <div class="empty-state">No runtime artifacts match the current filter.</div>
-    }
-    else
-    {
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Type</th>
-                        <th>Topic</th>
-                        <th>Name</th>
-                        <th>Version</th>
-                        <th>Deployed</th>
-                        <th>Hash</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var artifact in Model.FilteredArtifacts)
-                    {
-                        <tr>
-                            <td><span class="type-badge">@artifact.ArtifactType</span></td>
-                            <td><code>@artifact.Topic</code></td>
-                            <td>@artifact.Name</td>
-                            <td>@artifact.VersionNumber</td>
-                            <td>@artifact.DeployedAtUtc.ToString("u")</td>
-                            <td><code class="hash-text">@artifact.ContentHash</code></td>
-                            <td class="text-end">
-                                <a class="runtime-button compact" asp-page="/Artifacts/View" asp-route-id="@artifact.Id">View</a>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    }
 </section>
+
+@if (Model.FilteredArtifacts.Count == 0)
+{
+    <section class="od-panel">
+        <div class="empty-state">
+            @(Model.TotalArtifacts == 0
+                ? "No artifacts have been received by this Runtime yet. Artifacts appear here after a Control Plane release is pushed or pulled into the Runtime."
+                : "No runtime artifacts match the current filter.")
+        </div>
+    </section>
+}
+else
+{
+    <div class="od-grid runtime-artifact-grid">
+        @foreach (var artifact in Model.FilteredArtifacts)
+        {
+            <article class="od-item-card" data-open-url="@Url.Page("/Artifacts/View", new { id = artifact.Id })">
+                <div class="od-item-top">
+                    <div>
+                        <h2 class="od-item-title">@artifact.Name</h2>
+                        <p class="od-item-meta">@artifact.Topic</p>
+                    </div>
+                    <span class="type-badge">@artifact.ArtifactType</span>
+                </div>
+                <div class="od-chip-row">
+                    <span class="od-meta-chip">Version @artifact.VersionNumber</span>
+                    <span class="od-meta-chip">Deployed @artifact.DeployedAtUtc.ToString("yyyy-MM-dd HH:mm")</span>
+                </div>
+                <p class="od-item-description">Hash @artifact.ContentHash</p>
+                <div class="od-card-footer">
+                    <span class="od-card-date">Source @artifact.SourceArtifactId</span>
+                    <a class="btn btn-secondary btn-sm" asp-page="/Artifacts/View" asp-route-id="@artifact.Id">View</a>
+                </div>
+            </article>
+        }
+    </div>
+}

@@ -226,58 +226,6 @@
     });
 }());
 
-// ── Responsive card grids ─────────────────────────────────
-(function () {
-    const parsePixels = (value, fallback) => {
-        const parsed = Number.parseFloat(value);
-        return Number.isFinite(parsed) ? parsed : fallback;
-    };
-
-    const layoutGrid = grid => {
-        const cards = Array.from(grid.children).filter(child => child.classList.contains('od-item-card'));
-        if (cards.length === 0) {
-            return;
-        }
-
-        const styles = window.getComputedStyle(grid);
-        const width = grid.clientWidth;
-        const gap = parsePixels(styles.columnGap, 12);
-        const minWidth = parsePixels(styles.getPropertyValue('--od-card-min-width'), 280);
-        const maxWidth = parsePixels(styles.getPropertyValue('--od-card-max-width'), 320);
-        const preferredWidth = parsePixels(styles.getPropertyValue('--od-card-preferred-width'), 300);
-        const maxColumns = Math.max(1, Math.floor((width + gap) / (minWidth + gap)));
-
-        if (cards.length < maxColumns) {
-            grid.style.setProperty('--od-card-width', `${preferredWidth}px`);
-            grid.style.gridTemplateColumns = `repeat(${cards.length}, minmax(0, var(--od-card-width)))`;
-            return;
-        }
-
-        const columns = maxColumns;
-        const computedWidth = (width - (gap * (columns - 1))) / columns;
-        const cardWidth = Math.min(maxWidth, Math.max(minWidth, computedWidth));
-        grid.style.setProperty('--od-card-width', `${cardWidth}px`);
-        grid.style.gridTemplateColumns = `repeat(${columns}, minmax(0, var(--od-card-width)))`;
-    };
-
-    const grids = document.querySelectorAll('.od-grid');
-    if (grids.length === 0) {
-        return;
-    }
-
-    grids.forEach(layoutGrid);
-
-    if ('ResizeObserver' in window) {
-        const observer = new ResizeObserver(entries => {
-            entries.forEach(entry => layoutGrid(entry.target));
-        });
-        grids.forEach(grid => observer.observe(grid));
-        return;
-    }
-
-    window.addEventListener('resize', () => grids.forEach(layoutGrid));
-}());
-
 // ── Theme toggle ──────────────────────────────────────────
 (function () {
     const STORAGE_KEY = 'knowlThemeMode';

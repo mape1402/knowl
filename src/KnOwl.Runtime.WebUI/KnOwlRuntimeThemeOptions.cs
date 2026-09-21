@@ -153,6 +153,19 @@ public sealed partial class KnOwlRuntimeThemeOptions
     }
 
     /// <summary>
+    /// Gets or sets the sidebar brand background color.
+    /// </summary>
+    public string SidebarBrandBackgroundColor
+    {
+        get => Light.SidebarBrandBackgroundColor;
+        set
+        {
+            Light.SidebarBrandBackgroundColor = value;
+            Dark.SidebarBrandBackgroundColor = value;
+        }
+    }
+
+    /// <summary>
     /// Gets or sets the sidebar text color.
     /// </summary>
     public string SidebarTextColor
@@ -245,6 +258,7 @@ public sealed partial class KnOwlRuntimeThemeOptions
         var primaryColor = ResolveColor(palette.PrimaryColor, fallback.PrimaryColor);
         var primaryHoverColor = ResolveColor(palette.PrimaryHoverColor, fallback.PrimaryHoverColor);
         var sidebarBackgroundColor = ResolveColor(palette.SidebarBackgroundColor, fallback.SidebarBackgroundColor);
+        var sidebarBrandBackgroundColor = ResolveColor(palette.SidebarBrandBackgroundColor, sidebarBackgroundColor);
         var sidebarTextColor = ResolveColor(palette.SidebarTextColor, fallback.SidebarTextColor);
         var sidebarMutedTextColor = ResolveColor(palette.SidebarMutedTextColor, fallback.SidebarMutedTextColor);
         var contentBackgroundColor = ResolveColor(palette.ContentBackgroundColor, fallback.ContentBackgroundColor);
@@ -265,6 +279,7 @@ public sealed partial class KnOwlRuntimeThemeOptions
             CssVar("--knowl-primary", primaryColor),
             CssVar("--knowl-primary-hover", primaryHoverColor),
             CssVar("--knowl-sidebar-bg", sidebarBackgroundColor),
+            CssVar("--knowl-sidebar-brand-bg", sidebarBrandBackgroundColor),
             CssVar("--knowl-sidebar-text", sidebarTextColor),
             CssVar("--knowl-sidebar-muted", sidebarMutedTextColor),
             CssVar("--knowl-content-bg", contentBackgroundColor),
@@ -382,6 +397,9 @@ public sealed class KnOwlRuntimeThemePaletteOptions
 
     /// <summary>Gets or sets the sidebar background color.</summary>
     public string SidebarBackgroundColor { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the sidebar brand background color.</summary>
+    public string SidebarBrandBackgroundColor { get; set; } = string.Empty;
 
     /// <summary>Gets or sets the sidebar text color.</summary>
     public string SidebarTextColor { get; set; } = string.Empty;

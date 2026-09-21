@@ -72,4 +72,35 @@ public sealed class ThemeOptionsTests
         Assert.Contains("--knowl-primary: #2563eb;", css);
         Assert.Contains("--knowl-content-bg: #020617;", css);
     }
+
+    [Fact]
+    public void RuntimeThemeUsesSidebarColorForBrandWhenBrandColorIsNotConfigured()
+    {
+        var options = new KnOwl.Runtime.WebUI.KnOwlRuntimeThemeOptions
+        {
+            Mode = RuntimeThemeMode.Light,
+            SidebarBackgroundColor = "#0f2f5f"
+        };
+
+        var css = options.ToCssVariables();
+
+        Assert.Contains("--knowl-sidebar-bg: #0f2f5f;", css);
+        Assert.Contains("--knowl-sidebar-brand-bg: #0f2f5f;", css);
+    }
+
+    [Fact]
+    public void RuntimeThemeKeepsConfiguredSidebarBrandColor()
+    {
+        var options = new KnOwl.Runtime.WebUI.KnOwlRuntimeThemeOptions
+        {
+            Mode = RuntimeThemeMode.Light,
+            SidebarBackgroundColor = "#0f2f5f",
+            SidebarBrandBackgroundColor = "#0b2347"
+        };
+
+        var css = options.ToCssVariables();
+
+        Assert.Contains("--knowl-sidebar-bg: #0f2f5f;", css);
+        Assert.Contains("--knowl-sidebar-brand-bg: #0b2347;", css);
+    }
 }
