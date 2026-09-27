@@ -1,5 +1,10 @@
 # Changelog
 
+## [v2.2.1]
+
+- Updates ButterMorph dependencies to `2.0.0` for the Control Plane Web UI and bootstrap packages.
+- Validates the existing KnOwl ButterMorph adapter behavior against the new ButterMorph release.
+
 ## [v2.2.0]
 
 - Aligns the Runtime Web UI with the Control Plane shell, including collapsible sidebar navigation, card-based lists, overview content, search, and consistent English text.
