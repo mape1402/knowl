@@ -78,11 +78,22 @@ builder.Services.AddKnOwlControlPlane(builder.Configuration, options =>
         sql => sql.MigrationsAssembly(migrationsAssembly));
 
     options.Theme.Title = "My Contracts";
+    options.Theme.Mode = KnOwl.ControlPlane.WebUI.KnOwlThemeMode.Dark;
     options.Theme.IconImageUrl = "/img/company-icon.png";
-    options.Theme.PrimaryColor = "#2563eb";
-    options.Theme.PrimaryHoverColor = "#1d4ed8";
-    options.Theme.SidebarBackgroundColor = "#0f2a44";
-    options.Theme.SidebarBrandBackgroundColor = "#0b1f33";
+
+    options.Theme.Light.PrimaryColor = "#2563eb";
+    options.Theme.Light.PrimaryHoverColor = "#1d4ed8";
+    options.Theme.Light.SidebarBackgroundColor = "#0f2a44";
+    options.Theme.Light.SidebarBrandBackgroundColor = "#0b1f33";
+    options.Theme.Light.SidebarTextColor = "#ffffff";
+    options.Theme.Light.SidebarMutedTextColor = "#bfdbfe";
+
+    options.Theme.Dark.PrimaryColor = "#60a5fa";
+    options.Theme.Dark.PrimaryHoverColor = "#93c5fd";
+    options.Theme.Dark.SidebarBackgroundColor = "#0f172a";
+    options.Theme.Dark.SidebarBrandBackgroundColor = "#0b1220";
+    options.Theme.Dark.SidebarTextColor = "#f8fafc";
+    options.Theme.Dark.SidebarMutedTextColor = "#bfdbfe";
 });
 
 var app = builder.Build();
@@ -122,7 +133,7 @@ Control Plane list and detail screens include query-string search for contracts,
 
 The bootstrap package also maps the Control Plane REST API at `/api/v1/control-plane`.
 
-Theme configuration is optional. When omitted, the reusable Web UI uses KnOwl's default purple and white theme. Hosts can override the title, icon, and colors from `AddKnOwlControlPlane` without changing package assets.
+Theme configuration is optional. When omitted, the reusable Web UI uses KnOwl's default purple and white light palette plus its default dark palette. Hosts can override the title, icon, initial mode, and separate light/dark colors from `AddKnOwlControlPlane` without changing package assets.
 The Control Plane UI uses the same card-based navigation patterns across contracts, distribution, documentation, and administrative views so hosts get a complete management experience without rebuilding screens.
 
 To use a different EF Core provider, install that provider in the host and configure storage with that provider:
@@ -176,11 +187,22 @@ builder.Services.AddKnOwlRuntime(builder.Configuration, options =>
 
     options.Theme.Title = "My Runtime";
     options.Theme.Subtitle = "Contract cache";
+    options.Theme.Mode = KnOwl.Runtime.WebUI.KnOwlThemeMode.Dark;
     options.Theme.IconImageUrl = "/img/company-icon.png";
-    options.Theme.PrimaryColor = "#2563eb";
-    options.Theme.PrimaryHoverColor = "#1d4ed8";
-    options.Theme.SidebarBackgroundColor = "#0f2a44";
-    options.Theme.SidebarBrandBackgroundColor = "#0b1f33";
+
+    options.Theme.Light.PrimaryColor = "#2563eb";
+    options.Theme.Light.PrimaryHoverColor = "#1d4ed8";
+    options.Theme.Light.SidebarBackgroundColor = "#0f2a44";
+    options.Theme.Light.SidebarBrandBackgroundColor = "#0b1f33";
+    options.Theme.Light.SidebarTextColor = "#ffffff";
+    options.Theme.Light.SidebarMutedTextColor = "#bfdbfe";
+
+    options.Theme.Dark.PrimaryColor = "#60a5fa";
+    options.Theme.Dark.PrimaryHoverColor = "#93c5fd";
+    options.Theme.Dark.SidebarBackgroundColor = "#0f172a";
+    options.Theme.Dark.SidebarBrandBackgroundColor = "#0b1220";
+    options.Theme.Dark.SidebarTextColor = "#f8fafc";
+    options.Theme.Dark.SidebarMutedTextColor = "#bfdbfe";
 });
 
 var app = builder.Build();
@@ -224,8 +246,8 @@ dotnet ef database update --context KnOwlSecurityDbContext
 
 The bootstrap package also maps the Runtime REST API at `/api/v1/runtime`.
 
-Runtime theme configuration is optional and follows the same host-owned pattern as the Control Plane. Hosts can set the sidebar title, subtitle, icon, colors, and sidebar brand color directly on `options.Theme`.
-If `SidebarBrandBackgroundColor` is not set, the Runtime sidebar header falls back to `SidebarBackgroundColor` so the host theme remains consistent.
+Runtime theme configuration is optional and follows the same host-owned pattern as the Control Plane. Hosts can set the sidebar title, subtitle, icon, initial mode, and separate light/dark palettes directly on `options.Theme`.
+If `SidebarBrandBackgroundColor` is not set in a palette, the Runtime sidebar header falls back to that palette's `SidebarBackgroundColor` so the host theme remains consistent.
 The Runtime UI includes Control Plane-aligned navigation, searchable Control Plane connections, and artifact catalog filters for deployed contract caches.
 
 ### 3. Connect Runtime to Control Plane

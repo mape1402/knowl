@@ -4,6 +4,7 @@
 
 - Updates ButterMorph dependencies to `2.0.0` for the Control Plane Web UI and bootstrap packages.
 - Validates the existing KnOwl ButterMorph adapter behavior against the new ButterMorph release.
+- Updates the README with explicit light and dark theme configuration examples for Control Plane and Runtime hosts.
 
 ## [v2.2.0]
 
