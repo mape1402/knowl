@@ -57,35 +57,27 @@
     }
     else
     {
-        <div class="od-grid od-versions-grid">
+        <div class="documentation-card-grid documentation-version-grid">
             @foreach (var version in Model.Versions)
             {
                 var browseUrl = Model.Space is not null && Model.Topic is not null && Model.PageItem is not null
                     ? Url.Page("/Documentation/View", new { spaceKey = Model.Space.Key, topicKey = Model.Topic.Key, pageKey = Model.PageItem.Key, version = version.VersionNumber })
                     : null;
 
-                <article class="od-item-card od-version-card" data-open-url="@browseUrl">
-                    <div class="od-item-top">
-                        <div>
-                            <h2 class="od-item-title">@version.VersionNumber</h2>
-                            <p class="od-item-meta">@version.EntryPath</p>
+                <article class="documentation-card documentation-version-card" data-open-url="@browseUrl">
+                    <div class="documentation-card-top">
+                        <div class="documentation-card-title-block">
+                            <h2 class="documentation-card-title">@version.VersionNumber</h2>
+                            <p class="documentation-card-key">@version.EntryPath</p>
                         </div>
                         <span class="@VersionStatusClass(version.Status)">@version.Status</span>
                     </div>
-                    <div class="od-chip-row">
+                    <div class="documentation-chip-row">
                         <span class="od-meta-chip">@version.Assets.Count assets</span>
                         <span class="od-meta-chip">Hash @ShortHash(version.ContentHash)</span>
                     </div>
-                    <div class="od-card-footer">
-                        <span class="od-card-date">Uploaded @version.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
-                        @if (Model.Space is not null && Model.Topic is not null && Model.PageItem is not null)
-                        {
-                            <div class="event-list-actions">
-                                <a class="btn btn-secondary btn-sm" asp-page="/Documentation/View" asp-route-spaceKey="@Model.Space.Key" asp-route-topicKey="@Model.Topic.Key" asp-route-pageKey="@Model.PageItem.Key" asp-route-version="@version.VersionNumber">Browse</a>
-                                <a class="btn btn-secondary btn-sm" href="/docs/@Model.Space.Key/@Model.Topic.Key/@Model.PageItem.Key/@version.VersionNumber/source.md">MD</a>
-                                <a class="btn btn-secondary btn-sm" href="/docs/@Model.Space.Key/@Model.Topic.Key/@Model.PageItem.Key/@version.VersionNumber/package.zip">ZIP</a>
-                            </div>
-                        }
+                    <div class="documentation-card-footer">
+                        <span>Uploaded @version.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
                     </div>
                 </article>
             }

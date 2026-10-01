@@ -99,13 +99,21 @@ public static class KnOwlDocumentationEndpointRouteBuilderExtensions
     {
         var rendered = await docs.Render(spaceKey, topicKey, pageKey, version, cancellationToken);
         if (rendered is null) return Results.NotFound();
-        var html = $$"""
-        <!doctype html>
-        <html>
-        <head><meta charset="utf-8"><title>{{System.Net.WebUtility.HtmlEncode(pageKey)}}</title><style>body{font-family:system-ui;margin:2rem;max-width:920px}img{max-width:100%}.missing-doc-asset{color:#b00020}</style></head>
-        <body>{{rendered.Html}}</body>
-        </html>
-        """;
+        var toc = rendered.TableOfContents.Count < 2
+            ? string.Empty
+            : "<aside class=\"toc\"><strong>On this page</strong><nav>" +
+              string.Join(Environment.NewLine, rendered.TableOfContents.Select(item => $"<a class=\"level-{Math.Min(item.Level, 4)}\" href=\"#{System.Net.WebUtility.HtmlEncode(item.Id)}\">{System.Net.WebUtility.HtmlEncode(item.Title)}</a>")) +
+              "</nav></aside>";
+        const string styles = "body{font-family:system-ui;margin:2rem;color:#111827;background:#fff}.shell{display:grid;grid-template-columns:minmax(0,1fr)220px;gap:1.5rem;max-width:1180px}.toc{position:sticky;top:1rem;align-self:start;border:1px solid #d8dbe8;border-radius:8px;padding:.8rem}.toc a{display:block;color:#475569;padding:.25rem .2rem;text-decoration:none}.toc .level-3{padding-left:.8rem}.toc .level-4{padding-left:1.2rem}main{min-width:0}img{max-width:100%;height:auto}pre{background:#111827;color:#f8fafc;border-radius:8px;overflow:auto;padding:1rem}code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}table{border-collapse:collapse;display:block;overflow:auto}td,th{border:1px solid #d8dbe8;padding:.5rem .7rem}@media(max-width:800px){.shell{grid-template-columns:1fr}.toc{position:static;order:-1}}";
+        var html = "<!doctype html><html><head><meta charset=\"utf-8\"><title>" +
+            System.Net.WebUtility.HtmlEncode(pageKey) +
+            "</title><style>" +
+            styles +
+            "</style></head><body><div class=\"shell\"><main>" +
+            rendered.Html +
+            "</main>" +
+            toc +
+            "</div></body></html>";
         return Results.Content(html, "text/html");
     }
 

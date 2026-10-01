@@ -35,6 +35,46 @@
     });
 }());
 
+// ── Documentation table of contents ─────────────────────
+(function () {
+    const links = Array.from(document.querySelectorAll('.documentation-toc-link'));
+    if (!links.length) {
+        return;
+    }
+
+    const sections = links
+        .map(link => {
+            const id = decodeURIComponent((link.getAttribute('href') || '').replace(/^#/, ''));
+            return { link, heading: id ? document.getElementById(id) : null };
+        })
+        .filter(item => item.heading);
+
+    if (!sections.length) {
+        return;
+    }
+
+    const setActive = activeLink => {
+        links.forEach(link => link.classList.toggle('active', link === activeLink));
+    };
+
+    const observer = new IntersectionObserver(entries => {
+        const visible = entries
+            .filter(entry => entry.isIntersecting)
+            .sort((left, right) => left.boundingClientRect.top - right.boundingClientRect.top)[0];
+        if (!visible) {
+            return;
+        }
+
+        const active = sections.find(item => item.heading === visible.target);
+        if (active) {
+            setActive(active.link);
+        }
+    }, { rootMargin: '-18% 0px -72% 0px', threshold: 0.01 });
+
+    sections.forEach(item => observer.observe(item.heading));
+    setActive(sections[0].link);
+}());
+
 // ── History back buttons ─────────────────────────────────
 (function () {
     document.querySelectorAll('[data-history-back]').forEach(button => {

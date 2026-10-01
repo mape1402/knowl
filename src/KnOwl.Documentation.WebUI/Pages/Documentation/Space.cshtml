@@ -46,25 +46,24 @@
     }
     else
     {
-        <div class="od-grid od-documentation-grid">
+        <div class="documentation-card-grid">
             @foreach (var topic in Model.Topics)
             {
-                <article class="od-item-card" data-open-url="@Url.Page("/Documentation/Topic", new { id = topic.Id })">
-                    <div class="od-item-top">
-                        <div>
-                            <h2 class="od-item-title">@topic.Name</h2>
-                            <p class="od-item-meta">@topic.Key</p>
+                <article class="documentation-card" data-open-url="@Url.Page("/Documentation/Topic", new { id = topic.Id })">
+                    <div class="documentation-card-top">
+                        <div class="documentation-card-title-block">
+                            <h2 class="documentation-card-title">@topic.Name</h2>
+                            <p class="documentation-card-key">@topic.Key</p>
                         </div>
                         <span class="@StatusClass(topic.IsActive)">@(topic.IsActive ? "Active" : "Inactive")</span>
                     </div>
-                    <p class="od-item-description">@(string.IsNullOrWhiteSpace(topic.Description) ? "No description." : topic.Description)</p>
-                    <div class="od-card-footer">
-                        <span class="od-card-date">Created @topic.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
-                        <a class="btn btn-secondary btn-sm" asp-page="/Documentation/Topic" asp-route-id="@topic.Id">Open</a>
+                    <p class="documentation-card-description">@(string.IsNullOrWhiteSpace(topic.Description) ? "No description." : topic.Description)</p>
+                    <div class="documentation-card-footer">
+                        <span>Created @topic.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
                     </div>
                 </article>
             }
-            </div>
+        </div>
     }
 </section>
 

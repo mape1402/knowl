@@ -25,7 +25,7 @@ public sealed class DocumentationApiEndpointTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var html = await response.Content.ReadAsStringAsync();
-        Assert.Contains("<h1>Setup</h1>", html);
+        Assert.Contains("<h1 id=\"setup\">Setup</h1>", html);
     }
 
     [Fact]
@@ -161,7 +161,12 @@ public sealed class DocumentationApiEndpointTests
             => Task.CompletedTask;
 
         public Task<RenderedDocumentation?> Render(string spaceKey, string topicKey, string pageKey, string? versionNumber, CancellationToken cancellationToken = default)
-            => Task.FromResult<RenderedDocumentation?>(new RenderedDocumentation(version, source, "# Setup", "<h1>Setup</h1>"));
+            => Task.FromResult<RenderedDocumentation?>(new RenderedDocumentation(
+                version,
+                source,
+                "# Setup",
+                "<h1 id=\"setup\">Setup</h1>",
+                [new DocumentationTableOfContentsItem("setup", "Setup", 1)]));
 
         public Task<DocumentationAsset?> GetAsset(Guid assetId, CancellationToken cancellationToken = default)
             => Task.FromResult<DocumentationAsset?>(assetId == source.Id ? source : null);

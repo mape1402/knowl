@@ -18,9 +18,11 @@ public sealed class DocumentationWebUiMarkupTests
         {
             var markup = File.ReadAllText(Path.Combine(pagesPath, page));
 
-            Assert.Contains("od-grid od-documentation-grid", markup);
-            Assert.Contains("od-item-card", markup);
+            Assert.Contains("documentation-card-grid", markup);
+            Assert.Contains("documentation-card", markup);
             Assert.Contains("data-open-url", markup);
+            Assert.DoesNotContain("od-grid od-documentation-grid", markup);
+            Assert.DoesNotContain("od-item-card", markup);
             Assert.DoesNotContain("event-list-card", markup);
             Assert.DoesNotContain("compact-contract-list", markup);
             Assert.DoesNotContain("platform-card", markup);
@@ -32,12 +34,30 @@ public sealed class DocumentationWebUiMarkupTests
     {
         var markup = File.ReadAllText(Path.Combine(GetDocumentationPagesPath(), "Page.cshtml"));
 
-        Assert.Contains("od-grid od-versions-grid", markup);
-        Assert.Contains("od-item-card od-version-card", markup);
+        Assert.Contains("documentation-card-grid documentation-version-grid", markup);
+        Assert.Contains("documentation-card documentation-version-card", markup);
         Assert.Contains("data-open-url", markup);
+        Assert.DoesNotContain("od-grid od-versions-grid", markup);
+        Assert.DoesNotContain("od-item-card od-version-card", markup);
         Assert.DoesNotContain("event-list-card", markup);
         Assert.DoesNotContain("compact-contract-list", markup);
         Assert.DoesNotContain("platform-card", markup);
+    }
+
+    [Fact]
+    public void DocumentationCardsDoNotRenderRedundantOpenButtons()
+    {
+        var pagesPath = GetDocumentationPagesPath();
+        var cardPages = CollectionPages.Append("Page.cshtml");
+
+        foreach (var page in cardPages)
+        {
+            var markup = File.ReadAllText(Path.Combine(pagesPath, page));
+
+            Assert.DoesNotContain(">Open<", markup);
+            Assert.DoesNotContain(">Browse<", markup);
+            Assert.DoesNotContain(">Versions<", markup);
+        }
     }
 
     [Fact]
@@ -47,6 +67,8 @@ public sealed class DocumentationWebUiMarkupTests
 
         Assert.Contains("od-panel", markup);
         Assert.Contains("documentation-reader", markup);
+        Assert.Contains("documentation-toc", markup);
+        Assert.Contains("documentation-toc-link", markup);
         Assert.Contains("data-history-back", markup);
         Assert.DoesNotContain("asp-page=\"/Documentation/Page\"", markup);
         Assert.DoesNotContain("platform-card", markup);
