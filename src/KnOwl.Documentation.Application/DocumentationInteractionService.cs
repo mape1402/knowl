@@ -1,10 +1,16 @@
 using System.IO.Compression;
-using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using KnOwl.Documentation;
 using KnOwl.Documentation.Storage;
+using Markdig;
+using Markdig.Extensions.AutoIdentifiers;
+using Markdig.Helpers;
+using Markdig.Renderers;
+using Markdig.Renderers.Html;
+using Markdig.Syntax;
+using Markdig.Syntax.Inlines;
 using Microsoft.Extensions.Options;
 
 namespace KnOwl.Documentation.Application;
@@ -16,6 +22,12 @@ public sealed class DocumentationInteractionService(
     IOptions<DocumentationOptions> options) : IDocumentationInteractionService
 {
     private static readonly Regex SemanticVersion = new(@"^\d+\.\d+\.\d+$", RegexOptions.Compiled);
+    private static readonly Regex SlugInvalidCharacters = new(@"[^a-z0-9\-\._ ]+", RegexOptions.Compiled);
+    private static readonly MarkdownPipeline MarkdownPipeline = new MarkdownPipelineBuilder()
+        .UseAdvancedExtensions()
+        .DisableHtml()
+        .UseAutoIdentifiers(AutoIdentifierOptions.GitHub)
+        .Build();
     private readonly DocumentationOptions optionsValue = options.Value;
 
     public Task<IReadOnlyList<DocumentationSpace>> GetSpaces(CancellationToken cancellationToken = default)
@@ -137,8 +149,8 @@ public sealed class DocumentationInteractionService(
         using var stream = await contentStore.Open(source.StorageKey, cancellationToken);
         using StreamReader reader = new(stream, Encoding.UTF8);
         var markdown = await reader.ReadToEndAsync(cancellationToken);
-        var html = RenderMarkdown(markdown, version);
-        return new RenderedDocumentation(version, source, markdown, html);
+        var rendered = RenderMarkdown(markdown, version);
+        return new RenderedDocumentation(version, source, markdown, rendered.Html, rendered.TableOfContents);
     }
 
     public Task<DocumentationAsset?> GetAsset(Guid assetId, CancellationToken cancellationToken = default)
@@ -196,7 +208,8 @@ public sealed class DocumentationInteractionService(
         using var stream = await contentStore.Open(source.StorageKey, cancellationToken);
         using StreamReader reader = new(stream, Encoding.UTF8);
         var markdown = await reader.ReadToEndAsync(cancellationToken);
-        return new RenderedDocumentation(version, source, markdown, RenderMarkdown(markdown, version));
+        var rendered = RenderMarkdown(markdown, version);
+        return new RenderedDocumentation(version, source, markdown, rendered.Html, rendered.TableOfContents);
     }
 
     private async Task SaveAsset(Guid versionId, string logicalPath, string fileName, string contentType, byte[] content, DocAssetKind kind, CancellationToken cancellationToken)
@@ -253,51 +266,127 @@ public sealed class DocumentationInteractionService(
         return (selectedEntry, files);
     }
 
-    private string RenderMarkdown(string markdown, DocumentationPageVersion version)
+    private static (string Html, IReadOnlyList<DocumentationTableOfContentsItem> TableOfContents) RenderMarkdown(string markdown, DocumentationPageVersion version)
     {
-        StringBuilder html = new();
-        foreach (var line in markdown.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+        var document = Markdown.Parse(markdown, MarkdownPipeline);
+        var tableOfContents = BuildTableOfContents(document);
+        using StringWriter writer = new();
+        HtmlRenderer renderer = new(writer) { LinkRewriter = target => ResolveAssetUrl(version, target) };
+        MarkdownPipeline.Setup(renderer);
+        renderer.Render(document);
+        writer.Flush();
+        return (writer.ToString(), tableOfContents);
+    }
+
+    private static IReadOnlyList<DocumentationTableOfContentsItem> BuildTableOfContents(MarkdownDocument document)
+    {
+        List<DocumentationTableOfContentsItem> items = [];
+        Dictionary<string, int> usedIds = new(StringComparer.OrdinalIgnoreCase);
+        foreach (var heading in document.Descendants<HeadingBlock>())
         {
-            var trimmed = line.Trim();
-            if (string.IsNullOrWhiteSpace(trimmed))
+            var title = ExtractText(heading.Inline).Trim();
+            if (string.IsNullOrWhiteSpace(title))
             {
                 continue;
             }
 
-            var encoded = WebUtility.HtmlEncode(trimmed);
-            encoded = Regex.Replace(encoded, @"!\[([^\]]*)\]\(([^)]+)\)", m => ResolveAsset(version, m.Groups[1].Value, m.Groups[2].Value, image: true));
-            encoded = Regex.Replace(encoded, @"\[([^\]]+)\]\(([^)]+)\)", m => ResolveAsset(version, m.Groups[1].Value, m.Groups[2].Value, image: false));
-
-            if (trimmed.StartsWith("# ", StringComparison.Ordinal)) html.Append("<h1>").Append(encoded[2..]).AppendLine("</h1>");
-            else if (trimmed.StartsWith("## ", StringComparison.Ordinal)) html.Append("<h2>").Append(encoded[3..]).AppendLine("</h2>");
-            else if (trimmed.StartsWith("### ", StringComparison.Ordinal)) html.Append("<h3>").Append(encoded[4..]).AppendLine("</h3>");
-            else if (trimmed.StartsWith("- ", StringComparison.Ordinal)) html.Append("<ul><li>").Append(encoded[2..]).AppendLine("</li></ul>");
-            else html.Append("<p>").Append(encoded).AppendLine("</p>");
+            var attributes = heading.GetAttributes();
+            var id = string.IsNullOrWhiteSpace(attributes.Id)
+                ? UniqueSlug(title, usedIds)
+                : UniqueSlug(attributes.Id, usedIds);
+            attributes.Id = id;
+            items.Add(new DocumentationTableOfContentsItem(id, title, heading.Level));
         }
 
-        return html.ToString();
+        return items;
     }
 
-    private static string ResolveAsset(DocumentationPageVersion version, string label, string target, bool image)
+    private static string ExtractText(ContainerInline? inline)
     {
-        if (Uri.TryCreate(target, UriKind.Absolute, out var uri) && (uri.Scheme == "http" || uri.Scheme == "https"))
+        if (inline is null)
         {
-            return image
-                ? $"<img src=\"{WebUtility.HtmlEncode(target)}\" alt=\"{WebUtility.HtmlEncode(label)}\" />"
-                : $"<a href=\"{WebUtility.HtmlEncode(target)}\">{WebUtility.HtmlEncode(label)}</a>";
+            return string.Empty;
         }
 
+        StringBuilder text = new();
+        foreach (var child in inline)
+        {
+            AppendInlineText(text, child);
+        }
+
+        return text.ToString();
+    }
+
+    private static void AppendInlineText(StringBuilder text, Inline inline)
+    {
+        switch (inline)
+        {
+            case LiteralInline literal:
+                text.Append(literal.Content.ToString());
+                break;
+            case CodeInline code:
+                text.Append(code.Content);
+                break;
+            case ContainerInline container:
+                foreach (var child in container)
+                {
+                    AppendInlineText(text, child);
+                }
+
+                break;
+        }
+    }
+
+    private static string UniqueSlug(string value, IDictionary<string, int> usedIds)
+    {
+        var slug = SlugInvalidCharacters.Replace(value.Trim().ToLowerInvariant(), string.Empty);
+        slug = Regex.Replace(slug, @"[\s_\.]+", "-", RegexOptions.None, TimeSpan.FromSeconds(1)).Trim('-');
+        if (string.IsNullOrWhiteSpace(slug))
+        {
+            slug = "section";
+        }
+
+        if (!usedIds.TryGetValue(slug, out var count))
+        {
+            usedIds[slug] = 1;
+            return slug;
+        }
+
+        usedIds[slug] = count + 1;
+        return $"{slug}-{count + 1}";
+    }
+
+    private static string ResolveAssetUrl(DocumentationPageVersion version, string target)
+    {
+        if (string.IsNullOrWhiteSpace(target) ||
+            target.StartsWith("#", StringComparison.Ordinal) ||
+            Uri.TryCreate(target, UriKind.Absolute, out _))
+        {
+            return target;
+        }
+
+        var targetWithoutFragment = SplitAssetTarget(target, out var suffix);
         var source = version.Assets.FirstOrDefault(x => x.Kind == DocAssetKind.SourceMarkdown)?.LogicalPath ?? version.EntryPath;
-        var logical = DocumentationPath.CombineRelative(source, target);
+        var logical = DocumentationPath.CombineRelative(source, targetWithoutFragment);
         var asset = version.Assets.FirstOrDefault(x => string.Equals(x.LogicalPath, logical, StringComparison.OrdinalIgnoreCase));
-        if (asset is null)
+        return asset is null ? target : $"/docs/assets/{asset.Id}{suffix}";
+    }
+
+    private static string SplitAssetTarget(string target, out string suffix)
+    {
+        var hashIndex = target.IndexOf('#', StringComparison.Ordinal);
+        var queryIndex = target.IndexOf('?', StringComparison.Ordinal);
+        var splitIndex = hashIndex >= 0 && queryIndex >= 0
+            ? Math.Min(hashIndex, queryIndex)
+            : Math.Max(hashIndex, queryIndex);
+        if (splitIndex < 0)
         {
-            return $"<span class=\"missing-doc-asset\">{WebUtility.HtmlEncode(label)} ({WebUtility.HtmlEncode(target)} missing)</span>";
+            suffix = string.Empty;
+            return target;
         }
 
-        return image
-            ? $"<img src=\"/docs/assets/{asset.Id}\" alt=\"{WebUtility.HtmlEncode(label)}\" />"
-            : $"<a href=\"/docs/assets/{asset.Id}\">{WebUtility.HtmlEncode(label)}</a>";
+        suffix = target[splitIndex..];
+        return target[..splitIndex];
     }
 
     private static bool IsInlineResource(string contentType)

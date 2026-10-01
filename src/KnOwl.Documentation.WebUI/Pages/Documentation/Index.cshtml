@@ -40,25 +40,24 @@
     }
     else
     {
-        <div class="od-grid od-documentation-grid">
+        <div class="documentation-card-grid">
             @foreach (var space in Model.Spaces)
             {
-                <article class="od-item-card" data-open-url="@Url.Page("/Documentation/Space", new { id = space.Id })">
-                    <div class="od-item-top">
-                        <div>
-                            <h2 class="od-item-title">@space.Name</h2>
-                            <p class="od-item-meta">@space.Key</p>
+                <article class="documentation-card" data-open-url="@Url.Page("/Documentation/Space", new { id = space.Id })">
+                    <div class="documentation-card-top">
+                        <div class="documentation-card-title-block">
+                            <h2 class="documentation-card-title">@space.Name</h2>
+                            <p class="documentation-card-key">@space.Key</p>
                         </div>
                         <span class="@StatusClass(space.IsActive)">@(space.IsActive ? "Active" : "Inactive")</span>
                     </div>
-                    <p class="od-item-description">@(string.IsNullOrWhiteSpace(space.Description) ? "No description." : space.Description)</p>
-                    <div class="od-card-footer">
-                        <span class="od-card-date">Created @space.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
-                        <a class="btn btn-secondary btn-sm" asp-page="/Documentation/Space" asp-route-id="@space.Id">Open</a>
+                    <p class="documentation-card-description">@(string.IsNullOrWhiteSpace(space.Description) ? "No description." : space.Description)</p>
+                    <div class="documentation-card-footer">
+                        <span>Created @space.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
                     </div>
                 </article>
             }
-            </div>
+        </div>
     }
 </section>
 

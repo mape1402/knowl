@@ -49,31 +49,24 @@
     }
     else
     {
-        <div class="od-grid od-documentation-grid">
+        <div class="documentation-card-grid">
             @foreach (var docPage in Model.Pages)
             {
                 var browseUrl = Model.Space is not null && Model.Topic is not null
                     ? Url.Page("/Documentation/View", new { spaceKey = Model.Space.Key, topicKey = Model.Topic.Key, pageKey = docPage.Key })
                     : Url.Page("/Documentation/Page", new { id = docPage.Id });
 
-                <article class="od-item-card" data-open-url="@browseUrl">
-                    <div class="od-item-top">
-                        <div>
-                            <h2 class="od-item-title">@docPage.Title</h2>
-                            <p class="od-item-meta">@docPage.Key</p>
+                <article class="documentation-card" data-open-url="@browseUrl">
+                    <div class="documentation-card-top">
+                        <div class="documentation-card-title-block">
+                            <h2 class="documentation-card-title">@docPage.Title</h2>
+                            <p class="documentation-card-key">@docPage.Key</p>
                         </div>
                         <span class="@StatusClass(docPage.IsActive)">@(docPage.IsActive ? "Active" : "Inactive")</span>
                     </div>
-                    <p class="od-item-description">@(string.IsNullOrWhiteSpace(docPage.Description) ? "No description." : docPage.Description)</p>
-                    <div class="od-card-footer">
-                        <span class="od-card-date">Created @docPage.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
-                        <div class="event-list-actions">
-                            <a class="btn btn-secondary btn-sm" asp-page="/Documentation/Page" asp-route-id="@docPage.Id">Versions</a>
-                            @if (Model.Space is not null && Model.Topic is not null)
-                            {
-                                <a class="btn btn-secondary btn-sm" asp-page="/Documentation/View" asp-route-spaceKey="@Model.Space.Key" asp-route-topicKey="@Model.Topic.Key" asp-route-pageKey="@docPage.Key">Browse</a>
-                            }
-                        </div>
+                    <p class="documentation-card-description">@(string.IsNullOrWhiteSpace(docPage.Description) ? "No description." : docPage.Description)</p>
+                    <div class="documentation-card-footer">
+                        <span>Created @docPage.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
                     </div>
                 </article>
             }

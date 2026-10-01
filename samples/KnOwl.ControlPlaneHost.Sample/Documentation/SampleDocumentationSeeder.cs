@@ -22,7 +22,7 @@ internal static class SampleDocumentationSeeder
         var topic = await documentation.UpsertTopic(space.Key, "getting-started", "Getting Started", "Introductory pages for KnOwl documentation.", true);
         var page = await documentation.UpsertPage(space.Key, topic.Key, "control-plane", "Control Plane Guide", "Sample Markdown page with linked assets.", true);
 
-        if (await documentation.Render(space.Key, topic.Key, page.Key, "1.0.0") is not null)
+        if (await documentation.Render(space.Key, topic.Key, page.Key, "1.0.2") is not null)
         {
             return;
         }
@@ -31,7 +31,7 @@ internal static class SampleDocumentationSeeder
         var version = await documentation.ImportVersion(
             new DocumentationVersionInput(
                 page.Id,
-                "1.0.0",
+                "1.0.2",
                 "knowl-control-plane-docs.zip",
                 "application/zip",
                 package,
@@ -55,12 +55,30 @@ internal static class SampleDocumentationSeeder
 
                 ![KnOwl documentation flow](assets/flow.svg)
 
+                ## Package structure
+
+                Upload documentation as a ZIP package with a Markdown entry file and relative assets.
+
+                | Path | Purpose |
+                | --- | --- |
+                | `docs/index.md` | Main Markdown entry file. |
+                | `docs/assets/flow.svg` | Inline image resolved by KnOwl. |
+
+                ## Example
+
+                ```csharp
+                services.AddKnOwlControlPlane(configuration, options =>
+                {
+                    options.Theme.Title = "Sample KnOwl";
+                    options.Theme.Mode = KnOwlThemeMode.Dark;
+                });
+                ```
+
                 ## What you can test
 
                 - Browse this page as HTML.
                 - Download the original Markdown.
                 - Download the original ZIP package.
-                - Download the generated PDF.
 
                 [Open the KnOwl repository](https://github.com/mape1402/knowl)
                 """);
@@ -83,7 +101,7 @@ internal static class SampleDocumentationSeeder
                   <text x="379" y="104" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="18" font-weight="700">Topic</text>
                   <text x="379" y="128" text-anchor="middle" fill="#dbeafe" font-family="Arial, sans-serif" font-size="13">Getting Started</text>
                   <text x="641" y="104" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="18" font-weight="700">Page</text>
-                  <text x="641" y="128" text-anchor="middle" fill="#ede9fe" font-family="Arial, sans-serif" font-size="13">Version 1.0.0</text>
+                  <text x="641" y="128" text-anchor="middle" fill="#ede9fe" font-family="Arial, sans-serif" font-size="13">Version 1.0.2</text>
                 </svg>
                 """);
         }

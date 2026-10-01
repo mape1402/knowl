@@ -24,8 +24,9 @@ public sealed class DocumentationInteractionServiceTests
 
         Assert.NotNull(rendered);
         Assert.Equal("1.0.0", rendered.Version.VersionNumber);
-        Assert.Contains("<h1>Runbook</h1>", rendered.Html);
+        Assert.Contains("<h1 id=\"runbook\">Runbook</h1>", rendered.Html);
         Assert.Contains("https://example.test", rendered.Html);
+        Assert.Contains(rendered.TableOfContents, x => x.Id == "runbook" && x.Title == "Runbook");
     }
 
     [Fact]
@@ -45,6 +46,31 @@ public sealed class DocumentationInteractionServiceTests
         Assert.NotNull(rendered);
         Assert.Contains("/docs/assets/", rendered.Html);
         Assert.Equal("docs.zip", sourcePackage.FileName);
+    }
+
+    [Fact]
+    public async Task RenderSupportsRichMarkdownCodeBlocksAndTableOfContents()
+    {
+        var service = CreateService(out _);
+        var space = await service.UpsertSpace("platform", "Platform", null, true);
+        var topic = await service.UpsertTopic(space.Key, "guides", "Guides", null, true);
+        var page = await service.UpsertPage(space.Key, topic.Key, "setup", "Setup", null, true);
+        await using var package = CreateRichMarkdownPackage();
+
+        var version = await service.ImportVersion(new DocumentationVersionInput(page.Id, "2.0.0", "rich-docs.zip", "application/zip", package, "docs/index.md"));
+        await service.PublishVersion(version.Id);
+        var rendered = await service.Render(space.Key, topic.Key, page.Key, "2.0.0");
+
+        Assert.NotNull(rendered);
+        Assert.Contains("<pre><code class=\"language-csharp\">", rendered.Html);
+        Assert.Contains("public sealed class Demo", rendered.Html);
+        Assert.Contains("<code>inline</code>", rendered.Html);
+        Assert.Contains("<table>", rendered.Html);
+        Assert.Contains("/docs/assets/", rendered.Html);
+        Assert.DoesNotContain("assets/diagram.png", rendered.Html);
+        Assert.Contains(rendered.TableOfContents, x => x.Title == "Overview" && x.Id == "overview");
+        Assert.Equal(2, rendered.TableOfContents.Count(x => x.Title == "Configuration"));
+        Assert.Equal(2, rendered.TableOfContents.Select(x => x.Id).Where(x => x.StartsWith("configuration", StringComparison.Ordinal)).Distinct().Count());
     }
 
     [Fact]
@@ -82,6 +108,50 @@ public sealed class DocumentationInteractionServiceTests
             }
 
             var image = zip.CreateEntry("docs/images/logo.png");
+            using var stream = image.Open();
+            stream.Write([0x89, 0x50, 0x4E, 0x47]);
+        }
+
+        output.Position = 0;
+        return output;
+    }
+
+    private static MemoryStream CreateRichMarkdownPackage()
+    {
+        MemoryStream output = new();
+        using (ZipArchive zip = new(output, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            var markdown = zip.CreateEntry("docs/index.md");
+            using (var writer = new StreamWriter(markdown.Open(), Encoding.UTF8))
+            {
+                writer.Write(
+                    """
+                    # Overview
+
+                    This has `inline` code and a relative image.
+
+                    ![Diagram](assets/diagram.png)
+
+                    ## Configuration
+
+                    ```csharp
+                    public sealed class Demo
+                    {
+                        public string Name { get; init; } = "KnOwl";
+                    }
+                    ```
+
+                    | Name | Value |
+                    | --- | --- |
+                    | Mode | Dark |
+
+                    ## Configuration
+
+                    Repeated headings must have stable unique anchors.
+                    """);
+            }
+
+            var image = zip.CreateEntry("docs/assets/diagram.png");
             using var stream = image.Open();
             stream.Write([0x89, 0x50, 0x4E, 0x47]);
         }

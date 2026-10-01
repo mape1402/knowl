@@ -2251,6 +2251,323 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
     font-weight: 600;
 }
 
+.documentation-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 300px));
+    align-items: start;
+    gap: 0.75rem;
+    width: 100%;
+}
+
+.documentation-version-grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 260px));
+}
+
+.documentation-card {
+    background: var(--knowl-surface, #ffffff);
+    border: 1px solid var(--knowl-border, #e2e3ef);
+    border-top: 2px solid color-mix(in srgb, var(--knowl-primary, #7c3aed) 55%, var(--knowl-border, #e2e3ef));
+    border-radius: 8px;
+    color: var(--knowl-text, #1f1433);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 0;
+    padding: 0.72rem 0.78rem 0.68rem;
+    transition: border-color 0.14s ease, box-shadow 0.14s ease, transform 0.12s ease;
+}
+
+.documentation-card:hover {
+    border-color: color-mix(in srgb, var(--knowl-primary, #7c3aed) 38%, var(--knowl-border, #e2e3ef));
+    box-shadow: 0 10px 22px color-mix(in srgb, #111827 10%, transparent);
+    transform: translateY(-2px);
+}
+
+.documentation-card-top,
+.documentation-card-footer {
+    align-items: flex-start;
+    display: flex;
+    gap: 0.65rem;
+    justify-content: space-between;
+    min-width: 0;
+}
+
+.documentation-card-title-block {
+    min-width: 0;
+}
+
+.documentation-card-title {
+    color: var(--knowl-text, #1f1433);
+    display: -webkit-box;
+    font-size: 0.95rem;
+    font-weight: 650;
+    line-height: 1.22;
+    margin: 0;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.documentation-card-key {
+    color: var(--knowl-muted-text, #6b6e8c);
+    font-size: 0.8rem;
+    line-height: 1.35;
+    margin: 0.18rem 0 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.documentation-card-description {
+    color: var(--knowl-muted-text, #6b6e8c);
+    display: -webkit-box;
+    font-size: 0.8rem;
+    line-height: 1.35;
+    margin: 0;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.documentation-card-footer {
+    align-items: center;
+    border-top: 1px solid color-mix(in srgb, var(--knowl-border, #e2e3ef) 72%, transparent);
+    color: var(--knowl-muted-text, #6b6e8c);
+    font-size: 0.73rem;
+    font-weight: 600;
+    padding-top: 0.48rem;
+}
+
+.documentation-card-footer > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.documentation-card-actions,
+.documentation-chip-row {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.documentation-render-panel {
+    padding: 0;
+    overflow: visible;
+}
+
+.documentation-reader-layout {
+    align-items: start;
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 1.15rem;
+}
+
+.documentation-reader-layout.has-toc {
+    grid-template-columns: minmax(0, 1fr) minmax(210px, 240px);
+}
+
+.documentation-reader {
+    color: var(--knowl-text, #1f1433);
+    font-size: 0.96rem;
+    line-height: 1.7;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.documentation-reader > :first-child {
+    margin-top: 0;
+}
+
+.documentation-reader h1,
+.documentation-reader h2,
+.documentation-reader h3,
+.documentation-reader h4,
+.documentation-reader h5,
+.documentation-reader h6 {
+    color: var(--knowl-text, #1f1433);
+    font-weight: 700;
+    line-height: 1.25;
+    margin: 1.45rem 0 0.65rem;
+    scroll-margin-top: 5.5rem;
+}
+
+.documentation-reader h1 {
+    font-size: 1.7rem;
+}
+
+.documentation-reader h2 {
+    border-bottom: 1px solid var(--knowl-border, #e2e3ef);
+    font-size: 1.28rem;
+    padding-bottom: 0.35rem;
+}
+
+.documentation-reader h3 {
+    font-size: 1.08rem;
+}
+
+.documentation-reader p,
+.documentation-reader ul,
+.documentation-reader ol,
+.documentation-reader blockquote,
+.documentation-reader table,
+.documentation-reader pre {
+    margin-bottom: 1rem;
+}
+
+.documentation-reader ul,
+.documentation-reader ol {
+    padding-left: 1.35rem;
+}
+
+.documentation-reader li + li {
+    margin-top: 0.25rem;
+}
+
+.documentation-reader a {
+    color: var(--knowl-primary, #7c3aed);
+    font-weight: 650;
+    text-decoration: none;
+}
+
+.documentation-reader a:hover,
+.documentation-reader a:focus {
+    text-decoration: underline;
+}
+
+.documentation-reader img {
+    background: var(--knowl-subtle-bg, #f1f3fb);
+    border: 1px solid var(--knowl-border, #e2e3ef);
+    border-radius: 8px;
+    display: block;
+    height: auto;
+    margin: 1rem 0;
+    max-width: 100%;
+}
+
+.documentation-reader blockquote {
+    background: color-mix(in srgb, var(--knowl-primary, #7c3aed) 8%, var(--knowl-surface, #ffffff));
+    border-left: 4px solid var(--knowl-primary, #7c3aed);
+    border-radius: 0 8px 8px 0;
+    color: var(--knowl-muted-text, #6b6e8c);
+    padding: 0.8rem 1rem;
+}
+
+.documentation-reader :not(pre) > code {
+    background: color-mix(in srgb, var(--knowl-primary, #7c3aed) 9%, var(--knowl-surface, #ffffff));
+    border: 1px solid color-mix(in srgb, var(--knowl-primary, #7c3aed) 18%, var(--knowl-border, #e2e3ef));
+    border-radius: 5px;
+    color: var(--knowl-text, #1f1433);
+    font-size: 0.88em;
+    padding: 0.08rem 0.28rem;
+}
+
+.documentation-reader pre {
+    background: var(--knowl-code-bg, #141428);
+    border: 1px solid var(--knowl-border, #e2e3ef);
+    border-radius: 8px;
+    color: var(--knowl-code-text, #e9ebff);
+    overflow-x: auto;
+    padding: 0.9rem 1rem;
+}
+
+.documentation-reader pre code {
+    background: transparent;
+    border: 0;
+    color: inherit;
+    display: block;
+    font-size: 0.86rem;
+    line-height: 1.55;
+    padding: 0;
+    white-space: pre;
+}
+
+.documentation-reader table {
+    border-collapse: collapse;
+    display: block;
+    overflow-x: auto;
+    width: 100%;
+}
+
+.documentation-reader th,
+.documentation-reader td {
+    border: 1px solid var(--knowl-border, #e2e3ef);
+    padding: 0.55rem 0.7rem;
+    text-align: left;
+}
+
+.documentation-reader th {
+    background: var(--knowl-subtle-bg, #f1f3fb);
+    color: var(--knowl-text, #1f1433);
+    font-weight: 700;
+}
+
+.documentation-toc {
+    align-self: start;
+    background: color-mix(in srgb, var(--knowl-surface, #ffffff) 94%, var(--knowl-primary, #7c3aed));
+    border: 1px solid var(--knowl-border, #e2e3ef);
+    border-radius: 8px;
+    max-height: calc(100vh - 6.5rem);
+    min-width: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 0.72rem;
+    position: sticky;
+    top: 4.75rem;
+}
+
+.documentation-toc-title {
+    color: var(--knowl-text, #1f1433);
+    font-size: 0.78rem;
+    font-weight: 750;
+    letter-spacing: 0;
+    margin: 0 0 0.45rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.documentation-toc nav {
+    display: grid;
+    gap: 0.18rem;
+    min-width: 0;
+}
+
+.documentation-toc-link {
+    border-left: 2px solid transparent;
+    color: var(--knowl-muted-text, #6b6e8c);
+    display: block;
+    font-size: 0.8rem;
+    line-height: 1.35;
+    min-width: 0;
+    overflow: hidden;
+    padding: 0.26rem 0.35rem;
+    text-decoration: none;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.documentation-toc-link:hover,
+.documentation-toc-link:focus,
+.documentation-toc-link.active {
+    border-left-color: var(--knowl-primary, #7c3aed);
+    color: var(--knowl-text, #1f1433);
+    text-decoration: none;
+}
+
+.documentation-toc-level-3 {
+    padding-left: 0.85rem;
+}
+
+.documentation-toc-level-4 {
+    padding-left: 1.25rem;
+}
+
 .od-status {
     display: inline-flex;
     align-items: center;
@@ -2882,6 +3199,35 @@ textarea.font-monospace[readonly] {
         border-bottom: 1px solid var(--knowl-border, #e2e3ef);
         padding-right: 0;
         padding-bottom: 0.75rem;
+    }
+
+    .documentation-card-grid,
+    .documentation-version-grid,
+    .documentation-reader-layout,
+    .documentation-reader-layout.has-toc {
+        grid-template-columns: 1fr;
+    }
+
+    .documentation-card-footer {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .documentation-toc {
+        order: -1;
+        position: static;
+    }
+
+    .documentation-reader-layout {
+        padding: 1rem;
+    }
+
+    .documentation-reader h1 {
+        font-size: 1.45rem;
+    }
+
+    .documentation-reader h2 {
+        font-size: 1.16rem;
     }
 }
 
