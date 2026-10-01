@@ -62,7 +62,17 @@
                             <h2 class="documentation-card-title">@docPage.Title</h2>
                             <p class="documentation-card-key">@docPage.Key</p>
                         </div>
-                        <span class="@StatusClass(docPage.IsActive)">@(docPage.IsActive ? "Active" : "Inactive")</span>
+                        <div class="d-flex align-items-start gap-2">
+                            <span class="@StatusClass(docPage.IsActive)">@(docPage.IsActive ? "Active" : "Inactive")</span>
+                            <div class="dropdown">
+                                <button class="od-kebab" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Page actions">&#8942;</button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li>
+                                        <a class="dropdown-item" asp-page="/Documentation/Page" asp-route-id="@docPage.Id">Versions</a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                     <p class="documentation-card-description">@(string.IsNullOrWhiteSpace(docPage.Description) ? "No description." : docPage.Description)</p>
                     <div class="documentation-card-footer">

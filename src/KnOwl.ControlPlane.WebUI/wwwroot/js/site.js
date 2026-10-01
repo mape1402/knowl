@@ -75,6 +75,61 @@
     setActive(sections[0].link);
 }());
 
+// ── Documentation focus mode ────────────────────────────
+(function () {
+    const shell = document.querySelector('.app-shell');
+    const panel = document.querySelector('.documentation-render-panel');
+    const toggles = Array.from(document.querySelectorAll('[data-documentation-focus-toggle]'));
+    const exits = Array.from(document.querySelectorAll('[data-documentation-focus-exit]'));
+
+    if (!shell || !panel || (!toggles.length && !exits.length)) {
+        return;
+    }
+
+    const reader = panel.querySelector('.documentation-reader');
+    const setToggleState = enabled => {
+        toggles.forEach(button => {
+            const icon = button.querySelector('i');
+            const label = button.querySelector('span');
+            button.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+            button.title = enabled ? 'Exit the full page reading view' : 'Use the full page reading view';
+
+            if (icon) {
+                icon.className = enabled ? 'bi bi-fullscreen-exit' : 'bi bi-arrows-fullscreen';
+            }
+
+            if (label) {
+                label.textContent = enabled ? 'Exit' : 'Focus';
+            }
+        });
+    };
+
+    const setFocusMode = enabled => {
+        shell.classList.toggle('documentation-focus-mode', enabled);
+        setToggleState(enabled);
+
+        if (enabled) {
+            window.setTimeout(() => reader?.focus?.({ preventScroll: true }), 0);
+        }
+    };
+
+    toggles.forEach(button => {
+        button.addEventListener('click', () => {
+            setFocusMode(!shell.classList.contains('documentation-focus-mode'));
+        });
+    });
+
+    exits.forEach(button => {
+        button.addEventListener('click', () => setFocusMode(false));
+    });
+
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && shell.classList.contains('documentation-focus-mode')) {
+            setFocusMode(false);
+        }
+    });
+}());
+
 // ── History back buttons ─────────────────────────────────
 (function () {
     document.querySelectorAll('[data-history-back]').forEach(button => {
@@ -270,7 +325,10 @@
 (function () {
     const STORAGE_KEY = 'knowlThemeMode';
     const root = document.documentElement;
-    const toggle = document.getElementById('theme-toggle');
+    const toggles = Array.from(new Set([
+        ...document.querySelectorAll('[data-theme-toggle]'),
+        ...document.querySelectorAll('#theme-toggle')
+    ]));
 
     const applyMode = mode => {
         const selected = mode === 'light' ? 'light' : 'dark';
@@ -279,7 +337,7 @@
         root.style.colorScheme = selected;
         window.ButterMorphHost?.setThemeMode?.(selected);
 
-        if (toggle) {
+        toggles.forEach(toggle => {
             const icon = toggle.querySelector('i');
             const label = toggle.querySelector('span');
             if (icon) {
@@ -289,15 +347,15 @@
                 label.textContent = selected === 'dark' ? 'Light' : 'Dark';
             }
             toggle.setAttribute('aria-pressed', selected === 'dark' ? 'true' : 'false');
-        }
+        });
     };
 
     const initialMode = localStorage.getItem(STORAGE_KEY) || root.dataset.knowlTheme || 'light';
     applyMode(initialMode);
 
-    toggle?.addEventListener('click', () => {
+    toggles.forEach(toggle => toggle.addEventListener('click', () => {
         const next = root.dataset.knowlTheme === 'dark' ? 'light' : 'dark';
         localStorage.setItem(STORAGE_KEY, next);
         applyMode(next);
-    });
+    }));
 }());

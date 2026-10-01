@@ -14,6 +14,10 @@
     <div class="event-list-actions">
         @if (Model.Rendered is not null)
         {
+            <button class="btn btn-secondary btn-sm" type="button" data-documentation-focus-toggle aria-pressed="false" title="Use the full page reading view">
+                <i class="bi bi-arrows-fullscreen"></i>
+                <span>Focus</span>
+            </button>
             <a class="btn btn-secondary btn-sm" href="/docs/@Model.SpaceKey/@Model.TopicKey/@Model.PageKey/@Model.Rendered.Version.VersionNumber/source.md">MD</a>
             <a class="btn btn-secondary btn-sm" href="/docs/@Model.SpaceKey/@Model.TopicKey/@Model.PageKey/@Model.Rendered.Version.VersionNumber/package.zip">ZIP</a>
             <button class="btn btn-secondary btn-sm" type="button" data-history-back data-fallback-url="@Url.Page("/Documentation/Page", new { id = Model.Rendered.Version.PageId })">
@@ -40,8 +44,18 @@
     }
     else
     {
+        <div class="documentation-focus-controls" aria-label="Reading controls">
+            <button class="theme-toggle-btn documentation-focus-theme" type="button" data-theme-toggle aria-label="Switch color mode" title="Switch color mode">
+                <i class="bi bi-moon-stars"></i>
+                <span>Dark</span>
+            </button>
+            <button class="documentation-focus-exit" type="button" data-documentation-focus-exit title="Exit full page reading view">
+                <i class="bi bi-fullscreen-exit"></i>
+                <span>Exit</span>
+            </button>
+        </div>
         <div class="documentation-reader-layout @(showToc ? "has-toc" : "without-toc")">
-            <article class="documentation-reader">
+            <article class="documentation-reader" tabindex="-1">
                 @Html.Raw(Model.Rendered.Html)
             </article>
             @if (showToc)
