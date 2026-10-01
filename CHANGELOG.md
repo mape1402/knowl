@@ -1,5 +1,12 @@
 # Changelog
 
+## [v2.2.2]
+
+- Improves Documentation browsing cards and Markdown rendering, including a navigable page index, stable reader scrolling, and an in-page fullscreen reading mode.
+- Fixes Documentation page navigation so card clicks open the expected browse/view flow and Back returns to the prior context.
+- Tightens Distribution card layouts across environments, runtime nodes, artifacts, and releases so content stays aligned inside fixed card bounds.
+- Adds focused UI markup coverage for Distribution card grids and overflow-safe card styling.
+
 ## [v2.2.1]
 
 - Updates ButterMorph dependencies to `2.0.0` for the Control Plane Web UI and bootstrap packages.
