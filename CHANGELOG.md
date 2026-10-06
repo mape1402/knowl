@@ -1,5 +1,13 @@
 # Changelog
 
+## [v2.2.3]
+
+- Adds Mermaid diagram rendering to Documentation Markdown pages, including theme-aware rendering and a local vendored Mermaid asset.
+- Adds Mermaid diagram controls for inline and expanded views: zoom out, reset, zoom in, open, and scrollable diagram panning.
+- Adds rendered-text search to Documentation pages with highlighted matches, previous/next navigation, clear support, and keyboard shortcuts.
+- Keeps Documentation search scoped to the rendered article content so table-of-contents links, controls, and Mermaid diagrams are not altered.
+- Adds focused markup coverage for Mermaid controls and Documentation rendered-text search.
+
 ## [v2.2.2]
 
 - Improves Documentation browsing cards and Markdown rendering, including a navigable page index, stable reader scrolling, and an in-page fullscreen reading mode.

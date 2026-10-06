@@ -1,9 +1,10 @@
 # KnOwl
 
-[![Build and Release](https://github.com/mape1402/knowl/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/mape1402/knowl/actions/workflows/build-and-release.yml)
-[![NuGet](https://img.shields.io/nuget/v/KnOwl.Contracts.svg)](https://www.nuget.org/packages/KnOwl.Contracts)
-[![NuGet Downloads](https://img.shields.io/nuget/dt/KnOwl.Contracts.svg)](https://www.nuget.org/packages/KnOwl.Contracts)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/mape1402/knowl)
+[![Build](https://github.com/mape1402/knowl/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/mape1402/knowl/actions/workflows/build-and-release.yml)
+[![Package](https://img.shields.io/nuget/v/KnOwl.Contracts.svg?label=package)](https://www.nuget.org/packages/KnOwl.Contracts)
+[![Downloads](https://img.shields.io/nuget/dt/KnOwl.Contracts.svg?label=downloads)](https://www.nuget.org/packages/KnOwl.Contracts)
+[![Coverage](https://img.shields.io/badge/coverage-coverlet-blue.svg)](tests/KnOwl.Tests/KnOwl.Tests.csproj)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/mape1402/knowl)
 
 KnOwl is a set of reusable .NET libraries for designing, versioning, promoting, distributing, and consuming async contract metadata. It gives teams a Control Plane where contracts are authored and released, plus a Runtime surface where deployed contracts can be consumed by running services.
 
@@ -18,6 +19,7 @@ The goal is to keep product hosts thin. Your app owns the executable project, co
 - Expose deployed schemas through split event and command catalog endpoints.
 - Navigate reusable Web UI screens with card-based browsing, searchable operational lists, and version details.
 - Browse Markdown documentation spaces, topics, pages, and page versions from the Control Plane UI.
+- Render Documentation Markdown with a navigable page index, in-page search, and Mermaid diagrams with zoom, pan, and expanded-view controls.
 - Theme Control Plane and Runtime hosts with light and dark palettes, custom titles, icons, and sidebar branding.
 - Keep host-specific database migrations outside the reusable NuGet libraries.
 
@@ -130,6 +132,7 @@ dotnet ef database update --context KnOwlSecurityDbContext
 
 Run the host and open the Control Plane UI. From there you can create data types, custom metadata fields, events, commands, versions, artifacts, runtime environments, runtime nodes, and releases.
 Control Plane list and detail screens include query-string search for contracts, versions, artifacts, releases, environments, and runtime node setup, so teams can filter large catalogs without custom host code.
+Documentation pages include rendered-text search with highlighted matches and previous/next navigation. Mermaid diagrams render directly from fenced Markdown blocks and include zoom out, reset, zoom in, and expanded-view controls without requiring host-specific JavaScript.
 
 The bootstrap package also maps the Control Plane REST API at `/api/v1/control-plane`.
 
@@ -461,4 +464,4 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-knowl-distributi
 
 The release workflow builds, tests, packs, creates the GitHub release, and publishes NuGet packages. Production releases are driven by `.release` and `CHANGELOG.md`.
 
-Current release: `1.0.4`
+Current release: `2.2.3`
