@@ -85,6 +85,11 @@ public sealed class DocumentationWebUiMarkupTests
         Assert.Contains("documentation-focus-controls", markup);
         Assert.Contains("data-theme-toggle", markup);
         Assert.Contains("data-documentation-focus-exit", markup);
+        Assert.Contains("data-documentation-search", markup);
+        Assert.Contains("data-documentation-search-input", markup);
+        Assert.Contains("data-documentation-search-prev", markup);
+        Assert.Contains("data-documentation-search-next", markup);
+        Assert.Contains("data-documentation-search-clear", markup);
         Assert.Contains("tabindex=\"-1\"", markup);
         Assert.DoesNotContain("asp-page=\"/Documentation/Page\"", markup);
         Assert.DoesNotContain("platform-card", markup);
@@ -170,6 +175,29 @@ public sealed class DocumentationWebUiMarkupTests
         Assert.Contains(".documentation-mermaid-error", css);
         Assert.True(mermaidAsset.Exists);
         Assert.True(mermaidAsset.Length > 1_000_000);
+    }
+
+    [Fact]
+    public void DocumentationReaderSupportsRenderedTextSearch()
+    {
+        var css = File.ReadAllText(GetControlPlaneCssPath());
+        var js = File.ReadAllText(GetControlPlaneJsPath());
+
+        Assert.Contains("data-documentation-search", js);
+        Assert.Contains("data-documentation-search-input", js);
+        Assert.Contains("documentation-search-mark", js);
+        Assert.Contains("data-documentation-search-match", js);
+        Assert.Contains("scrollIntoView", js);
+        Assert.Contains("No matches", js);
+        Assert.Contains("parent.closest(skippedSelector)", js);
+        Assert.Contains(".documentation-mermaid", js);
+
+        Assert.Contains(".documentation-search", css);
+        Assert.Contains(".documentation-search-input-wrap", css);
+        Assert.Contains(".documentation-search-count", css);
+        Assert.Contains(".documentation-search-button", css);
+        Assert.Contains(".documentation-search-mark", css);
+        Assert.Contains(".documentation-search-mark.active", css);
     }
 
     private static string GetDocumentationPagesPath()

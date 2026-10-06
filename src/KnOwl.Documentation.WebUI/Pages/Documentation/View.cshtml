@@ -54,6 +54,28 @@
                 <span>Exit</span>
             </button>
         </div>
+        <div class="documentation-search" data-documentation-search>
+            <label class="documentation-search-label" for="documentation-render-search">Search</label>
+            <div class="documentation-search-controls">
+                <div class="documentation-search-input-wrap">
+                    <i class="bi bi-search" aria-hidden="true"></i>
+                    <input id="documentation-render-search" class="documentation-search-input" type="search" autocomplete="off" placeholder="Search this page" data-documentation-search-input />
+                </div>
+                <span class="documentation-search-count" data-documentation-search-count aria-live="polite"></span>
+                <button class="documentation-search-button" type="button" data-documentation-search-prev disabled aria-label="Previous match">
+                    <i class="bi bi-chevron-up"></i>
+                    <span>Prev</span>
+                </button>
+                <button class="documentation-search-button" type="button" data-documentation-search-next disabled aria-label="Next match">
+                    <i class="bi bi-chevron-down"></i>
+                    <span>Next</span>
+                </button>
+                <button class="documentation-search-button" type="button" data-documentation-search-clear disabled aria-label="Clear search">
+                    <i class="bi bi-x-lg"></i>
+                    <span>Clear</span>
+                </button>
+            </div>
+        </div>
         <div class="documentation-reader-layout @(showToc ? "has-toc" : "without-toc")">
             <article class="documentation-reader" tabindex="-1">
                 @Html.Raw(Model.Rendered.Html)
