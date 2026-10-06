@@ -40,6 +40,50 @@ public sealed class ThemeOptionsTests
     }
 
     [Fact]
+    public void ControlPlaneThemeLegacySettersApplyToBothPalettesAndNormalizeColors()
+    {
+        var options = new KnOwl.ControlPlane.WebUI.KnOwlControlPlaneThemeOptions
+        {
+            PrimaryColor = "#abc",
+            PrimaryHoverColor = "#12345678",
+            SidebarBackgroundColor = "#101010",
+            SidebarBrandBackgroundColor = "#202020",
+            SidebarTextColor = "#303030",
+            SidebarMutedTextColor = "#404040",
+            ContentBackgroundColor = "#505050",
+            SurfaceColor = "#606060",
+            TextColor = "#707070"
+        };
+        options.Light.MutedTextColor = "invalid";
+        options.Light.BorderColor = "bad";
+        options.Light.SubtleBackgroundColor = "";
+        options.Light.CodeBackgroundColor = "#111111";
+        options.Light.CodeTextColor = "#eeeeee";
+        options.Light.ShadowColor = "  rgba(1, 2, 3, 0.4)  ";
+
+        var css = options.ToCssVariables();
+        var darkCss = options.ToCssThemeRules();
+
+        Assert.Equal("#abc", options.Light.PrimaryColor);
+        Assert.Equal("#abc", options.Dark.PrimaryColor);
+        Assert.Equal("#12345678", options.Light.PrimaryHoverColor);
+        Assert.Equal("#12345678", options.Dark.PrimaryHoverColor);
+        Assert.Equal("#101010", options.Dark.SidebarBackgroundColor);
+        Assert.Equal("#202020", options.Dark.SidebarBrandBackgroundColor);
+        Assert.Equal("#303030", options.Dark.SidebarTextColor);
+        Assert.Equal("#404040", options.Dark.SidebarMutedTextColor);
+        Assert.Equal("#505050", options.Dark.ContentBackgroundColor);
+        Assert.Equal("#606060", options.Dark.SurfaceColor);
+        Assert.Equal("#707070", options.Dark.TextColor);
+        Assert.Contains("--bs-primary-rgb: 170, 187, 204;", css);
+        Assert.Contains("--bs-link-hover-color-rgb: 18, 52, 86;", css);
+        Assert.Contains("--knowl-muted-text: #6b6e8c;", css);
+        Assert.Contains("--knowl-shadow-color: rgba(1, 2, 3, 0.4);", css);
+        Assert.Contains(":root[data-knowl-theme=\"light\"]", darkCss);
+        Assert.Contains(":root[data-knowl-theme=\"dark\"]", darkCss);
+    }
+
+    [Fact]
     public void RuntimeThemeUsesDarkDefaultsWhenDarkModeIsConfigured()
     {
         var options = new KnOwl.Runtime.WebUI.KnOwlRuntimeThemeOptions
@@ -102,5 +146,20 @@ public sealed class ThemeOptionsTests
 
         Assert.Contains("--knowl-sidebar-bg: #0f2f5f;", css);
         Assert.Contains("--knowl-sidebar-brand-bg: #0b2347;", css);
+    }
+
+    [Fact]
+    public void RuntimeThemeNormalizesShortAndAlphaHexColors()
+    {
+        var options = new KnOwl.Runtime.WebUI.KnOwlRuntimeThemeOptions
+        {
+            PrimaryColor = "#abc",
+            PrimaryHoverColor = "#12345678"
+        };
+
+        var css = options.ToCssVariables();
+
+        Assert.Contains("--bs-primary-rgb: 170, 187, 204;", css);
+        Assert.Contains("--bs-link-hover-color-rgb: 18, 52, 86;", css);
     }
 }
