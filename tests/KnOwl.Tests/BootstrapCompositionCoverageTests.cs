@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 
 namespace KnOwl.Tests;
 
@@ -41,8 +42,13 @@ public sealed class BootstrapCompositionCoverageTests
         await AssertStatus(fixture.Client.GetAsync("/api/v1/runtime/status"), HttpStatusCode.OK);
 
         var options = fixture.App.Services.GetRequiredService<KnOwlRuntimeBootstrapOptions>();
+        var theme = fixture.App.Services.GetRequiredService<IOptions<KnOwl.Runtime.WebUI.KnOwlRuntimeThemeOptions>>().Value;
         Assert.Equal("Coverage Runtime", options.Theme.Title);
         Assert.Equal("Runtime host", options.Theme.Subtitle);
+        Assert.Equal("Coverage Runtime", theme.Title);
+        Assert.Equal("Runtime host", theme.Subtitle);
+        Assert.Equal("#2563eb", theme.Light.PrimaryColor);
+        Assert.Equal("#60a5fa", theme.Dark.PrimaryColor);
     }
 
     [Fact]

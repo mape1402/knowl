@@ -173,6 +173,92 @@ public sealed class SchemaAndMetadataInputCoverageTests
     }
 
     [Fact]
+    public void SchemaTypeBuilderCoversRemainingEnumArrayAndObjectValidationBranches()
+    {
+        using var arrayWithBasicItem = Read(SchemaTypeSchemaBuilder.Build(new TypeVersionInput
+        {
+            BaseType = "array",
+            ArrayItemType = "string",
+            AllowedValuesJson = "[]"
+        }));
+        Assert.Equal("string", arrayWithBasicItem.RootElement.GetProperty("items").GetProperty("type").GetString());
+
+        var brokenVersion = new SchemaTypeVersion
+        {
+            Id = Guid.NewGuid(),
+            SchemaTypeDefinitionId = Guid.NewGuid(),
+            SchemaTypeDefinition = new SchemaTypeDefinition { Name = "Broken", Key = "broken" },
+            VersionNumber = "preview",
+            DefinitionJson = "{not-json"
+        };
+        using var arrayWithBrokenRef = Read(SchemaTypeSchemaBuilder.Build(new TypeVersionInput
+        {
+            BaseType = "array",
+            ArrayItemTypeVersionId = brokenVersion.Id
+        }, brokenVersion));
+        Assert.Equal("{}", arrayWithBrokenRef.RootElement.GetProperty("$defs").GetProperty("Broken@preview").GetRawText());
+
+        var hydrated = new TypeVersionInput();
+        SchemaTypeSchemaBuilder.Hydrate(hydrated, """
+        {
+          "type": "array",
+          "items": { "type": "integer" }
+        }
+        """);
+        Assert.Equal("integer", hydrated.ArrayItemType);
+
+        var errors = new List<string>();
+        SchemaTypeSchemaBuilder.Validate(new TypeVersionInput
+        {
+            BaseType = "bad",
+            AllowedValuesJson = "[]"
+        }, errors.Add);
+        Assert.Contains("Invalid base type.", errors);
+
+        errors.Clear();
+        SchemaTypeSchemaBuilder.Validate(new TypeVersionInput
+        {
+            BaseType = "string",
+            AllowedValuesJson = "{}",
+            MinLength = -1,
+            MaxLength = -2
+        }, errors.Add);
+        Assert.Contains("La lista de valores debe ser un arreglo JSON.", errors);
+        Assert.Contains("MinLength no puede ser negativo.", errors);
+        Assert.Contains("MaxLength no puede ser negativo.", errors);
+
+        errors.Clear();
+        SchemaTypeSchemaBuilder.Validate(new TypeVersionInput
+        {
+            BaseType = "string",
+            AllowedValuesJson = "{"
+        }, errors.Add);
+        Assert.Contains("The values list is not valid JSON.", errors);
+
+        errors.Clear();
+        SchemaTypeSchemaBuilder.Validate(new TypeVersionInput
+        {
+            BaseType = "integer",
+            AllowedValuesJson = "[1.2]",
+            Minimum = 10,
+            Maximum = 1,
+            MinItems = -1,
+            MaxItems = -2
+        }, errors.Add);
+        Assert.Contains("La lista de valores para integer solo acepta enteros.", errors);
+        Assert.Contains("MinItems no puede ser negativo.", errors);
+        Assert.Contains("MaxItems no puede ser negativo.", errors);
+
+        errors.Clear();
+        SchemaTypeSchemaBuilder.Validate(new TypeVersionInput
+        {
+            BaseType = "object",
+            PayloadSchemaJson = "{"
+        }, errors.Add);
+        Assert.Contains("The JSON schema is not valid.", errors);
+    }
+
+    [Fact]
     public void MetadataInputBuildsValidationAndAppliesToJson()
     {
         var input = new ContractFieldMetadataInput
