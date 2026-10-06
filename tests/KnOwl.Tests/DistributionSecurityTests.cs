@@ -22,6 +22,22 @@ namespace KnOwl.Tests;
 public sealed class DistributionSecurityTests
 {
     [Fact]
+    public void ConnectionSecretHasherAndScopeFormatterRejectInvalidInputs()
+    {
+        var hasher = new Pbkdf2ConnectionSecretHasher();
+        var formatter = new DefaultConnectionScopeFormatter();
+
+        Assert.Throws<ArgumentException>(() => hasher.HashSecret(" "));
+        Assert.False(hasher.VerifySecret("", "stored"));
+        Assert.False(hasher.VerifySecret("secret", ""));
+        Assert.False(hasher.VerifySecret("secret", "legacy-format"));
+        Assert.False(hasher.VerifySecret("secret", "pbkdf2-sha256.not-a-number.c2FsdA==.aGFzaA=="));
+        Assert.Empty(formatter.ParseMany(" "));
+        Assert.Throws<ArgumentOutOfRangeException>(() => formatter.Format((ArtifactDeliveryScope)999));
+        Assert.Throws<InvalidOperationException>(() => formatter.ParseMany("artifact:missing"));
+    }
+
+    [Fact]
     public async Task ControlPlaneIssuesAndValidatesRuntimeScopedToken()
     {
         var hasher = new Pbkdf2ConnectionSecretHasher();

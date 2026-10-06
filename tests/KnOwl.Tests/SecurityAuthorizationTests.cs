@@ -103,6 +103,44 @@ public sealed class SecurityAuthorizationTests
     }
 
     [Fact]
+    public async Task DirectPermissionSupportsScopedWildcardAssignments()
+    {
+        var store = new InMemoryKnOwlSecurityStore();
+        await store.UpsertSubject(new KnOwlSubject { Provider = Provider, SubjectId = "runtime-user" });
+        await store.AssignPermission(new KnOwlPermissionAssignment
+        {
+            Provider = Provider,
+            SubjectId = "runtime-user",
+            Permission = "*",
+            ScopeType = KnOwlAuthorizationScopeTypes.RuntimeNode,
+            ScopeId = "runtime-a",
+            IsEnabled = true
+        });
+        await store.AssignPermission(new KnOwlPermissionAssignment
+        {
+            Provider = Provider,
+            SubjectId = "runtime-user",
+            Permission = KnOwlPermissions.RuntimeNodesManage,
+            ScopeType = KnOwlAuthorizationScopeTypes.RuntimeNode,
+            ScopeId = "runtime-b",
+            IsEnabled = false
+        });
+        var service = CreateAuthorizationService(store, options => options.RequireKnownSubject = true);
+
+        var allowed = await service.HasPermission(
+            CreatePrincipal("runtime-user"),
+            KnOwlPermissions.RuntimeNodesManage,
+            new KnOwlAuthorizationScope(KnOwlAuthorizationScopeTypes.RuntimeNode, "RUNTIME-A"));
+        var denied = await service.HasPermission(
+            CreatePrincipal("runtime-user"),
+            KnOwlPermissions.RuntimeNodesManage,
+            new KnOwlAuthorizationScope(KnOwlAuthorizationScopeTypes.RuntimeNode, "runtime-b"));
+
+        Assert.True(allowed);
+        Assert.False(denied);
+    }
+
+    [Fact]
     public async Task DisabledSubjectIsDeniedEvenWhenAssignedRole()
     {
         var store = new InMemoryKnOwlSecurityStore();

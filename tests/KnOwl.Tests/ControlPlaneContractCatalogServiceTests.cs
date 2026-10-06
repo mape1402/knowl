@@ -77,6 +77,25 @@ public sealed class ControlPlaneContractCatalogServiceTests
         Assert.Contains("accepted", result.ReplyArtifact?.PayloadSchemaJson!, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task GetCommandFallsBackToLegacyRequestAndReplyArtifacts()
+    {
+        var request = CreateArtifact("customer.legacy", "1.0.0", ContractVersionStatus.Deployed, DateTime.UtcNow, ContractArtifactType.CommandRequest);
+        var reply = CreateArtifact("customer.legacy", "1.0.0", ContractVersionStatus.Deployed, DateTime.UtcNow, ContractArtifactType.CommandReply);
+        ArtifactRepository artifacts = new(request, reply);
+
+        using var provider = CreateProvider(artifacts);
+        var catalog = provider.GetRequiredService<IControlPlaneContractCatalogService>();
+
+        var result = await catalog.GetCommand("customer.legacy", "1.0.0");
+        var missing = await catalog.GetCommand("missing", "1.0.0");
+
+        Assert.NotNull(result);
+        Assert.Same(request, result.RequestArtifact);
+        Assert.Same(reply, result.ReplyArtifact);
+        Assert.Null(missing);
+    }
+
     private static ServiceProvider CreateProvider(IContractArtifactRepository artifacts)
     {
         return new ServiceCollection()

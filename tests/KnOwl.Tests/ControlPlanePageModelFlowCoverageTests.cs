@@ -136,11 +136,22 @@ public sealed class ControlPlanePageModelFlowCoverageTests
         Assert.Equal("{}", CommandVersionModel.FormatJson(""));
         Assert.Equal("{", CommandVersionModel.FormatJson("{"));
 
+        var versionPromotion = new PromotionServiceFake();
+        var versionArtifactBuilder = new ArtifactBuilderFake();
+        versionModel = new CommandVersionModel(commands, versionPromotion, versionArtifactBuilder);
         var versionRedirect = Assert.IsType<RedirectToPageResult>(
             await versionModel.OnPostTransitionAsync(command.Id, version.Id, ContractVersionStatus.InReview, CancellationToken.None));
         Assert.Equal(command.Id, versionRedirect.RouteValues?["id"]);
         Assert.Equal(version.Id, versionRedirect.RouteValues?["versionId"]);
         Assert.Contains("InReview", versionModel.StatusMessage);
+
+        await versionModel.OnPostTransitionAsync(command.Id, version.Id, ContractVersionStatus.Deployed, CancellationToken.None);
+        Assert.True(versionArtifactBuilder.CommandArtifactWasBuilt);
+        Assert.Contains("Artifact generated", versionModel.StatusMessage);
+
+        versionPromotion.Exception = new KeyNotFoundException("missing command version");
+        await versionModel.OnPostTransitionAsync(command.Id, version.Id, ContractVersionStatus.Archived, CancellationToken.None);
+        Assert.Equal("missing command version", versionModel.StatusMessage);
     }
 
     [Fact]

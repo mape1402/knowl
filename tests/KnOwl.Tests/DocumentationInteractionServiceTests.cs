@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Reflection;
 using System.Text;
 using KnOwl.Documentation;
 using KnOwl.Documentation.Application;
@@ -118,6 +119,28 @@ public sealed class DocumentationInteractionServiceTests
         Assert.Contains(rendered.TableOfContents, x => x.Title == "Overview" && x.Id == "overview");
         Assert.Equal(2, rendered.TableOfContents.Count(x => x.Title == "Configuration"));
         Assert.Equal(2, rendered.TableOfContents.Select(x => x.Id).Where(x => x.StartsWith("configuration", StringComparison.Ordinal)).Distinct().Count());
+        Assert.Contains(rendered.TableOfContents, x => x.Title == "!!!" && x.Id == "section");
+        Assert.Contains(rendered.TableOfContents, x => x.Title == "???" && x.Id == "section-1");
+        Assert.DoesNotContain(rendered.TableOfContents, x => string.IsNullOrWhiteSpace(x.Title));
+    }
+
+    [Fact]
+    public void MarkdownHelpersCoverEmptyInlineAndGeneratedDuplicateSlugs()
+    {
+        var serviceType = typeof(DocumentationInteractionService);
+        var extractText = serviceType.GetMethod("ExtractText", BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("ExtractText was not found.");
+        var uniqueSlug = serviceType.GetMethod("UniqueSlug", BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("UniqueSlug was not found.");
+        Dictionary<string, int> usedIds = new(StringComparer.OrdinalIgnoreCase);
+
+        var empty = Assert.IsType<string>(extractText.Invoke(null, [null]));
+        var first = Assert.IsType<string>(uniqueSlug.Invoke(null, ["!!!", usedIds]));
+        var second = Assert.IsType<string>(uniqueSlug.Invoke(null, ["???", usedIds]));
+
+        Assert.Equal(string.Empty, empty);
+        Assert.Equal("section", first);
+        Assert.Equal("section-2", second);
     }
 
     [Fact]
@@ -328,6 +351,16 @@ public sealed class DocumentationInteractionServiceTests
                     ## Configuration
 
                     Repeated headings must have stable unique anchors.
+
+                    ## !!!
+
+                    Punctuation-only headings still get usable anchors.
+
+                    ## ???
+
+                    Duplicate punctuation-only headings get unique anchors.
+
+                    ##
                     """);
             }
 

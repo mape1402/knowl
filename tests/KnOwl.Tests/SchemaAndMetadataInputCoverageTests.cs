@@ -256,6 +256,66 @@ public sealed class SchemaAndMetadataInputCoverageTests
             PayloadSchemaJson = "{"
         }, errors.Add);
         Assert.Contains("The JSON schema is not valid.", errors);
+
+        errors.Clear();
+        SchemaTypeSchemaBuilder.Validate(new TypeVersionInput
+        {
+            BaseType = "object",
+            PayloadSchemaJson = """{"type":"object"}"""
+        }, errors.Add);
+        Assert.Empty(errors);
+
+        errors.Clear();
+        SchemaTypeSchemaBuilder.Validate(new TypeVersionInput
+        {
+            BaseType = "string",
+            AllowedValuesJson = "[1]"
+        }, errors.Add);
+        Assert.Contains("La lista de valores para string solo acepta texto.", errors);
+
+        errors.Clear();
+        SchemaTypeSchemaBuilder.Validate(new TypeVersionInput
+        {
+            BaseType = "integer",
+            AllowedValuesJson = "[1]"
+        }, errors.Add);
+        Assert.Empty(errors);
+
+        using var objectSchema = Read(SchemaTypeSchemaBuilder.Build(new TypeVersionInput
+        {
+            BaseType = "object",
+            PayloadSchemaJson = """{"type":"object"}"""
+        }));
+        Assert.Equal("object", objectSchema.RootElement.GetProperty("type").GetString());
+
+        using var emptyEnumSchema = Read(SchemaTypeSchemaBuilder.Build(new TypeVersionInput
+        {
+            BaseType = "string",
+            AllowedValuesJson = " "
+        }));
+        Assert.False(emptyEnumSchema.RootElement.TryGetProperty("enum", out _));
+
+        using var nonArrayEnumSchema = Read(SchemaTypeSchemaBuilder.Build(new TypeVersionInput
+        {
+            BaseType = "string",
+            AllowedValuesJson = "{}"
+        }));
+        Assert.False(nonArrayEnumSchema.RootElement.TryGetProperty("enum", out _));
+
+        var missingSchemaVersion = new SchemaTypeVersion
+        {
+            Id = Guid.NewGuid(),
+            SchemaTypeDefinitionId = Guid.NewGuid(),
+            SchemaTypeDefinition = new SchemaTypeDefinition { Name = "Fallback", Key = "fallback" },
+            VersionNumber = "1.0.0",
+            DefinitionJson = "{}"
+        };
+        using var arrayWithMissingSchemaRef = Read(SchemaTypeSchemaBuilder.Build(new TypeVersionInput
+        {
+            BaseType = "array",
+            ArrayItemTypeVersionId = missingSchemaVersion.Id
+        }, missingSchemaVersion));
+        Assert.Equal("{}", arrayWithMissingSchemaRef.RootElement.GetProperty("$defs").GetProperty("Fallback@1.0.0").GetRawText());
     }
 
     [Fact]

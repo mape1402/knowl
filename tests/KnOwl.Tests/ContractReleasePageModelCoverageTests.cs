@@ -62,6 +62,19 @@ public sealed class ContractReleasePageModelCoverageTests
     }
 
     [Fact]
+    public void ReleaseIndexArtifactTypeOrderCoversEveryBranch()
+    {
+        var method = typeof(ContractReleasesIndexPage).GetMethod("ArtifactTypeOrder", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
+            ?? throw new InvalidOperationException("ArtifactTypeOrder was not found.");
+
+        Assert.Equal(0, method.Invoke(null, [CreateArtifact("Event", "event", ContractArtifactType.Event)]));
+        Assert.Equal(1, method.Invoke(null, [CreateArtifact("Command", "command", ContractArtifactType.Command)]));
+        Assert.Equal(2, method.Invoke(null, [CreateArtifact("Command Request", "command", ContractArtifactType.CommandRequest)]));
+        Assert.Equal(3, method.Invoke(null, [CreateArtifact("Command Reply", "command", ContractArtifactType.CommandReply)]));
+        Assert.Equal(4, method.Invoke(null, [CreateArtifact("Unknown", "unknown", (ContractArtifactType)999)]));
+    }
+
+    [Fact]
     public async Task ReleaseIndexPostValidatesSelectionsAndCreatesRelease()
     {
         var artifact = CreateArtifact("Customer Created", "customer.created", ContractArtifactType.Event);
@@ -161,6 +174,72 @@ public sealed class ContractReleasePageModelCoverageTests
         Assert.Equal(release.Id, allRedirect.RouteValues!["id"]);
         Assert.Contains("Distribution completed", model.StatusMessage);
         Assert.Equal(release.Id, execution.ExecutedReleaseId);
+    }
+
+    [Fact]
+    public async Task ReleaseViewCoversArtifactOrderingAndNullFallbacks()
+    {
+        var commandDefinitionId = Guid.NewGuid();
+        var commandVersionId = Guid.NewGuid();
+        var command = CreateArtifact("Register Customer", "customer.register", ContractArtifactType.Command, commandDefinitionId, commandVersionId);
+        var request = CreateArtifact("Register Customer Request", "customer.register", ContractArtifactType.CommandRequest, commandDefinitionId, commandVersionId);
+        var release = new ContractRelease
+        {
+            Id = Guid.NewGuid(),
+            Name = "Release",
+            Status = ContractReleaseStatus.InProgress,
+            CreatedAtUtc = DateTime.UtcNow
+        };
+        var commandItem = new ContractReleaseItem { Id = Guid.NewGuid(), Release = release, ReleaseId = release.Id, Artifact = command, ArtifactId = command.Id };
+        var requestItem = new ContractReleaseItem { Id = Guid.NewGuid(), Release = release, ReleaseId = release.Id, Artifact = request, ArtifactId = request.Id };
+        var unknownItem = new ContractReleaseItem { Id = Guid.NewGuid(), Release = release, ReleaseId = release.Id, ArtifactId = Guid.NewGuid() };
+        release.Items = [requestItem, commandItem, unknownItem];
+        release.Targets =
+        [
+            new ContractReleaseTarget
+            {
+                Id = Guid.NewGuid(),
+                Release = release,
+                ReleaseId = release.Id,
+                ReleaseItem = commandItem,
+                ReleaseItemId = commandItem.Id,
+                Artifact = command,
+                ArtifactId = command.Id,
+                RuntimeNode = CreateRuntimeNode("Runtime Z", "runtime-z", "Development"),
+                Status = ContractReleaseTargetStatus.PushScheduled
+            },
+            new ContractReleaseTarget
+            {
+                Id = Guid.NewGuid(),
+                Release = release,
+                ReleaseId = release.Id,
+                ArtifactId = unknownItem.ArtifactId,
+                Status = ContractReleaseTargetStatus.Failed,
+                ActivationStatus = ContractReleaseActivationStatus.ActivationFailed,
+                FailureReason = "missing artifact"
+            }
+        ];
+        var model = CreateViewModel(
+            new ReleaseRepository([release]),
+            new RecordingArtifactDeliveryInteractionService(),
+            new RecordingReleaseExecutionService());
+        model.Search = " failed ";
+
+        Assert.IsType<PageResult>(await model.OnGetAsync(release.Id, CancellationToken.None));
+
+        var group = Assert.Single(model.ArtifactGroups);
+        Assert.Equal("Event", group.ContractKind);
+        Assert.Equal("Unknown contract", group.ContractName);
+        Assert.Single(group.Targets);
+
+        model.Search = null;
+        Assert.IsType<PageResult>(await model.OnGetAsync(release.Id, CancellationToken.None));
+
+        Assert.Equal(2, model.ArtifactGroups.Count);
+        var commandGroup = model.ArtifactGroups.Single(x => x.ContractKind == "Command");
+        Assert.Equal("Register Customer", commandGroup.ContractName);
+        Assert.Contains(commandGroup.Items, x => x.Artifact?.ArtifactType == ContractArtifactType.Command);
+        Assert.Contains(commandGroup.Items, x => x.Artifact?.ArtifactType == ContractArtifactType.CommandRequest);
     }
 
     private static ContractReleasesIndexPage CreateIndexModel(

@@ -70,6 +70,62 @@ public sealed class ContractPageModelPostCoverageTests
         Assert.Contains(expectedKey, model.ModelState.Keys);
     }
 
+    [Fact]
+    public async Task CommandNewPostCoversInvalidModelAndRequestDefinitionBranches()
+    {
+        var invalidModel = new CommandNewModel(new CommandServiceFake());
+        invalidModel.ModelState.AddModelError("x", "bad");
+        var invalidModelResult = await invalidModel.OnPostAsync(CancellationToken.None);
+
+        var nullDefinition = new CommandNewModel(new CommandServiceFake())
+        {
+            PayloadSchemaJson = "null"
+        };
+        var nullDefinitionResult = await nullDefinition.OnPostAsync(CancellationToken.None);
+
+        var invalidMetadataShape = new CommandNewModel(new CommandServiceFake())
+        {
+            PayloadSchemaJson = """
+                {
+                  "key": "register.customer",
+                  "name": "Register Customer",
+                  "version": "1.0.0",
+                  "type": "object",
+                  "metadata": []
+                }
+                """
+        };
+        var invalidMetadataResult = await invalidMetadataShape.OnPostAsync(CancellationToken.None);
+
+        var commands = new CommandServiceFake();
+        var stringTopic = new CommandNewModel(commands)
+        {
+            PayloadSchemaJson = """
+                {
+                  "key": "register.customer",
+                  "name": "Register Customer",
+                  "description": "Payload description",
+                  "version": "1.0.0",
+                  "versionComment": "Initial",
+                  "type": "object",
+                  "metadata": {
+                    "topic": "commands.literal"
+                  }
+                }
+                """
+        };
+        var stringTopicResult = await stringTopic.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(invalidModelResult);
+        Assert.False(string.IsNullOrWhiteSpace(invalidModel.ButterMorphContext));
+        Assert.IsType<PageResult>(nullDefinitionResult);
+        Assert.Contains(nameof(CommandNewModel.PayloadSchemaJson), nullDefinition.ModelState.Keys);
+        Assert.IsType<PageResult>(invalidMetadataResult);
+        Assert.Contains(nameof(CommandNewModel.PayloadSchemaJson), invalidMetadataShape.ModelState.Keys);
+        Assert.IsType<RedirectToPageResult>(stringTopicResult);
+        Assert.Equal("commands.literal", Assert.Single(commands.Commands).Topic);
+    }
+
     [Theory]
     [InlineData("", "Register Customer", "1.0.0")]
     [InlineData("register.customer", "", "1.0.0")]
