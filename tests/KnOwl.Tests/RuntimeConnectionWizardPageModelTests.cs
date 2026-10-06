@@ -467,6 +467,355 @@ public sealed class RuntimeConnectionWizardPageModelTests
         Assert.Equal("Runtime node deleted.", model.StatusMessage);
     }
 
+    [Fact]
+    public async Task ControlPlaneRuntimeNodeStandardPostCoversValidationUpdateAndPersistenceBranches()
+    {
+        var environment = CreateEnvironment();
+        var existing = new RuntimeNode
+        {
+            Id = Guid.NewGuid(),
+            Name = "Runtime",
+            Code = "runtime",
+            EnvironmentId = environment.Id,
+            EnvironmentName = environment.Name,
+            DistributionMode = DistributionMode.Pull,
+            Status = RuntimeNodeStatus.Active
+        };
+        var runtimeNodes = new RuntimeNodeRepositoryFake([existing]);
+        var model = CreateControlPlaneRuntimeNodesPage(runtimeNodes, [environment]);
+
+        model.Input = new RuntimeNodeInput();
+        Assert.IsType<PageResult>(await model.OnPostAsync(CancellationToken.None));
+
+        model.Input = new RuntimeNodeInput
+        {
+            Name = "New Runtime",
+            Code = "new-runtime",
+            EnvironmentId = environment.Id,
+            DistributionMode = DistributionMode.Pull,
+            Status = RuntimeNodeStatus.Active
+        };
+        Assert.IsType<RedirectToPageResult>(await model.OnPostAsync(CancellationToken.None));
+        Assert.Contains(runtimeNodes.Nodes, x => x.Code == "new-runtime");
+
+        model.Input = new RuntimeNodeInput
+        {
+            Id = existing.Id,
+            Name = "Runtime Updated",
+            Code = "runtime-updated",
+            EnvironmentId = environment.Id,
+            DistributionMode = DistributionMode.Hybrid,
+            EndpointBaseUri = "https://runtime.example.test",
+            Status = RuntimeNodeStatus.Active,
+            Description = "Updated"
+        };
+        Assert.IsType<RedirectToPageResult>(await model.OnPostAsync(CancellationToken.None));
+        Assert.Equal("runtime-updated", existing.Code);
+        Assert.Equal(DistributionMode.Hybrid, existing.DistributionMode);
+
+        model.Input = new RuntimeNodeInput
+        {
+            Name = "Missing Environment",
+            Code = "missing-environment",
+            EnvironmentId = Guid.NewGuid(),
+            DistributionMode = DistributionMode.Pull,
+            Status = RuntimeNodeStatus.Active
+        };
+        Assert.IsType<PageResult>(await model.OnPostAsync(CancellationToken.None));
+        Assert.Equal("Selected environment was not found.", model.ModelState[string.Empty]!.Errors.Single().ErrorMessage);
+
+        runtimeNodes.NextCreateException = new DbUpdateException("duplicate");
+        model.Input = new RuntimeNodeInput
+        {
+            Name = "Duplicate",
+            Code = "duplicate-runtime",
+            EnvironmentId = environment.Id,
+            DistributionMode = DistributionMode.Pull,
+            Status = RuntimeNodeStatus.Active
+        };
+        Assert.IsType<PageResult>(await model.OnPostAsync(CancellationToken.None));
+        Assert.Equal(
+            "Runtime node code 'duplicate-runtime' already exists.",
+            model.ModelState[string.Empty]!.Errors.Single().ErrorMessage);
+    }
+
+    [Fact]
+    public async Task ControlPlaneRuntimeNodeWizardCoversRemainingReadinessAndClientBranches()
+    {
+        var environment = CreateEnvironment();
+        var missingEnvironment = new RuntimeNode
+        {
+            Id = Guid.NewGuid(),
+            Name = "No Environment",
+            Code = "no-environment",
+            DistributionMode = DistributionMode.Pull,
+            Status = RuntimeNodeStatus.Active,
+            InboundCredentialStatus = ConnectionCredentialStatus.Active
+        };
+        var disabledStatus = new RuntimeNode
+        {
+            Id = Guid.NewGuid(),
+            Name = "Disabled Status",
+            Code = "disabled-status",
+            EnvironmentId = environment.Id,
+            EnvironmentName = environment.Name,
+            DistributionMode = DistributionMode.Pull,
+            Status = RuntimeNodeStatus.Disabled,
+            InboundCredentialStatus = ConnectionCredentialStatus.Active
+        };
+        var missingRuntimeCredential = new RuntimeNode
+        {
+            Id = Guid.NewGuid(),
+            Name = "Push Missing Runtime",
+            Code = "push-missing-runtime",
+            EnvironmentId = environment.Id,
+            EnvironmentName = environment.Name,
+            DistributionMode = DistributionMode.Push,
+            EndpointBaseUri = "https://runtime.example.test",
+            Status = RuntimeNodeStatus.Active,
+            OutboundCredentialStatus = ConnectionCredentialStatus.Missing
+        };
+        var missingControlPlaneCredential = new RuntimeNode
+        {
+            Id = Guid.NewGuid(),
+            Name = "Pull Missing Control Plane",
+            Code = "pull-missing-control-plane",
+            EnvironmentId = environment.Id,
+            EnvironmentName = environment.Name,
+            DistributionMode = DistributionMode.Pull,
+            Status = RuntimeNodeStatus.Active,
+            InboundCredentialStatus = ConnectionCredentialStatus.Missing
+        };
+        var noCredentialPolicy = new RuntimeNode
+        {
+            Id = Guid.NewGuid(),
+            Name = "Unknown Policy",
+            Code = "unknown-policy",
+            EnvironmentId = environment.Id,
+            EnvironmentName = environment.Name,
+            DistributionMode = (DistributionMode)999,
+            Status = RuntimeNodeStatus.Active
+        };
+        var runtimeNodes = new RuntimeNodeRepositoryFake(
+            [missingEnvironment, disabledStatus, missingRuntimeCredential, missingControlPlaneCredential, noCredentialPolicy]);
+        var model = CreateControlPlaneRuntimeNodesPage(runtimeNodes, [environment]);
+
+        var noEnvironment = Assert.IsType<BadRequestObjectResult>(
+            await model.OnPostWizardSetEnabledAsync(missingEnvironment.Id, true, CancellationToken.None));
+        Assert.Equal("Runtime node requires an environment before it can be enabled.", ReadMessage(noEnvironment.Value));
+
+        var disabled = Assert.IsType<BadRequestObjectResult>(
+            await model.OnPostWizardSetEnabledAsync(disabledStatus.Id, true, CancellationToken.None));
+        Assert.Equal("Runtime node must be active before it can be enabled.", ReadMessage(disabled.Value));
+
+        var missingRuntime = Assert.IsType<BadRequestObjectResult>(
+            await model.OnPostWizardSetEnabledAsync(missingRuntimeCredential.Id, true, CancellationToken.None));
+        Assert.Equal("Import Runtime credentials before enabling this node.", ReadMessage(missingRuntime.Value));
+
+        var missingControlPlane = Assert.IsType<BadRequestObjectResult>(
+            await model.OnPostWizardSetEnabledAsync(missingControlPlaneCredential.Id, true, CancellationToken.None));
+        Assert.Equal("Generate Control Plane credentials before enabling this node.", ReadMessage(missingControlPlane.Value));
+
+        model.Search = "Missing Runtime";
+        await model.OnGetAsync(CancellationToken.None);
+        Assert.Equal(missingRuntimeCredential.Id, Assert.Single(model.RuntimeNodes).Id);
+
+        model.Search = "Not required";
+        await model.OnGetAsync(CancellationToken.None);
+        Assert.Contains(model.RuntimeNodes, x => x.Id == noCredentialPolicy.Id);
+
+        model.Search = "999";
+        await model.OnGetAsync(CancellationToken.None);
+        Assert.Equal(noCredentialPolicy.Id, Assert.Single(model.RuntimeNodes).Id);
+
+        var client = new KnOwl.ControlPlane.WebUI.Pages.Contracts.RuntimeNodes.RuntimeNodeClientModel(
+            noCredentialPolicy.Id,
+            noCredentialPolicy.Name,
+            noCredentialPolicy.Code,
+            noCredentialPolicy.EnvironmentId,
+            noCredentialPolicy.EnvironmentName,
+            noCredentialPolicy.DistributionMode.ToString(),
+            noCredentialPolicy.DistributionMode.ToString(),
+            noCredentialPolicy.EndpointBaseUri,
+            noCredentialPolicy.Status.ToString(),
+            noCredentialPolicy.IsEnabled,
+            string.Empty,
+            noCredentialPolicy.InboundCredentialStatus.ToString(),
+            noCredentialPolicy.OutboundCredentialStatus.ToString(),
+            noCredentialPolicy.InboundClientId,
+            noCredentialPolicy.InboundKeyId,
+            noCredentialPolicy.InboundAllowedScopes,
+            "-",
+            noCredentialPolicy.OutboundClientId,
+            noCredentialPolicy.OutboundKeyId,
+            noCredentialPolicy.OutboundRequestedScopes,
+            "-",
+            noCredentialPolicy.RegisteredAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
+            noCredentialPolicy.LastUpdatedAtUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-");
+        Assert.Equal(noCredentialPolicy.Id, client.Id);
+        Assert.Equal(noCredentialPolicy.Name, client.Name);
+        Assert.Equal(noCredentialPolicy.Code, client.Code);
+        Assert.Equal(noCredentialPolicy.EnvironmentId, client.EnvironmentId);
+        Assert.Equal(noCredentialPolicy.EnvironmentName, client.EnvironmentName);
+        Assert.Equal("999", client.DistributionMode);
+        Assert.Equal("999", client.DistributionModeLabel);
+        Assert.Equal(noCredentialPolicy.EndpointBaseUri, client.EndpointBaseUri);
+        Assert.Equal(noCredentialPolicy.Status.ToString(), client.Status);
+        Assert.Equal(noCredentialPolicy.IsEnabled, client.IsEnabled);
+        Assert.Empty(client.Description);
+        Assert.Equal(noCredentialPolicy.InboundCredentialStatus.ToString(), client.InboundCredentialStatus);
+        Assert.Equal(noCredentialPolicy.OutboundCredentialStatus.ToString(), client.OutboundCredentialStatus);
+        Assert.Equal(noCredentialPolicy.InboundClientId, client.InboundClientId);
+        Assert.Equal(noCredentialPolicy.InboundKeyId, client.InboundKeyId);
+        Assert.Equal(noCredentialPolicy.InboundAllowedScopes, client.InboundAllowedScopes);
+        Assert.Equal("-", client.InboundCredentialCreatedAt);
+        Assert.Equal(noCredentialPolicy.OutboundClientId, client.OutboundClientId);
+        Assert.Equal(noCredentialPolicy.OutboundKeyId, client.OutboundKeyId);
+        Assert.Equal(noCredentialPolicy.OutboundRequestedScopes, client.OutboundRequestedScopes);
+        Assert.Equal("-", client.OutboundCredentialImportedAt);
+        Assert.NotEmpty(client.RegisteredAt);
+        Assert.Equal("-", client.LastUpdatedAt);
+    }
+
+    [Fact]
+    public async Task RuntimeControlPlaneWizardCoversUpdatePersistenceAndReadinessBranches()
+    {
+        var existing = new RuntimeDesignNode
+        {
+            Id = Guid.NewGuid(),
+            Key = "existing",
+            Name = "Existing",
+            DistributionMode = DistributionMode.Pull,
+            EndpointBaseUri = "https://control.example.test",
+            RemoteRuntimeNodeId = "runtime-1",
+            Status = RuntimeDesignNodeStatus.Enabled,
+            IsEnabled = true,
+            OutboundCredentialStatus = ConnectionCredentialStatus.Active
+        };
+        var pushNode = new RuntimeDesignNode
+        {
+            Id = Guid.NewGuid(),
+            Key = "push",
+            Name = "Push",
+            DistributionMode = DistributionMode.Push,
+            Status = RuntimeDesignNodeStatus.Pending,
+            IsEnabled = false,
+            InboundCredentialStatus = ConnectionCredentialStatus.Missing
+        };
+        var repository = new RuntimeDesignNodeRepositoryFake([existing, pushNode]);
+        var model = CreateRuntimeControlPlanesPage(repository);
+
+        model.Input = new ControlPlaneConnectionInput
+        {
+            Id = existing.Id,
+            Key = "existing-updated",
+            Name = "Existing Updated",
+            DistributionMode = DistributionMode.Hybrid,
+            Description = "Updated"
+        };
+        var updateResult = Assert.IsType<JsonResult>(await model.OnPostWizardUpsertAsync(CancellationToken.None));
+        Assert.Equal("Control Plane connection saved.", ReadMessage(updateResult.Value));
+        Assert.Equal("existing-updated", existing.Key);
+        Assert.False(existing.IsEnabled);
+        Assert.Equal(RuntimeDesignNodeStatus.Pending, existing.Status);
+
+        model.Input = new ControlPlaneConnectionInput
+        {
+            Id = Guid.NewGuid(),
+            Key = "missing",
+            Name = "Missing",
+            DistributionMode = DistributionMode.Pull
+        };
+        var missing = Assert.IsType<BadRequestObjectResult>(await model.OnPostWizardUpsertAsync(CancellationToken.None));
+        Assert.Contains("was not found", ReadMessage(missing.Value));
+
+        repository.NextUpsertException = new DbUpdateException("duplicate");
+        model.Input = new ControlPlaneConnectionInput
+        {
+            Key = "duplicate",
+            Name = "Duplicate",
+            DistributionMode = DistributionMode.Pull
+        };
+        var duplicate = Assert.IsType<BadRequestObjectResult>(await model.OnPostWizardUpsertAsync(CancellationToken.None));
+        Assert.Equal("Control Plane connection key 'duplicate' already exists.", ReadMessage(duplicate.Value));
+
+        var notReady = Assert.IsType<BadRequestObjectResult>(
+            await model.OnPostWizardSetEnabledAsync(pushNode.Id, true, CancellationToken.None));
+        Assert.Equal("Complete the required credentials before enabling this Control Plane connection.", ReadMessage(notReady.Value));
+
+        model.Search = "Missing";
+        await model.OnGet(CancellationToken.None);
+        Assert.Contains(model.DesignNodes, x => x.Id == pushNode.Id);
+
+        model.Search = "Not required";
+        await model.OnGet(CancellationToken.None);
+        Assert.Equal(pushNode.Id, Assert.Single(model.DesignNodes).Id);
+
+        var invalidPolicy = new RuntimeDesignNode
+        {
+            Id = Guid.NewGuid(),
+            Key = "invalid-policy",
+            Name = "Invalid Policy",
+            DistributionMode = (DistributionMode)999
+        };
+        repository.Nodes.Add(invalidPolicy);
+        model.Search = "999";
+        await model.OnGet(CancellationToken.None);
+        Assert.Equal(invalidPolicy.Id, Assert.Single(model.DesignNodes).Id);
+
+        var client = new KnOwl.Runtime.WebUI.Pages.ControlPlanes.RuntimeDesignNodeClientModel(
+            existing.Id,
+            existing.Key,
+            existing.Name,
+            "Both directions",
+            existing.DistributionMode.ToString(),
+            existing.EndpointBaseUri,
+            existing.RemoteRuntimeNodeId,
+            existing.Status.ToString(),
+            existing.Status.ToString(),
+            existing.IsEnabled,
+            existing.Description ?? string.Empty,
+            existing.InboundCredentialStatus.ToString(),
+            existing.OutboundCredentialStatus.ToString(),
+            existing.InboundClientId,
+            existing.InboundKeyId,
+            existing.InboundAllowedScopes,
+            "-",
+            existing.OutboundClientId,
+            existing.OutboundKeyId,
+            existing.OutboundRequestedScopes,
+            "-",
+            existing.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
+            existing.UpdatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
+            false,
+            false);
+        Assert.Equal(existing.Id, client.Id);
+        Assert.Equal(existing.Key, client.Key);
+        Assert.Equal(existing.Name, client.Name);
+        Assert.Equal("Both directions", client.DistributionModeLabel);
+        Assert.Equal(existing.DistributionMode.ToString(), client.DistributionMode);
+        Assert.Equal(existing.EndpointBaseUri, client.EndpointBaseUri);
+        Assert.Equal(existing.RemoteRuntimeNodeId, client.RemoteRuntimeNodeId);
+        Assert.Equal(existing.Status.ToString(), client.Status);
+        Assert.Equal(existing.Status.ToString(), client.StatusLabel);
+        Assert.Equal(existing.IsEnabled, client.IsEnabled);
+        Assert.Equal(existing.Description, client.Description);
+        Assert.Equal(existing.InboundCredentialStatus.ToString(), client.InboundCredentialStatus);
+        Assert.Equal(existing.OutboundCredentialStatus.ToString(), client.OutboundCredentialStatus);
+        Assert.Equal(existing.InboundClientId, client.InboundClientId);
+        Assert.Equal(existing.InboundKeyId, client.InboundKeyId);
+        Assert.Equal(existing.InboundAllowedScopes, client.InboundAllowedScopes);
+        Assert.Equal("-", client.InboundCredentialCreatedAt);
+        Assert.Equal(existing.OutboundClientId, client.OutboundClientId);
+        Assert.Equal(existing.OutboundKeyId, client.OutboundKeyId);
+        Assert.Equal(existing.OutboundRequestedScopes, client.OutboundRequestedScopes);
+        Assert.Equal("-", client.OutboundCredentialImportedAt);
+        Assert.NotEmpty(client.CreatedAt);
+        Assert.NotEmpty(client.UpdatedAt);
+        Assert.False(client.IsConfigured);
+        Assert.False(client.CanCheckConnection);
+    }
+
     private static RuntimeControlPlanesPage CreateRuntimeControlPlanesPage(
         RuntimeDesignNodeRepositoryFake repository,
         IRuntimeDesignNodeConnectionService? connectionService = null)
@@ -525,6 +874,7 @@ public sealed class RuntimeConnectionWizardPageModelTests
     private sealed class RuntimeDesignNodeRepositoryFake(List<RuntimeDesignNode> nodes) : IRuntimeDesignNodeRepository
     {
         public List<RuntimeDesignNode> Nodes => nodes;
+        public Exception? NextUpsertException { get; set; }
 
         public Task<IReadOnlyList<RuntimeDesignNode>> GetAll(CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<RuntimeDesignNode>>(nodes);
@@ -540,6 +890,12 @@ public sealed class RuntimeConnectionWizardPageModelTests
 
         public Task Upsert(RuntimeDesignNode designNode, CancellationToken cancellationToken = default)
         {
+            if (NextUpsertException is { } exception)
+            {
+                NextUpsertException = null;
+                throw exception;
+            }
+
             var index = nodes.FindIndex(x => x.Id == designNode.Id);
             if (index >= 0)
             {
@@ -557,6 +913,7 @@ public sealed class RuntimeConnectionWizardPageModelTests
     private sealed class RuntimeNodeRepositoryFake(List<RuntimeNode> nodes) : IRuntimeNodeRepository
     {
         public List<RuntimeNode> Nodes => nodes;
+        public Exception? NextCreateException { get; set; }
 
         public Task<IReadOnlyList<RuntimeNode>> GetAll(CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<RuntimeNode>>(nodes);
@@ -575,6 +932,12 @@ public sealed class RuntimeConnectionWizardPageModelTests
 
         public Task Create(RuntimeNode runtimeNode, CancellationToken cancellationToken = default)
         {
+            if (NextCreateException is { } exception)
+            {
+                NextCreateException = null;
+                throw exception;
+            }
+
             nodes.Add(runtimeNode);
             return Task.CompletedTask;
         }
@@ -733,4 +1096,6 @@ public sealed class RuntimeConnectionWizardPageModelTests
                 Message = "Runtime OK"
             });
     }
+
+    private sealed class DbUpdateException(string message) : Exception(message);
 }
