@@ -22,7 +22,7 @@ internal static class SampleDocumentationSeeder
         var topic = await documentation.UpsertTopic(space.Key, "getting-started", "Getting Started", "Introductory pages for KnOwl documentation.", true);
         var page = await documentation.UpsertPage(space.Key, topic.Key, "control-plane", "Control Plane Guide", "Sample Markdown page with linked assets.", true);
 
-        if (await documentation.Render(space.Key, topic.Key, page.Key, "1.0.2") is not null)
+        if (await documentation.Render(space.Key, topic.Key, page.Key, "1.0.3") is not null)
         {
             return;
         }
@@ -31,7 +31,7 @@ internal static class SampleDocumentationSeeder
         var version = await documentation.ImportVersion(
             new DocumentationVersionInput(
                 page.Id,
-                "1.0.2",
+                "1.0.3",
                 "knowl-control-plane-docs.zip",
                 "application/zip",
                 package,
@@ -54,6 +54,15 @@ internal static class SampleDocumentationSeeder
                 This sample page is loaded from a Markdown package when the Control Plane sample starts.
 
                 ![KnOwl documentation flow](assets/flow.svg)
+
+                ## Mermaid flow
+
+                ```mermaid
+                flowchart LR
+                    Package[ZIP package] --> Import[Import version]
+                    Import --> Publish[Publish version]
+                    Publish --> Reader[Documentation reader]
+                ```
 
                 ## Package structure
 
@@ -101,7 +110,7 @@ internal static class SampleDocumentationSeeder
                   <text x="379" y="104" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="18" font-weight="700">Topic</text>
                   <text x="379" y="128" text-anchor="middle" fill="#dbeafe" font-family="Arial, sans-serif" font-size="13">Getting Started</text>
                   <text x="641" y="104" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="18" font-weight="700">Page</text>
-                  <text x="641" y="128" text-anchor="middle" fill="#ede9fe" font-family="Arial, sans-serif" font-size="13">Version 1.0.2</text>
+                  <text x="641" y="128" text-anchor="middle" fill="#ede9fe" font-family="Arial, sans-serif" font-size="13">Version 1.0.3</text>
                 </svg>
                 """);
         }

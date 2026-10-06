@@ -64,10 +64,13 @@ public sealed class DocumentationInteractionServiceTests
         Assert.NotNull(rendered);
         Assert.Contains("<pre><code class=\"language-csharp\">", rendered.Html);
         Assert.Contains("public sealed class Demo", rendered.Html);
+        Assert.Contains("<pre><code class=\"language-mermaid\">", rendered.Html);
+        Assert.Contains("Draft[Draft]", rendered.Html);
         Assert.Contains("<code>inline</code>", rendered.Html);
         Assert.Contains("<table>", rendered.Html);
         Assert.Contains("/docs/assets/", rendered.Html);
         Assert.DoesNotContain("assets/diagram.png", rendered.Html);
+        Assert.DoesNotContain("<script", rendered.Html, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(rendered.TableOfContents, x => x.Title == "Overview" && x.Id == "overview");
         Assert.Equal(2, rendered.TableOfContents.Count(x => x.Title == "Configuration"));
         Assert.Equal(2, rendered.TableOfContents.Select(x => x.Id).Where(x => x.StartsWith("configuration", StringComparison.Ordinal)).Distinct().Count());
@@ -139,6 +142,13 @@ public sealed class DocumentationInteractionServiceTests
                     {
                         public string Name { get; init; } = "KnOwl";
                     }
+                    ```
+
+                    ```mermaid
+                    flowchart LR
+                        Draft[Draft] --> Review[Review]
+                        Review --> Published[Published]
+                        Review --> Unsafe["<script>alert(1)</script>"]
                     ```
 
                     | Name | Value |
