@@ -98,7 +98,7 @@ public sealed class ControlPlanePageModelFlowCoverageTests
     }
 
     [Fact]
-    public async Task CommandViewAndVersionCoverFormattingSearchAndTransitionBranches()
+    public async Task CommandViewFormatsFiltersAndTransitionsVersions()
     {
         var command = CreateCommand();
         var promotion = new PromotionServiceFake();
@@ -126,7 +126,13 @@ public sealed class ControlPlanePageModelFlowCoverageTests
         promotion.Exception = new InvalidOperationException("blocked");
         await view.OnPostTransitionAsync(command.Id, command.Versions.First().Id, ContractVersionStatus.Archived, CancellationToken.None);
         Assert.Equal("blocked", view.StatusMessage);
+    }
 
+    [Fact]
+    public async Task CommandVersionLoadsFormatsAndTransitionsVersion()
+    {
+        var command = CreateCommand();
+        var commands = new CommandServiceFake([command]);
         var version = command.Versions.First();
         var versionModel = new CommandVersionModel(commands, new PromotionServiceFake(), new ArtifactBuilderFake());
         Assert.IsType<NotFoundResult>(await versionModel.OnGetAsync(Guid.NewGuid(), version.Id, CancellationToken.None));
@@ -155,7 +161,7 @@ public sealed class ControlPlanePageModelFlowCoverageTests
     }
 
     [Fact]
-    public async Task EventAndCommandIndexesCoverSearchAndDeleteBranches()
+    public async Task EventIndexFiltersBySearchAndDeletesSelectedEvent()
     {
         var eventDefinition = CreateEvent();
         eventDefinition.Versions.First().Comment = null;
@@ -177,7 +183,11 @@ public sealed class ControlPlanePageModelFlowCoverageTests
             await eventIndex.OnPostDeleteAsync(eventDefinition.Id, CancellationToken.None));
         Assert.Null(eventDelete.PageName);
         Assert.Equal(eventDefinition.Id, events.LastDeletedId);
+    }
 
+    [Fact]
+    public async Task CommandIndexFiltersBySearchAndDeletesSelectedCommand()
+    {
         var command = CreateCommand();
         command.Versions.First().Comment = null;
         var commands = new CommandServiceFake([command]);
@@ -201,7 +211,7 @@ public sealed class ControlPlanePageModelFlowCoverageTests
     }
 
     [Fact]
-    public async Task TypeAndMetadataVersionViewsCoverSelectionSearchAndDeactivateBranches()
+    public async Task TypeVersionViewsSelectFormatAndDeactivateVersions()
     {
         var type = new SchemaTypeDefinition
         {
@@ -259,7 +269,11 @@ public sealed class ControlPlanePageModelFlowCoverageTests
         schemaTypes.ThrowOnSetVersionActive = true;
         Assert.IsType<RedirectToPageResult>(
             await typeVersion.OnPostDeactivateVersionAsync(type.Id, Guid.NewGuid(), CancellationToken.None));
+    }
 
+    [Fact]
+    public async Task MetadataVersionViewsSelectFormatAndDeactivateVersions()
+    {
         var field = new ContractFieldMetadataDefinition
         {
             Name = "Trace Id",
@@ -319,7 +333,7 @@ public sealed class ControlPlanePageModelFlowCoverageTests
     }
 
     [Fact]
-    public async Task EventAndCommandEditModelsCoverValidationNotFoundAndTrimmedUpdates()
+    public async Task EventEditLoadsValidatesAndSavesTrimmedUpdates()
     {
         var eventDefinition = CreateEvent();
         var events = new EventServiceFake([eventDefinition]);
@@ -348,7 +362,11 @@ public sealed class ControlPlanePageModelFlowCoverageTests
         Assert.Equal("Updated Event", events.LastUpdatedName);
         Assert.Equal("events.updated", events.LastUpdatedTopic);
         Assert.Null(events.LastUpdatedDescription);
+    }
 
+    [Fact]
+    public async Task CommandEditLoadsValidatesAndSavesTrimmedUpdates()
+    {
         var command = CreateCommand();
         var commands = new CommandServiceFake([command]);
         var commandEdit = new CommandEditModel(commands);

@@ -71,19 +71,35 @@ public sealed class ContractPageModelPostCoverageTests
     }
 
     [Fact]
-    public async Task CommandNewPostCoversInvalidModelAndRequestDefinitionBranches()
+    public async Task CommandNewPostReturnsPageWhenModelStateIsInvalid()
     {
-        var invalidModel = new CommandNewModel(new CommandServiceFake());
-        invalidModel.ModelState.AddModelError("x", "bad");
-        var invalidModelResult = await invalidModel.OnPostAsync(CancellationToken.None);
+        var model = new CommandNewModel(new CommandServiceFake());
+        model.ModelState.AddModelError("x", "bad");
 
-        var nullDefinition = new CommandNewModel(new CommandServiceFake())
+        var result = await model.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.False(string.IsNullOrWhiteSpace(model.ButterMorphContext));
+    }
+
+    [Fact]
+    public async Task CommandNewPostRejectsNullPayloadDefinition()
+    {
+        var model = new CommandNewModel(new CommandServiceFake())
         {
             PayloadSchemaJson = "null"
         };
-        var nullDefinitionResult = await nullDefinition.OnPostAsync(CancellationToken.None);
 
-        var invalidMetadataShape = new CommandNewModel(new CommandServiceFake())
+        var result = await model.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Contains(nameof(CommandNewModel.PayloadSchemaJson), model.ModelState.Keys);
+    }
+
+    [Fact]
+    public async Task CommandNewPostRejectsInvalidMetadataShape()
+    {
+        var model = new CommandNewModel(new CommandServiceFake())
         {
             PayloadSchemaJson = """
                 {
@@ -95,10 +111,18 @@ public sealed class ContractPageModelPostCoverageTests
                 }
                 """
         };
-        var invalidMetadataResult = await invalidMetadataShape.OnPostAsync(CancellationToken.None);
 
+        var result = await model.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Contains(nameof(CommandNewModel.PayloadSchemaJson), model.ModelState.Keys);
+    }
+
+    [Fact]
+    public async Task CommandNewPostUsesStringTopicMetadata()
+    {
         var commands = new CommandServiceFake();
-        var stringTopic = new CommandNewModel(commands)
+        var model = new CommandNewModel(commands)
         {
             PayloadSchemaJson = """
                 {
@@ -114,15 +138,10 @@ public sealed class ContractPageModelPostCoverageTests
                 }
                 """
         };
-        var stringTopicResult = await stringTopic.OnPostAsync(CancellationToken.None);
 
-        Assert.IsType<PageResult>(invalidModelResult);
-        Assert.False(string.IsNullOrWhiteSpace(invalidModel.ButterMorphContext));
-        Assert.IsType<PageResult>(nullDefinitionResult);
-        Assert.Contains(nameof(CommandNewModel.PayloadSchemaJson), nullDefinition.ModelState.Keys);
-        Assert.IsType<PageResult>(invalidMetadataResult);
-        Assert.Contains(nameof(CommandNewModel.PayloadSchemaJson), invalidMetadataShape.ModelState.Keys);
-        Assert.IsType<RedirectToPageResult>(stringTopicResult);
+        var result = await model.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<RedirectToPageResult>(result);
         Assert.Equal("commands.literal", Assert.Single(commands.Commands).Topic);
     }
 
@@ -188,41 +207,70 @@ public sealed class ContractPageModelPostCoverageTests
     }
 
     [Fact]
-    public async Task CommandNewVersionPostRejectsMissingEntityInvalidJsonInvalidModelAndDuplicateVersion()
+    public async Task CommandNewVersionPostReturnsNotFoundForMissingCommand()
     {
-        var command = CreateCommand("Register Customer", "register.customer", "1.0.0");
-        var commands = new CommandServiceFake([command]);
-        var schemaTypes = new SchemaTypeServiceFake();
-        var metadata = new MetadataFieldServiceFake();
+        var model = new CommandNewVersionModel(new CommandServiceFake(), new SchemaTypeServiceFake(), new MetadataFieldServiceFake())
+        {
+            CommandId = Guid.NewGuid()
+        };
 
-        var missing = new CommandNewVersionModel(commands, schemaTypes, metadata) { CommandId = Guid.NewGuid() };
-        var missingResult = await missing.OnPostAsync(CancellationToken.None);
+        var result = await model.OnPostAsync(CancellationToken.None);
 
-        var invalidModel = CreateCommandVersionModel(commands, schemaTypes, metadata, command.Id, "1.0.1");
-        invalidModel.ModelState.AddModelError("x", "bad");
-        var invalidModelResult = await invalidModel.OnPostAsync(CancellationToken.None);
-
-        var invalidReply = CreateCommandVersionModel(commands, schemaTypes, metadata, command.Id, "1.0.1");
-        invalidReply.ReplyPayloadSchemaJson = "{";
-        var invalidReplyResult = await invalidReply.OnPostAsync(CancellationToken.None);
-
-        var invalidPayload = CreateCommandVersionModel(commands, schemaTypes, metadata, command.Id, "1.0.1");
-        invalidPayload.PayloadSchemaJson = "{";
-        var invalidPayloadResult = await invalidPayload.OnPostAsync(CancellationToken.None);
-
-        var duplicate = CreateCommandVersionModel(commands, schemaTypes, metadata, command.Id, "1.0.0");
-        var duplicateResult = await duplicate.OnPostAsync(CancellationToken.None);
-
-        Assert.IsType<NotFoundResult>(missingResult);
-        Assert.IsType<PageResult>(invalidModelResult);
-        Assert.IsType<PageResult>(invalidReplyResult);
-        Assert.IsType<PageResult>(invalidPayloadResult);
-        Assert.IsType<PageResult>(duplicateResult);
-        Assert.False(duplicate.ModelState.IsValid);
+        Assert.IsType<NotFoundResult>(result);
     }
 
     [Fact]
-    public async Task EventNewVersionGetAndPostCoverSuccessAndValidationBranches()
+    public async Task CommandNewVersionPostReturnsPageWhenModelStateIsInvalid()
+    {
+        var (command, commands, schemaTypes, metadata) = CreateCommandVersionFixture();
+        var model = CreateCommandVersionModel(commands, schemaTypes, metadata, command.Id, "1.0.1");
+        model.ModelState.AddModelError("x", "bad");
+
+        var result = await model.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+    }
+
+    [Fact]
+    public async Task CommandNewVersionPostRejectsInvalidReplyJson()
+    {
+        var (command, commands, schemaTypes, metadata) = CreateCommandVersionFixture();
+        var model = CreateCommandVersionModel(commands, schemaTypes, metadata, command.Id, "1.0.1");
+        model.ReplyPayloadSchemaJson = "{";
+
+        var result = await model.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Contains(nameof(CommandNewVersionModel.ReplyPayloadSchemaJson), model.ModelState.Keys);
+    }
+
+    [Fact]
+    public async Task CommandNewVersionPostRejectsInvalidPayloadJson()
+    {
+        var (command, commands, schemaTypes, metadata) = CreateCommandVersionFixture();
+        var model = CreateCommandVersionModel(commands, schemaTypes, metadata, command.Id, "1.0.1");
+        model.PayloadSchemaJson = "{";
+
+        var result = await model.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Contains(nameof(CommandNewVersionModel.PayloadSchemaJson), model.ModelState.Keys);
+    }
+
+    [Fact]
+    public async Task CommandNewVersionPostRejectsDuplicateVersion()
+    {
+        var (command, commands, schemaTypes, metadata) = CreateCommandVersionFixture();
+        var model = CreateCommandVersionModel(commands, schemaTypes, metadata, command.Id, "1.0.0");
+
+        var result = await model.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.False(model.ModelState.IsValid);
+    }
+
+    [Fact]
+    public async Task EventNewVersionGetAndPostCreatesNewVersion()
     {
         var eventDefinition = CreateEvent("Customer Created", "customer.created", "2.0.0");
         var events = new EventServiceFake([eventDefinition]);
@@ -239,23 +287,60 @@ public sealed class ContractPageModelPostCoverageTests
         Assert.Equal("2.0.1", model.Input.Version);
         Assert.IsType<RedirectToPageResult>(postResult);
         Assert.Equal(2, eventDefinition.Versions.Count);
-
-        Assert.IsType<NotFoundResult>(await new EventNewVersionModel(events, schemaTypes, metadata) { EventId = Guid.NewGuid() }.OnPostAsync(CancellationToken.None));
-
-        var invalidModel = CreateEventVersionModel(events, schemaTypes, metadata, eventDefinition.Id, "2.0.2");
-        invalidModel.ModelState.AddModelError("x", "bad");
-        Assert.IsType<PageResult>(await invalidModel.OnPostAsync(CancellationToken.None));
-
-        var invalidJson = CreateEventVersionModel(events, schemaTypes, metadata, eventDefinition.Id, "2.0.2");
-        invalidJson.PayloadSchemaJson = "{";
-        Assert.IsType<PageResult>(await invalidJson.OnPostAsync(CancellationToken.None));
-
-        var duplicate = CreateEventVersionModel(events, schemaTypes, metadata, eventDefinition.Id, "2.0.0");
-        Assert.IsType<PageResult>(await duplicate.OnPostAsync(CancellationToken.None));
     }
 
     [Fact]
-    public async Task TypeNewPostCreatesTypeAndRejectsInvalidArrayItem()
+    public async Task EventNewVersionPostReturnsNotFoundForMissingEvent()
+    {
+        var model = new EventNewVersionModel(new EventServiceFake(), new SchemaTypeServiceFake(), new MetadataFieldServiceFake())
+        {
+            EventId = Guid.NewGuid()
+        };
+
+        var result = await model.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task EventNewVersionPostReturnsPageWhenModelStateIsInvalid()
+    {
+        var (eventDefinition, events, schemaTypes, metadata) = CreateEventVersionFixture();
+        var model = CreateEventVersionModel(events, schemaTypes, metadata, eventDefinition.Id, "2.0.2");
+        model.ModelState.AddModelError("x", "bad");
+
+        var result = await model.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+    }
+
+    [Fact]
+    public async Task EventNewVersionPostRejectsInvalidPayloadJson()
+    {
+        var (eventDefinition, events, schemaTypes, metadata) = CreateEventVersionFixture();
+        var model = CreateEventVersionModel(events, schemaTypes, metadata, eventDefinition.Id, "2.0.2");
+        model.PayloadSchemaJson = "{";
+
+        var result = await model.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Contains(nameof(EventNewVersionModel.PayloadSchemaJson), model.ModelState.Keys);
+    }
+
+    [Fact]
+    public async Task EventNewVersionPostRejectsDuplicateVersion()
+    {
+        var (eventDefinition, events, schemaTypes, metadata) = CreateEventVersionFixture();
+        var model = CreateEventVersionModel(events, schemaTypes, metadata, eventDefinition.Id, "2.0.0");
+
+        var result = await model.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.False(model.ModelState.IsValid);
+    }
+
+    [Fact]
+    public async Task TypeNewPostCreatesType()
     {
         var activeItemVersion = new SchemaTypeVersion { Id = Guid.NewGuid(), VersionNumber = "1.0.0", DefinitionJson = """{"type":"string"}""", IsActive = true };
         var schemaTypes = new SchemaTypeServiceFake(activeVersions: [activeItemVersion]);
@@ -279,8 +364,12 @@ public sealed class ContractPageModelPostCoverageTests
         var redirect = Assert.IsType<RedirectToPageResult>(result);
         Assert.Equal("/Contracts/Types/View", redirect.PageName);
         Assert.Single(schemaTypes.Definitions);
+    }
 
-        var invalid = new TypeNewModel(new SchemaTypeServiceFake())
+    [Fact]
+    public async Task TypeNewPostRejectsMissingArrayItemType()
+    {
+        var model = new TypeNewModel(new SchemaTypeServiceFake())
         {
             Input = new TypeNewModel.TypeInput { Name = "BrokenArray" },
             Version = new TypeVersionInput
@@ -290,8 +379,11 @@ public sealed class ContractPageModelPostCoverageTests
                 ArrayItemTypeVersionId = Guid.NewGuid()
             }
         };
-        Assert.IsType<PageResult>(await invalid.OnPostAsync(CancellationToken.None));
-        Assert.False(invalid.ModelState.IsValid);
+
+        var result = await model.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.False(model.ModelState.IsValid);
     }
 
     [Fact]
@@ -318,38 +410,9 @@ public sealed class ContractPageModelPostCoverageTests
     }
 
     [Fact]
-    public async Task TypeNewVersionGetAndPostCoverSuccessDuplicateMissingAndInvalidBranches()
+    public async Task TypeNewVersionGetAndPostCreatesVersion()
     {
-        var arrayItem = new SchemaTypeVersion
-        {
-            Id = Guid.NewGuid(),
-            VersionNumber = "1.0.0",
-            DefinitionJson = """{"type":"string"}""",
-            IsActive = true
-        };
-        var schemaType = new SchemaTypeDefinition
-        {
-            Id = Guid.NewGuid(),
-            Key = "customer-list",
-            Name = "CustomerList",
-            Description = "Customer list",
-            IsActive = true,
-            IsSystem = false,
-            Versions =
-            {
-                new SchemaTypeVersion
-                {
-                    Id = Guid.NewGuid(),
-                    VersionNumber = "1.0.0",
-                    DefinitionJson = """{"schema":{"type":"array","items":{"type":"string"}}}""",
-                    Comment = "Initial",
-                    IsActive = true,
-                    CreatedAtUtc = DateTime.UtcNow.AddDays(-1)
-                }
-            }
-        };
-        var schemaTypes = new SchemaTypeServiceFake(activeVersions: [arrayItem]);
-        schemaTypes.Definitions.Add(schemaType);
+        var (schemaType, arrayItem, schemaTypes) = CreateTypeVersionFixture();
         var model = new TypeNewVersionModel(schemaTypes);
 
         var getResult = await model.OnGetAsync(schemaType.Id, CancellationToken.None);
@@ -367,22 +430,53 @@ public sealed class ContractPageModelPostCoverageTests
         Assert.Equal("/Contracts/Types/Version", redirect.PageName);
         Assert.Equal(2, schemaType.Versions.Count);
         Assert.Equal("Patch", schemaType.Versions.Last().Comment);
+    }
 
-        Assert.IsType<NotFoundResult>(await new TypeNewVersionModel(schemaTypes) { TypeId = Guid.NewGuid() }.OnPostAsync(CancellationToken.None));
+    [Fact]
+    public async Task TypeNewVersionPostReturnsNotFoundForMissingType()
+    {
+        var (_, _, schemaTypes) = CreateTypeVersionFixture();
+        var model = new TypeNewVersionModel(schemaTypes) { TypeId = Guid.NewGuid() };
 
+        var result = await model.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task TypeNewVersionGetReturnsNotFoundForSystemType()
+    {
+        var (_, _, schemaTypes) = CreateTypeVersionFixture();
         var systemType = new SchemaTypeDefinition { Id = Guid.NewGuid(), Key = "sys", Name = "System", IsSystem = true };
         schemaTypes.Definitions.Add(systemType);
-        Assert.IsType<NotFoundResult>(await new TypeNewVersionModel(schemaTypes).OnGetAsync(systemType.Id, CancellationToken.None));
+
+        var result = await new TypeNewVersionModel(schemaTypes).OnGetAsync(systemType.Id, CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task TypeNewVersionPostRejectsDuplicateVersion()
+    {
+        var (schemaType, _, schemaTypes) = CreateTypeVersionFixture();
 
         var duplicate = new TypeNewVersionModel(schemaTypes)
         {
             TypeId = schemaType.Id,
             Version = new TypeVersionInput { VersionNumber = "1.0.0", BaseType = "string" }
         };
-        Assert.IsType<PageResult>(await duplicate.OnPostAsync(CancellationToken.None));
-        Assert.False(duplicate.ModelState.IsValid);
 
-        var missingArrayItem = new TypeNewVersionModel(schemaTypes)
+        var result = await duplicate.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.False(duplicate.ModelState.IsValid);
+    }
+
+    [Fact]
+    public async Task TypeNewVersionPostRejectsMissingArrayItemType()
+    {
+        var (schemaType, _, schemaTypes) = CreateTypeVersionFixture();
+        var model = new TypeNewVersionModel(schemaTypes)
         {
             TypeId = schemaType.Id,
             Version = new TypeVersionInput
@@ -392,10 +486,18 @@ public sealed class ContractPageModelPostCoverageTests
                 ArrayItemTypeVersionId = Guid.NewGuid()
             }
         };
-        Assert.IsType<PageResult>(await missingArrayItem.OnPostAsync(CancellationToken.None));
-        Assert.False(missingArrayItem.ModelState.IsValid);
 
-        var invalidLength = new TypeNewVersionModel(schemaTypes)
+        var result = await model.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.False(model.ModelState.IsValid);
+    }
+
+    [Fact]
+    public async Task TypeNewVersionPostRejectsInvalidStringLengthRange()
+    {
+        var (schemaType, _, schemaTypes) = CreateTypeVersionFixture();
+        var model = new TypeNewVersionModel(schemaTypes)
         {
             TypeId = schemaType.Id,
             Version = new TypeVersionInput
@@ -406,8 +508,11 @@ public sealed class ContractPageModelPostCoverageTests
                 MaxLength = 2
             }
         };
-        Assert.IsType<PageResult>(await invalidLength.OnPostAsync(CancellationToken.None));
-        Assert.False(invalidLength.ModelState.IsValid);
+
+        var result = await model.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.False(model.ModelState.IsValid);
     }
 
     [Fact]
@@ -508,6 +613,55 @@ public sealed class ContractPageModelPostCoverageTests
         Assert.Equal(schemaType.Key, schemaTypes.LastUpdatedKey);
         Assert.False(schemaTypes.LastUpdatedIsActive);
         Assert.IsType<RedirectToPageResult>(await index.OnPostDeactivateAsync(Guid.NewGuid(), CancellationToken.None));
+    }
+
+    private static (CommandDefinition Command, CommandServiceFake Commands, SchemaTypeServiceFake SchemaTypes, MetadataFieldServiceFake Metadata)
+        CreateCommandVersionFixture()
+    {
+        var command = CreateCommand("Register Customer", "register.customer", "1.0.0");
+        return (command, new CommandServiceFake([command]), new SchemaTypeServiceFake(), new MetadataFieldServiceFake());
+    }
+
+    private static (EventDefinition EventDefinition, EventServiceFake Events, SchemaTypeServiceFake SchemaTypes, MetadataFieldServiceFake Metadata)
+        CreateEventVersionFixture()
+    {
+        var eventDefinition = CreateEvent("Customer Created", "customer.created", "2.0.0");
+        return (eventDefinition, new EventServiceFake([eventDefinition]), new SchemaTypeServiceFake(), new MetadataFieldServiceFake());
+    }
+
+    private static (SchemaTypeDefinition SchemaType, SchemaTypeVersion ArrayItem, SchemaTypeServiceFake SchemaTypes) CreateTypeVersionFixture()
+    {
+        var arrayItem = new SchemaTypeVersion
+        {
+            Id = Guid.NewGuid(),
+            VersionNumber = "1.0.0",
+            DefinitionJson = """{"type":"string"}""",
+            IsActive = true
+        };
+        var schemaType = new SchemaTypeDefinition
+        {
+            Id = Guid.NewGuid(),
+            Key = "customer-list",
+            Name = "CustomerList",
+            Description = "Customer list",
+            IsActive = true,
+            IsSystem = false,
+            Versions =
+            {
+                new SchemaTypeVersion
+                {
+                    Id = Guid.NewGuid(),
+                    VersionNumber = "1.0.0",
+                    DefinitionJson = """{"schema":{"type":"array","items":{"type":"string"}}}""",
+                    Comment = "Initial",
+                    IsActive = true,
+                    CreatedAtUtc = DateTime.UtcNow.AddDays(-1)
+                }
+            }
+        };
+        var schemaTypes = new SchemaTypeServiceFake(activeVersions: [arrayItem]);
+        schemaTypes.Definitions.Add(schemaType);
+        return (schemaType, arrayItem, schemaTypes);
     }
 
     private static CommandNewVersionModel CreateCommandVersionModel(

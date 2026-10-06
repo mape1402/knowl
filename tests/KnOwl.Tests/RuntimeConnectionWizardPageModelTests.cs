@@ -468,7 +468,37 @@ public sealed class RuntimeConnectionWizardPageModelTests
     }
 
     [Fact]
-    public async Task ControlPlaneRuntimeNodeStandardPostCoversValidationUpdateAndPersistenceBranches()
+    public async Task ControlPlaneRuntimeNodeStandardPostReturnsPageForInvalidInput()
+    {
+        var environment = CreateEnvironment();
+        var runtimeNodes = new RuntimeNodeRepositoryFake([]);
+        var model = CreateControlPlaneRuntimeNodesPage(runtimeNodes, [environment]);
+
+        model.Input = new RuntimeNodeInput();
+
+        Assert.IsType<PageResult>(await model.OnPostAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ControlPlaneRuntimeNodeStandardPostCreatesNewNode()
+    {
+        var environment = CreateEnvironment();
+        var runtimeNodes = new RuntimeNodeRepositoryFake([]);
+        var model = CreateControlPlaneRuntimeNodesPage(runtimeNodes, [environment]);
+        model.Input = new RuntimeNodeInput
+        {
+            Name = "New Runtime",
+            Code = "new-runtime",
+            EnvironmentId = environment.Id,
+            DistributionMode = DistributionMode.Pull,
+            Status = RuntimeNodeStatus.Active
+        };
+        Assert.IsType<RedirectToPageResult>(await model.OnPostAsync(CancellationToken.None));
+        Assert.Contains(runtimeNodes.Nodes, x => x.Code == "new-runtime");
+    }
+
+    [Fact]
+    public async Task ControlPlaneRuntimeNodeStandardPostUpdatesExistingNode()
     {
         var environment = CreateEnvironment();
         var existing = new RuntimeNode
@@ -484,20 +514,6 @@ public sealed class RuntimeConnectionWizardPageModelTests
         var runtimeNodes = new RuntimeNodeRepositoryFake([existing]);
         var model = CreateControlPlaneRuntimeNodesPage(runtimeNodes, [environment]);
 
-        model.Input = new RuntimeNodeInput();
-        Assert.IsType<PageResult>(await model.OnPostAsync(CancellationToken.None));
-
-        model.Input = new RuntimeNodeInput
-        {
-            Name = "New Runtime",
-            Code = "new-runtime",
-            EnvironmentId = environment.Id,
-            DistributionMode = DistributionMode.Pull,
-            Status = RuntimeNodeStatus.Active
-        };
-        Assert.IsType<RedirectToPageResult>(await model.OnPostAsync(CancellationToken.None));
-        Assert.Contains(runtimeNodes.Nodes, x => x.Code == "new-runtime");
-
         model.Input = new RuntimeNodeInput
         {
             Id = existing.Id,
@@ -512,6 +528,14 @@ public sealed class RuntimeConnectionWizardPageModelTests
         Assert.IsType<RedirectToPageResult>(await model.OnPostAsync(CancellationToken.None));
         Assert.Equal("runtime-updated", existing.Code);
         Assert.Equal(DistributionMode.Hybrid, existing.DistributionMode);
+    }
+
+    [Fact]
+    public async Task ControlPlaneRuntimeNodeStandardPostRejectsMissingEnvironment()
+    {
+        var environment = CreateEnvironment();
+        var runtimeNodes = new RuntimeNodeRepositoryFake([]);
+        var model = CreateControlPlaneRuntimeNodesPage(runtimeNodes, [environment]);
 
         model.Input = new RuntimeNodeInput
         {
@@ -523,7 +547,14 @@ public sealed class RuntimeConnectionWizardPageModelTests
         };
         Assert.IsType<PageResult>(await model.OnPostAsync(CancellationToken.None));
         Assert.Equal("Selected environment was not found.", model.ModelState[string.Empty]!.Errors.Single().ErrorMessage);
+    }
 
+    [Fact]
+    public async Task ControlPlaneRuntimeNodeStandardPostReportsDuplicateCode()
+    {
+        var environment = CreateEnvironment();
+        var runtimeNodes = new RuntimeNodeRepositoryFake([]);
+        var model = CreateControlPlaneRuntimeNodesPage(runtimeNodes, [environment]);
         runtimeNodes.NextCreateException = new DbUpdateException("duplicate");
         model.Input = new RuntimeNodeInput
         {
@@ -540,7 +571,7 @@ public sealed class RuntimeConnectionWizardPageModelTests
     }
 
     [Fact]
-    public async Task ControlPlaneRuntimeNodeWizardCoversRemainingReadinessAndClientBranches()
+    public async Task ControlPlaneRuntimeNodeWizardRejectsEnableWhenPrerequisitesAreMissing()
     {
         var environment = CreateEnvironment();
         var missingEnvironment = new RuntimeNode
@@ -586,18 +617,8 @@ public sealed class RuntimeConnectionWizardPageModelTests
             Status = RuntimeNodeStatus.Active,
             InboundCredentialStatus = ConnectionCredentialStatus.Missing
         };
-        var noCredentialPolicy = new RuntimeNode
-        {
-            Id = Guid.NewGuid(),
-            Name = "Unknown Policy",
-            Code = "unknown-policy",
-            EnvironmentId = environment.Id,
-            EnvironmentName = environment.Name,
-            DistributionMode = (DistributionMode)999,
-            Status = RuntimeNodeStatus.Active
-        };
         var runtimeNodes = new RuntimeNodeRepositoryFake(
-            [missingEnvironment, disabledStatus, missingRuntimeCredential, missingControlPlaneCredential, noCredentialPolicy]);
+            [missingEnvironment, disabledStatus, missingRuntimeCredential, missingControlPlaneCredential]);
         var model = CreateControlPlaneRuntimeNodesPage(runtimeNodes, [environment]);
 
         var noEnvironment = Assert.IsType<BadRequestObjectResult>(
@@ -615,6 +636,36 @@ public sealed class RuntimeConnectionWizardPageModelTests
         var missingControlPlane = Assert.IsType<BadRequestObjectResult>(
             await model.OnPostWizardSetEnabledAsync(missingControlPlaneCredential.Id, true, CancellationToken.None));
         Assert.Equal("Generate Control Plane credentials before enabling this node.", ReadMessage(missingControlPlane.Value));
+    }
+
+    [Fact]
+    public async Task ControlPlaneRuntimeNodesSearchByReadinessAndPolicy()
+    {
+        var environment = CreateEnvironment();
+        var missingRuntimeCredential = new RuntimeNode
+        {
+            Id = Guid.NewGuid(),
+            Name = "Push Missing Runtime",
+            Code = "push-missing-runtime",
+            EnvironmentId = environment.Id,
+            EnvironmentName = environment.Name,
+            DistributionMode = DistributionMode.Push,
+            EndpointBaseUri = "https://runtime.example.test",
+            Status = RuntimeNodeStatus.Active,
+            OutboundCredentialStatus = ConnectionCredentialStatus.Missing
+        };
+        var noCredentialPolicy = new RuntimeNode
+        {
+            Id = Guid.NewGuid(),
+            Name = "Unknown Policy",
+            Code = "unknown-policy",
+            EnvironmentId = environment.Id,
+            EnvironmentName = environment.Name,
+            DistributionMode = (DistributionMode)999,
+            Status = RuntimeNodeStatus.Active
+        };
+        var runtimeNodes = new RuntimeNodeRepositoryFake([missingRuntimeCredential, noCredentialPolicy]);
+        var model = CreateControlPlaneRuntimeNodesPage(runtimeNodes, [environment]);
 
         model.Search = "Missing Runtime";
         await model.OnGetAsync(CancellationToken.None);
@@ -627,6 +678,22 @@ public sealed class RuntimeConnectionWizardPageModelTests
         model.Search = "999";
         await model.OnGetAsync(CancellationToken.None);
         Assert.Equal(noCredentialPolicy.Id, Assert.Single(model.RuntimeNodes).Id);
+    }
+
+    [Fact]
+    public void RuntimeNodeClientModelMapsDisplayFields()
+    {
+        var environment = CreateEnvironment();
+        var noCredentialPolicy = new RuntimeNode
+        {
+            Id = Guid.NewGuid(),
+            Name = "Unknown Policy",
+            Code = "unknown-policy",
+            EnvironmentId = environment.Id,
+            EnvironmentName = environment.Name,
+            DistributionMode = (DistributionMode)999,
+            Status = RuntimeNodeStatus.Active
+        };
 
         var client = new KnOwl.ControlPlane.WebUI.Pages.Contracts.RuntimeNodes.RuntimeNodeClientModel(
             noCredentialPolicy.Id,
@@ -678,7 +745,7 @@ public sealed class RuntimeConnectionWizardPageModelTests
     }
 
     [Fact]
-    public async Task RuntimeControlPlaneWizardCoversUpdatePersistenceAndReadinessBranches()
+    public async Task RuntimeControlPlaneWizardUpdatesExistingConnectionAndMarksPending()
     {
         var existing = new RuntimeDesignNode
         {
@@ -692,17 +759,7 @@ public sealed class RuntimeConnectionWizardPageModelTests
             IsEnabled = true,
             OutboundCredentialStatus = ConnectionCredentialStatus.Active
         };
-        var pushNode = new RuntimeDesignNode
-        {
-            Id = Guid.NewGuid(),
-            Key = "push",
-            Name = "Push",
-            DistributionMode = DistributionMode.Push,
-            Status = RuntimeDesignNodeStatus.Pending,
-            IsEnabled = false,
-            InboundCredentialStatus = ConnectionCredentialStatus.Missing
-        };
-        var repository = new RuntimeDesignNodeRepositoryFake([existing, pushNode]);
+        var repository = new RuntimeDesignNodeRepositoryFake([existing]);
         var model = CreateRuntimeControlPlanesPage(repository);
 
         model.Input = new ControlPlaneConnectionInput
@@ -718,6 +775,13 @@ public sealed class RuntimeConnectionWizardPageModelTests
         Assert.Equal("existing-updated", existing.Key);
         Assert.False(existing.IsEnabled);
         Assert.Equal(RuntimeDesignNodeStatus.Pending, existing.Status);
+    }
+
+    [Fact]
+    public async Task RuntimeControlPlaneWizardRejectsMissingAndDuplicateKeys()
+    {
+        var repository = new RuntimeDesignNodeRepositoryFake([]);
+        var model = CreateRuntimeControlPlanesPage(repository);
 
         model.Input = new ControlPlaneConnectionInput
         {
@@ -738,10 +802,44 @@ public sealed class RuntimeConnectionWizardPageModelTests
         };
         var duplicate = Assert.IsType<BadRequestObjectResult>(await model.OnPostWizardUpsertAsync(CancellationToken.None));
         Assert.Equal("Control Plane connection key 'duplicate' already exists.", ReadMessage(duplicate.Value));
+    }
+
+    [Fact]
+    public async Task RuntimeControlPlaneWizardRejectsEnableWhenCredentialsAreMissing()
+    {
+        var pushNode = new RuntimeDesignNode
+        {
+            Id = Guid.NewGuid(),
+            Key = "push",
+            Name = "Push",
+            DistributionMode = DistributionMode.Push,
+            Status = RuntimeDesignNodeStatus.Pending,
+            IsEnabled = false,
+            InboundCredentialStatus = ConnectionCredentialStatus.Missing
+        };
+        var repository = new RuntimeDesignNodeRepositoryFake([pushNode]);
+        var model = CreateRuntimeControlPlanesPage(repository);
 
         var notReady = Assert.IsType<BadRequestObjectResult>(
             await model.OnPostWizardSetEnabledAsync(pushNode.Id, true, CancellationToken.None));
         Assert.Equal("Complete the required credentials before enabling this Control Plane connection.", ReadMessage(notReady.Value));
+    }
+
+    [Fact]
+    public async Task RuntimeControlPlanesSearchByReadinessAndPolicy()
+    {
+        var pushNode = new RuntimeDesignNode
+        {
+            Id = Guid.NewGuid(),
+            Key = "push",
+            Name = "Push",
+            DistributionMode = DistributionMode.Push,
+            Status = RuntimeDesignNodeStatus.Pending,
+            IsEnabled = false,
+            InboundCredentialStatus = ConnectionCredentialStatus.Missing
+        };
+        var repository = new RuntimeDesignNodeRepositoryFake([pushNode]);
+        var model = CreateRuntimeControlPlanesPage(repository);
 
         model.Search = "Missing";
         await model.OnGet(CancellationToken.None);
@@ -762,6 +860,23 @@ public sealed class RuntimeConnectionWizardPageModelTests
         model.Search = "999";
         await model.OnGet(CancellationToken.None);
         Assert.Equal(invalidPolicy.Id, Assert.Single(model.DesignNodes).Id);
+    }
+
+    [Fact]
+    public void RuntimeDesignNodeClientModelMapsDisplayFields()
+    {
+        var existing = new RuntimeDesignNode
+        {
+            Id = Guid.NewGuid(),
+            Key = "existing",
+            Name = "Existing",
+            DistributionMode = DistributionMode.Hybrid,
+            EndpointBaseUri = "https://control.example.test",
+            RemoteRuntimeNodeId = "runtime-1",
+            Status = RuntimeDesignNodeStatus.Enabled,
+            IsEnabled = true,
+            Description = "Updated"
+        };
 
         var client = new KnOwl.Runtime.WebUI.Pages.ControlPlanes.RuntimeDesignNodeClientModel(
             existing.Id,

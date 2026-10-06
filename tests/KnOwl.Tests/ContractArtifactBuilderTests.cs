@@ -95,15 +95,15 @@ public sealed class ContractArtifactBuilderTests
     }
 
     [Fact]
-    public async Task BuildArtifactsRejectMissingSnapshotsAndConflictingExistingArtifacts()
+    public async Task BuildEventArtifactRejectsMissingDefinitionSnapshot()
     {
-        var missingDefinitionId = Guid.NewGuid();
-        using (var provider = CreateProvider(
+        var versionId = Guid.NewGuid();
+        using var provider = CreateProvider(
             new ArtifactEventRepository
             {
                 Version = new EventVersion
                 {
-                    Id = missingDefinitionId,
+                    Id = versionId,
                     EventDefinitionId = Guid.NewGuid(),
                     VersionNumber = "1.0.0",
                     Status = ContractVersionStatus.Approved,
@@ -111,32 +111,40 @@ public sealed class ContractArtifactBuilderTests
                 }
             },
             new ArtifactCommandRepository(),
-            new ArtifactRepository()))
-        {
-            var builder = provider.GetRequiredService<IContractArtifactBuilder>();
-            await Assert.ThrowsAsync<InvalidOperationException>(() => builder.BuildEventArtifact(missingDefinitionId));
-        }
+            new ArtifactRepository());
 
-        var missingCommandDefinitionId = Guid.NewGuid();
-        using (var provider = CreateProvider(
+        var builder = provider.GetRequiredService<IContractArtifactBuilder>();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => builder.BuildEventArtifact(versionId));
+    }
+
+    [Fact]
+    public async Task BuildCommandArtifactRejectsMissingDefinitionSnapshot()
+    {
+        var versionId = Guid.NewGuid();
+        using var provider = CreateProvider(
             new ArtifactEventRepository(),
             new ArtifactCommandRepository
             {
                 Version = new CommandVersion
                 {
-                    Id = missingCommandDefinitionId,
+                    Id = versionId,
                     CommandDefinitionId = Guid.NewGuid(),
                     VersionNumber = "1.0.0",
                     Status = ContractVersionStatus.Approved,
                     PayloadSchemaJson = "{}"
                 }
             },
-            new ArtifactRepository()))
-        {
-            var builder = provider.GetRequiredService<IContractArtifactBuilder>();
-            await Assert.ThrowsAsync<InvalidOperationException>(() => builder.BuildCommandArtifact(missingCommandDefinitionId));
-        }
+            new ArtifactRepository());
 
+        var builder = provider.GetRequiredService<IContractArtifactBuilder>();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => builder.BuildCommandArtifact(versionId));
+    }
+
+    [Fact]
+    public async Task BuildArtifactRejectsExistingArtifactForSameSourceWithDifferentHash()
+    {
         var sourceConflictVersion = CreateApprovedEventVersion("customer.created", "1.0.0");
         var sourceConflictArtifacts = new ArtifactRepository();
         sourceConflictArtifacts.Items.Add(new ContractArtifact
@@ -147,12 +155,16 @@ public sealed class ContractArtifactBuilderTests
             VersionNumber = "1.0.0",
             ContentHash = "different"
         });
-        using (var provider = CreateProvider(new ArtifactEventRepository { Version = sourceConflictVersion }, new ArtifactCommandRepository(), sourceConflictArtifacts))
-        {
-            var builder = provider.GetRequiredService<IContractArtifactBuilder>();
-            await Assert.ThrowsAsync<InvalidOperationException>(() => builder.BuildEventArtifact(sourceConflictVersion.Id));
-        }
+        using var provider = CreateProvider(new ArtifactEventRepository { Version = sourceConflictVersion }, new ArtifactCommandRepository(), sourceConflictArtifacts);
 
+        var builder = provider.GetRequiredService<IContractArtifactBuilder>();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => builder.BuildEventArtifact(sourceConflictVersion.Id));
+    }
+
+    [Fact]
+    public async Task BuildArtifactRejectsExistingArtifactWithSameIdentityAndDifferentSource()
+    {
         var identityConflictVersion = CreateApprovedEventVersion("customer.created", "1.0.0");
         var identityConflictArtifacts = new ArtifactRepository();
         identityConflictArtifacts.Items.Add(new ContractArtifact
@@ -163,11 +175,11 @@ public sealed class ContractArtifactBuilderTests
             VersionNumber = "1.0.0",
             ContentHash = "different"
         });
-        using (var provider = CreateProvider(new ArtifactEventRepository { Version = identityConflictVersion }, new ArtifactCommandRepository(), identityConflictArtifacts))
-        {
-            var builder = provider.GetRequiredService<IContractArtifactBuilder>();
-            await Assert.ThrowsAsync<InvalidOperationException>(() => builder.BuildEventArtifact(identityConflictVersion.Id));
-        }
+        using var provider = CreateProvider(new ArtifactEventRepository { Version = identityConflictVersion }, new ArtifactCommandRepository(), identityConflictArtifacts);
+
+        var builder = provider.GetRequiredService<IContractArtifactBuilder>();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => builder.BuildEventArtifact(identityConflictVersion.Id));
     }
 
     [Fact]
@@ -205,20 +217,31 @@ public sealed class ContractArtifactBuilderTests
     }
 
     [Fact]
-    public void CommandArtifactPayloadDocumentHandlesFallbacksAndInvalidJson()
+    public void CommandArtifactPayloadDocumentReadsEmptyAndLegacyPayloads()
     {
         var empty = CommandArtifactPayloadDocument.Read(string.Empty);
         var legacy = CommandArtifactPayloadDocument.Read("[]");
-        var withoutReply = CommandArtifactPayloadDocument.Read(CommandArtifactPayloadDocument.Compose("{\"type\":\"object\"}", null));
-        var withNullReply = CommandArtifactPayloadDocument.Read("""{"request":{"type":"object"},"reply":null}""");
 
         Assert.Equal("{}", empty.RequestPayloadSchemaJson);
         Assert.Null(empty.ReplyPayloadSchemaJson);
         Assert.Equal("[]", legacy.RequestPayloadSchemaJson);
         Assert.Null(legacy.ReplyPayloadSchemaJson);
+    }
+
+    [Fact]
+    public void CommandArtifactPayloadDocumentReadsComposedPayloadWithoutReply()
+    {
+        var withoutReply = CommandArtifactPayloadDocument.Read(CommandArtifactPayloadDocument.Compose("{\"type\":\"object\"}", null));
+        var withNullReply = CommandArtifactPayloadDocument.Read("""{"request":{"type":"object"},"reply":null}""");
+
         Assert.Equal("""{"type":"object"}""", withoutReply.RequestPayloadSchemaJson);
         Assert.Null(withoutReply.ReplyPayloadSchemaJson);
         Assert.Null(withNullReply.ReplyPayloadSchemaJson);
+    }
+
+    [Fact]
+    public void CommandArtifactPayloadDocumentRejectsInvalidPayloads()
+    {
         Assert.Throws<ArgumentException>(() => CommandArtifactPayloadDocument.Compose(string.Empty, null));
         Assert.Throws<ArgumentException>(() => CommandArtifactPayloadDocument.Compose("{", null));
         Assert.Throws<ArgumentException>(() => CommandArtifactPayloadDocument.Compose("{\"type\":\"object\"}", "{"));
