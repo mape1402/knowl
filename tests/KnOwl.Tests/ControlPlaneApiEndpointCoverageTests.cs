@@ -110,6 +110,73 @@ public sealed class ControlPlaneApiEndpointCoverageTests
         await AssertStatus(client.PostAsJsonAsync("/api/v1/control-plane/security/external-group-role-assignments", new AssignSecurityExternalGroupRoleRequest(" oidc ", " group-1 ", " Reader ", " Global ", " * ")), HttpStatusCode.Created);
     }
 
+    [Fact]
+    public async Task ControlPlaneApiRoutesReturnExpectedNotFoundAndConflictResponses()
+    {
+        await using var fixture = await ControlPlaneApiFixture.Start();
+        var client = fixture.Client;
+        var missing = Guid.NewGuid();
+
+        await AssertStatus(client.PutAsJsonAsync($"/api/v1/control-plane/schema-types/{missing}", new UpdateSchemaTypeRequest("missing", "Missing", null, true)), HttpStatusCode.NotFound);
+        await AssertStatus(client.PostAsJsonAsync($"/api/v1/control-plane/schema-types/{missing}/versions", new CreateSchemaTypeVersionRequest("1.0.0", "{}", null)), HttpStatusCode.NotFound);
+        await AssertStatus(client.PatchAsJsonAsync($"/api/v1/control-plane/schema-types/{missing}/versions/{Guid.NewGuid()}/active", new SetVersionActiveRequest(true)), HttpStatusCode.NotFound);
+        await AssertStatus(client.PostAsJsonAsync("/api/v1/control-plane/schema-types/", new CreateSchemaTypeRequest("first", "First", null, "1.0.0", "{}", null)), HttpStatusCode.Created);
+        await AssertStatus(client.PostAsJsonAsync("/api/v1/control-plane/schema-types/", new CreateSchemaTypeRequest("second", "Second", null, "1.0.0", "{}", null)), HttpStatusCode.Created);
+        var firstSchemaId = fixture.State.SchemaTypes.Single(x => x.Key == "first").Id;
+        var secondSchemaId = fixture.State.SchemaTypes.Single(x => x.Key == "second").Id;
+        await AssertStatus(client.PutAsJsonAsync($"/api/v1/control-plane/schema-types/{secondSchemaId}", new UpdateSchemaTypeRequest("first", "Duplicate", null, true)), HttpStatusCode.Conflict);
+
+        await AssertStatus(client.PutAsJsonAsync($"/api/v1/control-plane/metadata-fields/{missing}", new UpdateMetadataFieldRequest("missing", "Missing", null, true)), HttpStatusCode.NotFound);
+        await AssertStatus(client.PutAsJsonAsync($"/api/v1/control-plane/metadata-fields/{missing}/versions", new UpsertMetadataFieldVersionRequest("1.0.0", "{}", null)), HttpStatusCode.NotFound);
+        await AssertStatus(client.PatchAsJsonAsync($"/api/v1/control-plane/metadata-fields/{missing}/versions/{Guid.NewGuid()}/active", new SetVersionActiveRequest(true)), HttpStatusCode.NotFound);
+        await AssertStatus(client.PostAsJsonAsync("/api/v1/control-plane/metadata-fields/", new CreateMetadataFieldRequest("meta-one", "Meta One", null, "1.0.0", "{}", null)), HttpStatusCode.Created);
+        await AssertStatus(client.PostAsJsonAsync("/api/v1/control-plane/metadata-fields/", new CreateMetadataFieldRequest("meta-two", "Meta Two", null, "1.0.0", "{}", null)), HttpStatusCode.Created);
+        var secondMetadataId = fixture.State.MetadataFields.Single(x => x.Key == "meta-two").Id;
+        await AssertStatus(client.PutAsJsonAsync($"/api/v1/control-plane/metadata-fields/{secondMetadataId}", new UpdateMetadataFieldRequest("meta-one", "Duplicate", null, true)), HttpStatusCode.Conflict);
+
+        await AssertStatus(client.GetAsync($"/api/v1/control-plane/events/{missing}"), HttpStatusCode.NotFound);
+        await AssertStatus(client.PutAsJsonAsync($"/api/v1/control-plane/events/{missing}", new UpdateEventRequest("Missing", "missing", null)), HttpStatusCode.NotFound);
+        await AssertStatus(client.PostAsJsonAsync($"/api/v1/control-plane/events/{missing}/versions", new CreateEventVersionRequest("1.0.0", "{}", null)), HttpStatusCode.NotFound);
+        await AssertStatus(client.PostAsJsonAsync($"/api/v1/control-plane/events/{missing}/versions/{Guid.NewGuid()}/transition", new TransitionVersionRequest(ContractVersionStatus.InReview)), HttpStatusCode.NotFound);
+        await AssertStatus(client.DeleteAsync($"/api/v1/control-plane/events/{missing}"), HttpStatusCode.NotFound);
+
+        await AssertStatus(client.GetAsync($"/api/v1/control-plane/commands/{missing}"), HttpStatusCode.NotFound);
+        await AssertStatus(client.PutAsJsonAsync($"/api/v1/control-plane/commands/{missing}", new UpdateCommandRequest("Missing", "missing", null)), HttpStatusCode.NotFound);
+        await AssertStatus(client.PostAsJsonAsync($"/api/v1/control-plane/commands/{missing}/versions", new CreateCommandVersionRequest("1.0.0", "{}", null, null)), HttpStatusCode.NotFound);
+        await AssertStatus(client.PostAsJsonAsync($"/api/v1/control-plane/commands/{missing}/versions/{Guid.NewGuid()}/transition", new TransitionVersionRequest(ContractVersionStatus.InReview)), HttpStatusCode.NotFound);
+        await AssertStatus(client.DeleteAsync($"/api/v1/control-plane/commands/{missing}"), HttpStatusCode.NotFound);
+
+        await AssertStatus(client.PutAsJsonAsync($"/api/v1/control-plane/runtime-environments/{missing}", new UpdateRuntimeEnvironmentRequest("Missing", "missing", null, true)), HttpStatusCode.NotFound);
+        await AssertStatus(client.PostAsJsonAsync("/api/v1/control-plane/runtime-environments/", new CreateRuntimeEnvironmentRequest("Development", "dev", null)), HttpStatusCode.Created);
+        var environmentId = fixture.State.Environments.Single().Id;
+
+        await AssertStatus(client.PutAsJsonAsync($"/api/v1/control-plane/runtime-nodes/{missing}", new UpdateRuntimeNodeRequest("Missing", "missing", environmentId, "Development", DistributionMode.Pull, "https://runtime.example.test", "/", true, null)), HttpStatusCode.NotFound);
+        await AssertStatus(client.DeleteAsync($"/api/v1/control-plane/runtime-nodes/{missing}"), HttpStatusCode.NotFound);
+        await AssertStatus(client.PostAsync($"/api/v1/control-plane/runtime-nodes/{missing}/credentials/generate?issuerBaseUrl=https%3A%2F%2Fcontrol.example.test", null), HttpStatusCode.NotFound);
+        await AssertStatus(client.PostAsJsonAsync($"/api/v1/control-plane/runtime-nodes/{missing}/credentials/import", new ImportRuntimeNodeCredentialPackageRequest("{}")), HttpStatusCode.NotFound);
+        await AssertStatus(client.PostAsync($"/api/v1/control-plane/runtime-nodes/{missing}/connect/validate", null), HttpStatusCode.NotFound);
+
+        await AssertStatus(client.PostAsJsonAsync("/api/v1/control-plane/runtime-nodes/", new CreateRuntimeNodeRequest("Runtime One", "runtime-one", environmentId, "Development", DistributionMode.Pull, "https://runtime1.example.test", "/")), HttpStatusCode.Created);
+        await AssertStatus(client.PostAsJsonAsync("/api/v1/control-plane/runtime-nodes/", new CreateRuntimeNodeRequest("Runtime Two", "runtime-two", environmentId, "Development", DistributionMode.Pull, "https://runtime2.example.test", "/")), HttpStatusCode.Created);
+        var runtimeTwoId = fixture.State.RuntimeNodes.Single(x => x.Code == "runtime-two").Id;
+        await AssertStatus(client.PutAsJsonAsync($"/api/v1/control-plane/runtime-nodes/{runtimeTwoId}", new UpdateRuntimeNodeRequest("Runtime Duplicate", "runtime-one", environmentId, "Development", DistributionMode.Pull, "https://runtime3.example.test", "/", true, null)), HttpStatusCode.Conflict);
+        var runtimeOneId = fixture.State.RuntimeNodes.Single(x => x.Code == "runtime-one").Id;
+        await AssertStatus(client.DeleteAsync($"/api/v1/control-plane/runtime-nodes/{runtimeOneId}"), HttpStatusCode.NoContent);
+
+        await AssertStatus(client.PostAsJsonAsync($"/api/v1/control-plane/releases/{missing}/plan", new PlanReleaseRequest([runtimeTwoId], "Manual")), HttpStatusCode.NotFound);
+        await AssertStatus(client.PostAsJsonAsync($"/api/v1/control-plane/releases/{missing}/execute", new ExecuteReleaseRequest("api")), HttpStatusCode.NotFound);
+
+        Assert.NotEqual(firstSchemaId, secondSchemaId);
+    }
+
+    [Fact]
+    public async Task ControlPlaneApiCanBeMappedWithFallbackPolicy()
+    {
+        await using var fixture = await ControlPlaneApiFixture.Start("api-policy");
+
+        Assert.NotNull(fixture.Client);
+    }
+
     private static async Task AssertStatus(Task<HttpResponseMessage> task, HttpStatusCode expected)
     {
         using var response = await task;
@@ -130,10 +197,15 @@ public sealed class ControlPlaneApiEndpointCoverageTests
         public HttpClient Client { get; }
         public ApiState State { get; }
 
-        public static async Task<ControlPlaneApiFixture> Start()
+        public static async Task<ControlPlaneApiFixture> Start(string? fallbackPolicy = null)
         {
             var builder = WebApplication.CreateBuilder();
             builder.WebHost.UseTestServer();
+            if (!string.IsNullOrWhiteSpace(fallbackPolicy))
+            {
+                builder.Services.AddAuthorization(options =>
+                    options.AddPolicy(fallbackPolicy, policy => policy.RequireAssertion(_ => true)));
+            }
             var state = new ApiState();
             builder.Services.AddSingleton(state);
             builder.Services.AddSingleton<ISchemaTypeInteractionService>(state);
@@ -153,7 +225,9 @@ public sealed class ControlPlaneApiEndpointCoverageTests
             builder.Services.AddSingleton<IKnOwlSecurityStore>(state);
 
             var app = builder.Build();
-            app.MapKnOwlControlPlaneApi(new KnOwlApiAuthorizationOptions());
+            app.MapKnOwlControlPlaneApi(string.IsNullOrWhiteSpace(fallbackPolicy)
+                ? new KnOwlApiAuthorizationOptions()
+                : new KnOwlApiAuthorizationOptions { FallbackPolicy = fallbackPolicy });
             await app.StartAsync();
             return new ControlPlaneApiFixture(app, app.GetTestClient(), state);
         }
