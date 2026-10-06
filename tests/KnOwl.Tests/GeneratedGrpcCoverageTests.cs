@@ -1,6 +1,9 @@
 using Google.Protobuf;
 using Grpc.Core;
+using KnOwl.Contracts.Artifacts;
+using KnOwl.Runtime.Application.Catalog;
 using KnOwl.Runtime.Bootstrap.Grpc;
+using KnOwl.Runtime.Core;
 
 namespace KnOwl.Tests;
 
@@ -74,6 +77,54 @@ public sealed class GeneratedGrpcCoverageTests
         await Assert.ThrowsAsync<RpcException>(() => service.GetLatest(new RuntimeContractLatestRequest(), null!));
     }
 
+    [Fact]
+    public async Task RuntimeContractsGrpcServiceMapsCatalogResultsAndInvalidArguments()
+    {
+        var artifact = new RuntimeContractArtifact
+        {
+            Id = Guid.NewGuid(),
+            SourceArtifactId = Guid.NewGuid(),
+            SourceReleaseId = Guid.NewGuid(),
+            ArtifactType = ContractArtifactType.Command,
+            DefinitionId = Guid.NewGuid(),
+            VersionId = Guid.NewGuid(),
+            Name = "Submit Order",
+            Topic = "orders.submit",
+            VersionNumber = "1.2.3",
+            Description = null,
+            PayloadSchemaJson = """{"type":"object"}""",
+            ContentHash = "hash",
+            DeployedAtUtc = new DateTime(2026, 9, 18, 20, 7, 0, DateTimeKind.Local)
+        };
+        var catalog = new CatalogServiceFake(artifact);
+        var service = new RuntimeContractsGrpcService(catalog);
+        var context = new TestServerCallContext(CancellationToken.None);
+
+        var exact = await service.GetExact(new RuntimeContractExactRequest
+        {
+            ArtifactType = "command",
+            Topic = artifact.Topic,
+            VersionNumber = artifact.VersionNumber
+        }, context);
+        var missing = await service.GetLatest(new RuntimeContractLatestRequest
+        {
+            ArtifactType = "event",
+            Topic = "missing"
+        }, context);
+
+        Assert.True(exact.Found);
+        Assert.Equal(artifact.Id.ToString("N"), exact.Id);
+        Assert.Equal("Command", exact.ArtifactType);
+        Assert.Equal(string.Empty, exact.Description);
+        Assert.Contains("2026", exact.DeployedAtUtc, StringComparison.Ordinal);
+        Assert.False(missing.Found);
+
+        var exactError = await Assert.ThrowsAsync<RpcException>(() => service.GetExact(new RuntimeContractExactRequest { ArtifactType = "bad" }, context));
+        var latestError = await Assert.ThrowsAsync<RpcException>(() => service.GetLatest(new RuntimeContractLatestRequest { ArtifactType = "bad" }, context));
+        Assert.Equal(StatusCode.InvalidArgument, exactError.StatusCode);
+        Assert.Equal(StatusCode.InvalidArgument, latestError.StatusCode);
+    }
+
     private static void AssertMessageRoundTrips<TMessage>(TMessage message, MessageParser<TMessage> parser)
         where TMessage : class, IMessage<TMessage>, new()
     {
@@ -128,5 +179,47 @@ public sealed class GeneratedGrpcCoverageTests
         {
             BoundMethods++;
         }
+    }
+
+    private sealed class CatalogServiceFake(RuntimeContractArtifact artifact) : IRuntimeContractCatalogService
+    {
+        public Task<IReadOnlyList<RuntimeContractArtifact>> GetAll(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<RuntimeContractArtifact>>([artifact]);
+
+        public Task<RuntimeContractArtifact?> GetExact(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default)
+            => Task.FromResult<RuntimeContractArtifact?>(artifact.ArtifactType == artifactType && artifact.Topic == topic && artifact.VersionNumber == versionNumber ? artifact : null);
+
+        public Task<RuntimeContractArtifact?> GetLatest(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken = default)
+            => Task.FromResult<RuntimeContractArtifact?>(artifact.ArtifactType == artifactType && artifact.Topic == topic ? artifact : null);
+
+        public Task<RuntimeContractArtifact?> GetEvent(string eventKey, string versionNumber, CancellationToken cancellationToken = default)
+            => Task.FromResult<RuntimeContractArtifact?>(null);
+
+        public Task<CommandContractArtifacts<RuntimeContractArtifact>?> GetCommand(string commandKey, string versionNumber, CancellationToken cancellationToken = default)
+            => Task.FromResult<CommandContractArtifacts<RuntimeContractArtifact>?>(null);
+    }
+
+    private sealed class TestServerCallContext(CancellationToken cancellationToken) : ServerCallContext
+    {
+        private readonly Metadata responseTrailers = [];
+        private Status status;
+        private WriteOptions? writeOptions;
+
+        protected override string MethodCore => "GetExact";
+        protected override string HostCore => "localhost";
+        protected override string PeerCore => "ipv4:127.0.0.1:12345";
+        protected override DateTime DeadlineCore => DateTime.UtcNow.AddMinutes(1);
+        protected override Metadata RequestHeadersCore { get; } = [];
+        protected override CancellationToken CancellationTokenCore => cancellationToken;
+        protected override Metadata ResponseTrailersCore => responseTrailers;
+        protected override Status StatusCore { get => status; set => status = value; }
+        protected override WriteOptions? WriteOptionsCore { get => writeOptions; set => writeOptions = value; }
+        protected override AuthContext AuthContextCore { get; } = new("anonymous", []);
+
+        protected override ContextPropagationToken CreatePropagationTokenCore(ContextPropagationOptions? options)
+            => throw new NotSupportedException();
+
+        protected override Task WriteResponseHeadersAsyncCore(Metadata responseHeaders)
+            => Task.CompletedTask;
     }
 }
