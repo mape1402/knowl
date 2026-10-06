@@ -55,6 +55,89 @@ public sealed class GeneratedGrpcCoverageTests
     }
 
     [Fact]
+    public void RuntimeContractGeneratedMessagesCoverMergeNullSettersAndUnknownFields()
+    {
+        var exact = new RuntimeContractExactRequest
+        {
+            ArtifactType = "Command",
+            Topic = "orders.submit",
+            VersionNumber = "1.2.3"
+        };
+        var latest = new RuntimeContractLatestRequest
+        {
+            ArtifactType = "Event",
+            Topic = "orders.submitted"
+        };
+        var response = new RuntimeContractResponse
+        {
+            Found = true,
+            Id = "id",
+            SourceArtifactId = "source-artifact",
+            SourceReleaseId = "source-release",
+            ArtifactType = "Command",
+            DefinitionId = "definition",
+            VersionId = "version",
+            Name = "Submit",
+            Topic = "orders.submit",
+            VersionNumber = "1.2.3",
+            Description = "Description",
+            PayloadSchemaJson = "{}",
+            ContentHash = "hash",
+            DeployedAtUtc = "2026-09-18T20:07:00Z"
+        };
+
+        AssertGeneratedMessageBranches(exact, clone =>
+        {
+            clone.ArtifactType = string.Empty;
+            clone.Topic = string.Empty;
+            clone.VersionNumber = string.Empty;
+        });
+        AssertGeneratedMessageBranches(latest, clone =>
+        {
+            clone.ArtifactType = string.Empty;
+            clone.Topic = string.Empty;
+        });
+        AssertGeneratedMessageBranches(response, clone =>
+        {
+            clone.Found = false;
+            clone.Id = string.Empty;
+            clone.SourceArtifactId = string.Empty;
+            clone.SourceReleaseId = string.Empty;
+            clone.ArtifactType = string.Empty;
+            clone.DefinitionId = string.Empty;
+            clone.VersionId = string.Empty;
+            clone.Name = string.Empty;
+            clone.Topic = string.Empty;
+            clone.VersionNumber = string.Empty;
+            clone.Description = string.Empty;
+            clone.PayloadSchemaJson = string.Empty;
+            clone.ContentHash = string.Empty;
+            clone.DeployedAtUtc = string.Empty;
+        });
+
+        var exactUnknown = RuntimeContractExactRequest.Parser.ParseFrom(CreateUnknownFieldBytes());
+        var latestUnknown = RuntimeContractLatestRequest.Parser.ParseFrom(CreateUnknownFieldBytes());
+        var responseUnknown = RuntimeContractResponse.Parser.ParseFrom(CreateUnknownFieldBytes());
+        var mergedExact = new RuntimeContractExactRequest();
+        var mergedLatest = new RuntimeContractLatestRequest();
+        var mergedResponse = new RuntimeContractResponse();
+
+        mergedExact.MergeFrom(exactUnknown);
+        mergedLatest.MergeFrom(latestUnknown);
+        mergedResponse.MergeFrom(responseUnknown);
+
+        Assert.True(mergedExact.CalculateSize() > 0);
+        Assert.True(mergedLatest.CalculateSize() > 0);
+        Assert.True(mergedResponse.CalculateSize() > 0);
+        Assert.NotEmpty(mergedExact.ToByteArray());
+        Assert.NotEmpty(mergedLatest.ToByteArray());
+        Assert.NotEmpty(mergedResponse.ToByteArray());
+        Assert.Throws<ArgumentNullException>(() => exact.ArtifactType = null!);
+        Assert.Throws<ArgumentNullException>(() => latest.Topic = null!);
+        Assert.Throws<ArgumentNullException>(() => response.DeployedAtUtc = null!);
+    }
+
+    [Fact]
     public void RuntimeContractsGeneratedGrpcBindingsRegisterMethods()
     {
         var implementation = new TestRuntimeContracts();
@@ -139,6 +222,35 @@ public sealed class GeneratedGrpcCoverageTests
         Assert.True(parsed.GetHashCode() != 0 || parsed.CalculateSize() == 0);
         Assert.Equal(parsed.ToString(), clone.ToString());
         Assert.Equal(parsed.CalculateSize(), merged.CalculateSize());
+    }
+
+    private static void AssertGeneratedMessageBranches<TMessage>(TMessage message, Action<TMessage> clear)
+        where TMessage : class, IMessage<TMessage>, IEquatable<TMessage>, new()
+    {
+        var merged = new TMessage();
+        var empty = new TMessage();
+
+        merged.MergeFrom(message);
+        merged.MergeFrom((TMessage)null!);
+        clear(empty);
+
+        Assert.True(message.Equals((object)message));
+        Assert.False(message.Equals((object)"different"));
+        Assert.False(message.Equals((TMessage?)null));
+        Assert.True(merged.CalculateSize() >= message.CalculateSize());
+        Assert.Equal(0, empty.CalculateSize());
+    }
+
+    private static byte[] CreateUnknownFieldBytes()
+    {
+        using MemoryStream stream = new();
+        using (CodedOutputStream output = new(stream, leaveOpen: true))
+        {
+            output.WriteTag(100, WireFormat.WireType.Varint);
+            output.WriteInt32(7);
+        }
+
+        return stream.ToArray();
     }
 
     private sealed class TestRuntimeContracts : RuntimeContracts.RuntimeContractsBase
