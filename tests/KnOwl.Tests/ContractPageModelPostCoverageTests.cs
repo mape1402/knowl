@@ -7,7 +7,10 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using CommandNewModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Commands.NewModel;
 using CommandNewVersionModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Commands.NewVersionModel;
 using EventNewVersionModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Events.NewVersionModel;
+using TypeEditModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Types.EditModel;
+using TypeIndexModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Types.IndexModel;
 using TypeNewModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Types.NewModel;
+using TypeNewVersionModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Types.NewVersionModel;
 using PayloadSchemaDefinition = ButterMorph.SchemaDesign.PayloadSchemaDefinition;
 
 namespace KnOwl.Tests;
@@ -258,6 +261,199 @@ public sealed class ContractPageModelPostCoverageTests
         Assert.Empty(schemaTypes.Definitions);
     }
 
+    [Fact]
+    public async Task TypeNewVersionGetAndPostCoverSuccessDuplicateMissingAndInvalidBranches()
+    {
+        var arrayItem = new SchemaTypeVersion
+        {
+            Id = Guid.NewGuid(),
+            VersionNumber = "1.0.0",
+            DefinitionJson = """{"type":"string"}""",
+            IsActive = true
+        };
+        var schemaType = new SchemaTypeDefinition
+        {
+            Id = Guid.NewGuid(),
+            Key = "customer-list",
+            Name = "CustomerList",
+            Description = "Customer list",
+            IsActive = true,
+            IsSystem = false,
+            Versions =
+            {
+                new SchemaTypeVersion
+                {
+                    Id = Guid.NewGuid(),
+                    VersionNumber = "1.0.0",
+                    DefinitionJson = """{"schema":{"type":"array","items":{"type":"string"}}}""",
+                    Comment = "Initial",
+                    IsActive = true,
+                    CreatedAtUtc = DateTime.UtcNow.AddDays(-1)
+                }
+            }
+        };
+        var schemaTypes = new SchemaTypeServiceFake(activeVersions: [arrayItem]);
+        schemaTypes.Definitions.Add(schemaType);
+        var model = new TypeNewVersionModel(schemaTypes);
+
+        var getResult = await model.OnGetAsync(schemaType.Id, CancellationToken.None);
+        model.Version.VersionNumber = "1.0.1";
+        model.Version.BaseType = "array";
+        model.Version.ArrayItemTypeVersionId = arrayItem.Id;
+        model.Version.MinItems = 1;
+        model.Version.MaxItems = 3;
+        model.Version.Comment = " Patch ";
+        var postResult = await model.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(getResult);
+        Assert.Equal("1.0.1", model.Version.VersionNumber);
+        var redirect = Assert.IsType<RedirectToPageResult>(postResult);
+        Assert.Equal("/Contracts/Types/Version", redirect.PageName);
+        Assert.Equal(2, schemaType.Versions.Count);
+        Assert.Equal("Patch", schemaType.Versions.Last().Comment);
+
+        Assert.IsType<NotFoundResult>(await new TypeNewVersionModel(schemaTypes) { TypeId = Guid.NewGuid() }.OnPostAsync(CancellationToken.None));
+
+        var systemType = new SchemaTypeDefinition { Id = Guid.NewGuid(), Key = "sys", Name = "System", IsSystem = true };
+        schemaTypes.Definitions.Add(systemType);
+        Assert.IsType<NotFoundResult>(await new TypeNewVersionModel(schemaTypes).OnGetAsync(systemType.Id, CancellationToken.None));
+
+        var duplicate = new TypeNewVersionModel(schemaTypes)
+        {
+            TypeId = schemaType.Id,
+            Version = new TypeVersionInput { VersionNumber = "1.0.0", BaseType = "string" }
+        };
+        Assert.IsType<PageResult>(await duplicate.OnPostAsync(CancellationToken.None));
+        Assert.False(duplicate.ModelState.IsValid);
+
+        var missingArrayItem = new TypeNewVersionModel(schemaTypes)
+        {
+            TypeId = schemaType.Id,
+            Version = new TypeVersionInput
+            {
+                VersionNumber = "1.0.2",
+                BaseType = "array",
+                ArrayItemTypeVersionId = Guid.NewGuid()
+            }
+        };
+        Assert.IsType<PageResult>(await missingArrayItem.OnPostAsync(CancellationToken.None));
+        Assert.False(missingArrayItem.ModelState.IsValid);
+
+        var invalidLength = new TypeNewVersionModel(schemaTypes)
+        {
+            TypeId = schemaType.Id,
+            Version = new TypeVersionInput
+            {
+                VersionNumber = "1.0.2",
+                BaseType = "string",
+                MinLength = 10,
+                MaxLength = 2
+            }
+        };
+        Assert.IsType<PageResult>(await invalidLength.OnPostAsync(CancellationToken.None));
+        Assert.False(invalidLength.ModelState.IsValid);
+    }
+
+    [Fact]
+    public async Task TypeNewVersionGetHandlesNonSemanticVersionAndInvalidStoredSchema()
+    {
+        var schemaType = new SchemaTypeDefinition
+        {
+            Id = Guid.NewGuid(),
+            Key = "preview",
+            Name = "Preview",
+            IsActive = true,
+            Versions =
+            {
+                new SchemaTypeVersion
+                {
+                    VersionNumber = "preview",
+                    DefinitionJson = "{",
+                    IsActive = true,
+                    CreatedAtUtc = DateTime.UtcNow
+                }
+            }
+        };
+        var schemaTypes = new SchemaTypeServiceFake();
+        schemaTypes.Definitions.Add(schemaType);
+        var model = new TypeNewVersionModel(schemaTypes);
+
+        var result = await model.OnGetAsync(schemaType.Id, CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal("preview.1", model.Version.VersionNumber);
+        Assert.Equal("Preview", model.TypeName);
+    }
+
+    [Fact]
+    public async Task TypeEditAndIndexCoverSuccessValidationDeactivateAndSearch()
+    {
+        var schemaType = new SchemaTypeDefinition
+        {
+            Id = Guid.NewGuid(),
+            Key = "customer",
+            Name = "Customer",
+            Description = "Customer type",
+            IsActive = true,
+            Versions =
+            {
+                new SchemaTypeVersion
+                {
+                    VersionNumber = "1.0.0",
+                    DefinitionJson = """{"description":"needle"}""",
+                    Comment = "searchable",
+                    IsActive = true
+                }
+            }
+        };
+        var schemaTypes = new SchemaTypeServiceFake(existingKeys: ["Existing"]);
+        schemaTypes.Definitions.Add(schemaType);
+
+        var edit = new TypeEditModel(schemaTypes);
+        Assert.IsType<NotFoundResult>(await edit.OnGetAsync(Guid.NewGuid(), CancellationToken.None));
+        Assert.IsType<PageResult>(await edit.OnGetAsync(schemaType.Id, CancellationToken.None));
+        Assert.Equal("Customer", edit.Input.Name);
+
+        var invalid = new TypeEditModel(schemaTypes) { Id = schemaType.Id };
+        invalid.ModelState.AddModelError("Input.Name", "bad");
+        Assert.IsType<PageResult>(await invalid.OnPostAsync(CancellationToken.None));
+
+        Assert.IsType<NotFoundResult>(await new TypeEditModel(schemaTypes) { Id = Guid.NewGuid() }.OnPostAsync(CancellationToken.None));
+
+        var duplicate = new TypeEditModel(schemaTypes)
+        {
+            Id = schemaType.Id,
+            Input = new TypeEditModel.TypeInput { Name = "Existing", Description = "Duplicate", IsActive = true }
+        };
+        Assert.IsType<PageResult>(await duplicate.OnPostAsync(CancellationToken.None));
+        Assert.False(duplicate.ModelState.IsValid);
+
+        var success = new TypeEditModel(schemaTypes)
+        {
+            Id = schemaType.Id,
+            Input = new TypeEditModel.TypeInput { Name = "CustomerUpdated", Description = " Updated ", IsActive = false }
+        };
+        var redirect = Assert.IsType<RedirectToPageResult>(await success.OnPostAsync(CancellationToken.None));
+        Assert.Equal("/Contracts/Types/View", redirect.PageName);
+        Assert.Equal("CustomerUpdated", schemaTypes.LastUpdatedKey);
+        Assert.Equal("Updated", schemaTypes.LastUpdatedDescription);
+        Assert.False(schemaTypes.LastUpdatedIsActive);
+
+        var systemType = new SchemaTypeDefinition { Id = Guid.NewGuid(), Key = "sys", Name = "System", IsSystem = true };
+        schemaTypes.Definitions.Add(systemType);
+        Assert.IsType<NotFoundResult>(await new TypeEditModel(schemaTypes).OnGetAsync(systemType.Id, CancellationToken.None));
+
+        var index = new TypeIndexModel(schemaTypes) { Search = "needle" };
+        await index.OnGetAsync(CancellationToken.None);
+        Assert.Single(index.Types);
+        Assert.Equal(schemaTypes.Definitions.Count, index.TotalTypes);
+
+        Assert.IsType<RedirectToPageResult>(await index.OnPostDeactivateAsync(schemaType.Id, CancellationToken.None));
+        Assert.Equal(schemaType.Key, schemaTypes.LastUpdatedKey);
+        Assert.False(schemaTypes.LastUpdatedIsActive);
+        Assert.IsType<RedirectToPageResult>(await index.OnPostDeactivateAsync(Guid.NewGuid(), CancellationToken.None));
+    }
+
     private static CommandNewVersionModel CreateCommandVersionModel(
         CommandServiceFake commands,
         SchemaTypeServiceFake schemaTypes,
@@ -426,6 +622,9 @@ public sealed class ContractPageModelPostCoverageTests
     {
         private readonly HashSet<string> keys = existingKeys?.ToHashSet(StringComparer.OrdinalIgnoreCase) ?? [];
         public List<SchemaTypeDefinition> Definitions { get; } = [];
+        public string? LastUpdatedKey { get; private set; }
+        public string? LastUpdatedDescription { get; private set; }
+        public bool LastUpdatedIsActive { get; private set; }
 
         public Task<IReadOnlyList<SchemaTypeDefinition>> GetAll(CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<SchemaTypeDefinition>>(Definitions);
@@ -451,14 +650,28 @@ public sealed class ContractPageModelPostCoverageTests
             return Task.CompletedTask;
         }
 
-        public Task UpdateDefinition(Guid id, string key, string name, string? description, bool isActive, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
-
         public Task AddVersion(Guid typeId, SchemaTypeVersion version, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
+        {
+            Definitions.First(x => x.Id == typeId).Versions.Add(version);
+            return Task.CompletedTask;
+        }
 
         public Task SetVersionActive(Guid typeId, Guid versionId, bool isActive, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
+
+        public Task UpdateDefinition(Guid id, string key, string name, string? description, bool isActive, DateTime updatedAtUtc, CancellationToken cancellationToken)
+        {
+            var definition = Definitions.First(x => x.Id == id);
+            definition.Key = key;
+            definition.Name = name;
+            definition.Description = description;
+            definition.IsActive = isActive;
+            definition.UpdatedAtUtc = updatedAtUtc;
+            LastUpdatedKey = key;
+            LastUpdatedDescription = description;
+            LastUpdatedIsActive = isActive;
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class MetadataFieldServiceFake : IContractFieldMetadataInteractionService
