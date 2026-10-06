@@ -48,8 +48,23 @@ public sealed class RuntimeAndDocumentationApiEndpointCoverageTests
         await AssertStatus(client.PostAsync($"/api/v1/runtime/control-planes/{node.Id}/credentials/generate?issuerBaseUrl=https%3A%2F%2Fruntime.example.test", null), HttpStatusCode.OK);
         await AssertStatus(client.PostAsJsonAsync($"/api/v1/runtime/control-planes/{node.Id}/credentials/import", new ImportRuntimeDesignNodeCredentialPackageRequest(node.Id, "{}")), HttpStatusCode.NoContent);
         await AssertStatus(client.PostAsync($"/api/v1/runtime/control-planes/{node.Id}/connect/validate", null), HttpStatusCode.OK);
+        await AssertStatus(client.PostAsync($"/api/v1/runtime/control-planes/{Guid.NewGuid()}/credentials/generate?issuerBaseUrl=https%3A%2F%2Fruntime.example.test", null), HttpStatusCode.NotFound);
+        await AssertStatus(client.PostAsJsonAsync($"/api/v1/runtime/control-planes/{Guid.NewGuid()}/credentials/import", new ImportRuntimeDesignNodeCredentialPackageRequest(Guid.NewGuid(), "{}")), HttpStatusCode.NotFound);
+        await AssertStatus(client.PostAsync($"/api/v1/runtime/control-planes/{Guid.NewGuid()}/connect/validate", null), HttpStatusCode.NotFound);
         await AssertStatus(client.GetAsync("/api/v1/runtime/control-planes/cp/artifacts/pending"), HttpStatusCode.OK);
         await AssertStatus(client.PostAsync($"/api/v1/runtime/control-planes/cp/artifacts/{Guid.NewGuid()}/apply", null), HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public void RuntimeApiCanMapStringFallbackPolicy()
+    {
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseTestServer();
+        var app = builder.Build();
+
+        var returned = app.MapKnOwlRuntimeApi("runtime-policy");
+
+        Assert.Same(app, returned);
     }
 
     [Fact]

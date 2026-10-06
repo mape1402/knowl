@@ -69,6 +69,31 @@ public sealed class RuntimeContractDeploymentServiceTests
     }
 
     [Fact]
+    public async Task DeployArtifactRejectsMissingRequiredFields()
+    {
+        using var provider = CreateProvider(new RuntimeArtifactRepository());
+        var service = provider.GetRequiredService<IRuntimeContractDeploymentService>();
+
+        var missingTopic = CreatePackage("hash-a");
+        missingTopic.Topic = " ";
+        var missingVersion = CreatePackage("hash-a");
+        missingVersion.VersionNumber = " ";
+        var missingHash = CreatePackage("hash-a");
+        missingHash.ContentHash = " ";
+
+        var topicResult = await service.DeployArtifact(missingTopic, "control-plane");
+        var versionResult = await service.DeployArtifact(missingVersion, "control-plane");
+        var hashResult = await service.DeployArtifact(missingHash, "control-plane");
+
+        Assert.False(topicResult.Accepted);
+        Assert.Contains("topic", topicResult.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(versionResult.Accepted);
+        Assert.Contains("version", versionResult.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(hashResult.Accepted);
+        Assert.Contains("hash", hashResult.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task CatalogReturnsExactAndLatestArtifacts()
     {
         RuntimeArtifactRepository runtime = new();
@@ -130,6 +155,43 @@ public sealed class RuntimeContractDeploymentServiceTests
         Assert.Equal("hash-command", result.ReplyArtifact?.ContentHash);
         Assert.Contains("customerId", result.RequestArtifact.PayloadSchemaJson, StringComparison.Ordinal);
         Assert.Contains("accepted", result.ReplyArtifact?.PayloadSchemaJson!, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CatalogFallsBackToLegacyRequestAndReplyArtifacts()
+    {
+        RuntimeArtifactRepository runtime = new();
+        var request = new RuntimeContractArtifact
+        {
+            ArtifactType = ContractArtifactType.CommandRequest,
+            Topic = "customer.legacy",
+            VersionNumber = "1.0.0",
+            ContentHash = "hash-request",
+            Name = "Legacy Request",
+            PayloadSchemaJson = "{}"
+        };
+        var reply = new RuntimeContractArtifact
+        {
+            ArtifactType = ContractArtifactType.CommandReply,
+            Topic = "customer.legacy",
+            VersionNumber = "1.0.0",
+            ContentHash = "hash-reply",
+            Name = "Legacy Reply",
+            PayloadSchemaJson = "{}"
+        };
+        runtime.Items.Add(request);
+        runtime.Items.Add(reply);
+
+        using var provider = CreateProvider(runtime);
+        var catalog = provider.GetRequiredService<IRuntimeContractCatalogService>();
+
+        var result = await catalog.GetCommand("customer.legacy", "1.0.0");
+        var missing = await catalog.GetCommand("missing", "1.0.0");
+
+        Assert.NotNull(result);
+        Assert.Same(request, result.RequestArtifact);
+        Assert.Same(reply, result.ReplyArtifact);
+        Assert.Null(missing);
     }
 
     private static RuntimeArtifactDeliveryPackage CreatePackage(string hash)

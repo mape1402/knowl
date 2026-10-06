@@ -314,6 +314,19 @@ public sealed class ButterMorphAdapterTests
     }
 
     [Fact]
+    public void MetadataCatalogCoversInvalidAppliesToAndScopeFallbacks()
+    {
+        var method = typeof(ContractFieldMetadataCatalog).GetMethod("AppliesToContractSection", BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("AppliesToContractSection was not found.");
+
+        Assert.Empty(ContractFieldMetadataCatalog.ParseAppliesTo("{"));
+        Assert.True((bool)method.Invoke(null, [Array.Empty<string>(), "events"])!);
+        Assert.True((bool)method.Invoke(null, [new[] { "events" }, "events"])!);
+        Assert.True((bool)method.Invoke(null, [new[] { "Field" }, "events"])!);
+        Assert.False((bool)method.Invoke(null, [new[] { "Schema" }, "events"])!);
+    }
+
+    [Fact]
     public void MapperNormalizesNestedJsonStringsInCustomFieldDefinition()
     {
         CustomFieldDefinition definition = new()
@@ -936,6 +949,12 @@ public sealed class ButterMorphAdapterTests
         var duplicateVersion = await host.Save(CreateSchemaTypeSave(KnOwlButterMorphContext.NewTypeVersion(typeId), "customer", "1.0.1"));
         schemaTypes.VersionExistsResult = false;
         var addedVersion = await host.Save(CreateSchemaTypeSave(KnOwlButterMorphContext.NewTypeVersion(typeId), "customer", "1.0.1"));
+        var missingVersionTarget = await host.Save(CreateSchemaTypeSave(KnOwlButterMorphContext.NewTypeVersion(Guid.NewGuid()), "customer", "1.0.2"));
+        schemaTypes.KeyExistsResult = true;
+        var duplicateVersionKey = await host.Save(CreateSchemaTypeSave(KnOwlButterMorphContext.NewTypeVersion(typeId), "customer", "1.0.2"));
+        schemaTypes.KeyExistsResult = false;
+        schemaTypes.ThrowUpdateDefinition = true;
+        var missingDuringUpdate = await host.Save(CreateSchemaTypeSave(KnOwlButterMorphContext.NewTypeVersion(typeId), "customer", "1.0.2"));
 
         Assert.Equal("1.0.1", loaded.Definition.Version);
         Assert.False(duplicate.Succeeded);
@@ -944,6 +963,9 @@ public sealed class ButterMorphAdapterTests
         Assert.False(duplicateVersion.Succeeded);
         Assert.True(addedVersion.Succeeded);
         Assert.Single(schemaTypes.AddedVersions);
+        Assert.False(missingVersionTarget.Succeeded);
+        Assert.False(duplicateVersionKey.Succeeded);
+        Assert.False(missingDuringUpdate.Succeeded);
     }
 
     [Fact]
@@ -1515,6 +1537,7 @@ public sealed class ButterMorphAdapterTests
         public IReadOnlyList<SchemaTypeVersion> ActiveVersions { get; set; } = [];
         public bool KeyExistsResult { get; set; }
         public bool VersionExistsResult { get; set; }
+        public bool ThrowUpdateDefinition { get; set; }
         public List<KnOwlSchemaTypeDefinition> Created { get; } = [];
         public List<SchemaTypeVersion> AddedVersions { get; } = [];
 
@@ -1525,7 +1548,15 @@ public sealed class ButterMorphAdapterTests
         public Task<bool> KeyExists(string key, Guid? excludingId = null, CancellationToken cancellationToken = default) => Task.FromResult(KeyExistsResult);
         public Task<bool> VersionExists(Guid typeId, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(VersionExistsResult);
         public Task Create(KnOwlSchemaTypeDefinition schemaType, CancellationToken cancellationToken = default) { Created.Add(schemaType); return Task.CompletedTask; }
-        public Task UpdateDefinition(Guid id, string key, string name, string? description, bool isActive, DateTime updatedAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpdateDefinition(Guid id, string key, string name, string? description, bool isActive, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+        {
+            if (ThrowUpdateDefinition)
+            {
+                throw new KeyNotFoundException("missing schema type");
+            }
+
+            return Task.CompletedTask;
+        }
         public Task AddVersion(Guid typeId, SchemaTypeVersion version, CancellationToken cancellationToken = default) { AddedVersions.Add(version); return Task.CompletedTask; }
         public Task SetVersionActive(Guid typeId, Guid versionId, bool isActive, DateTime updatedAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }

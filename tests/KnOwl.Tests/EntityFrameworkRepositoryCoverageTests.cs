@@ -61,6 +61,10 @@ public sealed class EntityFrameworkRepositoryCoverageTests
         db.ChangeTracker.Clear();
         await commandRepository.UpdateDraftVersion(commandVersion.Id, """{"request":true}""", """{"reply":true}""", "Draft", now);
         await commandRepository.UpdateVersionStatus(commandVersion.Id, ContractVersionStatus.InReview, now);
+        await commandRepository.UpdateVersionStatus(commandVersion.Id, ContractVersionStatus.Approved, now);
+        await commandRepository.UpdateVersionStatus(commandVersion.Id, ContractVersionStatus.Deployed, now);
+        await commandRepository.UpdateVersionStatus(commandVersion.Id, ContractVersionStatus.Deprecated, now);
+        await commandRepository.UpdateVersionStatus(commandVersion.Id, ContractVersionStatus.Archived, now);
         Assert.NotEmpty(await commandRepository.GetAllWithVersions());
         await commandRepository.Delete(command.Id);
 
@@ -174,6 +178,12 @@ public sealed class EntityFrameworkRepositoryCoverageTests
             Status = ContractReleaseTargetStatus.PushScheduled,
             CorrelationId = "corr-2"
         }]);
+        db.ChangeTracker.Clear();
+        var storedNode = await nodeRepository.GetById(node.Id);
+        var allNodesBeforeDelete = await nodeRepository.GetAll();
+        var activeNodesBeforeDelete = await nodeRepository.GetActiveEnabled();
+        storedNode!.Description = "Updated runtime node";
+        await nodeRepository.Update(storedNode);
         await nodeRepository.SetIsEnabled(node.Id, false, now);
         await nodeRepository.Delete(node.Id, now);
         db.ChangeTracker.Clear();
@@ -204,6 +214,10 @@ public sealed class EntityFrameworkRepositoryCoverageTests
         Assert.NotEmpty(await environmentRepository.GetAll());
         Assert.Empty(await environmentRepository.GetEnabled());
         Assert.NotNull(await environmentRepository.GetById(environment.Id));
+        Assert.Single(allNodesBeforeDelete);
+        Assert.Equal(environment.Id, allNodesBeforeDelete.Single().Environment?.Id);
+        Assert.Single(activeNodesBeforeDelete);
+        Assert.Equal(environment.Id, activeNodesBeforeDelete.Single().Environment?.Id);
         Assert.Empty(await nodeRepository.GetActiveEnabled());
         Assert.NotNull(await nodeRepository.GetByCode(" runtime "));
         Assert.NotNull(await nodeRepository.GetByInboundClientId(" inbound-client "));

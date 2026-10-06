@@ -62,6 +62,31 @@ public sealed class RuntimeArtifactPullOrchestratorTests
     }
 
     [Fact]
+    public async Task PullAvailableCapturesSourceAndPackageExceptions()
+    {
+        var failedPackage = CreatePackage("customer.failed");
+        FakePullService pull = new();
+        pull.Sources.Add(new ControlPlaneDistributionSource { Key = "source-failure" });
+        pull.Sources.Add(new ControlPlaneDistributionSource { Key = "package-failure" });
+        pull.Pending["package-failure"] = [failedPackage];
+        pull.GetPendingFailures["source-failure"] = new InvalidOperationException("source unavailable");
+        pull.ApplyFailures[failedPackage.ReleaseTargetId] = new HttpRequestException("apply unavailable");
+
+        using var provider = CreateProvider(pull);
+        var orchestrator = provider.GetRequiredService<IControlPlaneArtifactPullOrchestrator>();
+
+        var result = await orchestrator.PullAvailable();
+
+        Assert.Equal(2, result.SourcesScanned);
+        Assert.Equal(1, result.PackagesFound);
+        Assert.Equal(0, result.Applied);
+        Assert.Equal(2, result.Failed);
+        Assert.Contains(result.Errors, x => x.Contains("source unavailable", StringComparison.Ordinal));
+        Assert.Contains(result.Errors, x => x.Contains("apply unavailable", StringComparison.Ordinal));
+    }
+
+
+    [Fact]
     public async Task GetSourcesReturnsOnlyPullReadyControlPlanes()
     {
         var readyPull = CreateDesignNode("ready-pull", DistributionMode.Pull, ConnectionCredentialStatus.Active);
@@ -243,12 +268,21 @@ public sealed class RuntimeArtifactPullOrchestratorTests
         public Dictionary<string, IReadOnlyCollection<RuntimeArtifactDeliveryPackage>> Pending { get; } = [];
         public List<RuntimeArtifactDeliveryPackage> AppliedPackages { get; } = [];
         public HashSet<Guid> RejectedReleaseTargetIds { get; } = [];
+        public Dictionary<string, Exception> GetPendingFailures { get; } = [];
+        public Dictionary<Guid, Exception> ApplyFailures { get; } = [];
 
         public Task<IReadOnlyCollection<ControlPlaneDistributionSource>> GetSources(CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyCollection<ControlPlaneDistributionSource>>(Sources);
 
         public Task<IReadOnlyCollection<RuntimeArtifactDeliveryPackage>> GetPending(string sourceKey, CancellationToken cancellationToken = default)
-            => Task.FromResult(Pending.GetValueOrDefault(sourceKey) ?? []);
+        {
+            if (GetPendingFailures.TryGetValue(sourceKey, out var exception))
+            {
+                throw exception;
+            }
+
+            return Task.FromResult(Pending.GetValueOrDefault(sourceKey) ?? []);
+        }
 
         public Task<RuntimeArtifactDeploymentResult> Apply(string sourceKey, Guid releaseTargetId, CancellationToken cancellationToken = default)
         {
@@ -261,6 +295,11 @@ public sealed class RuntimeArtifactPullOrchestratorTests
             RuntimeArtifactDeliveryPackage package,
             CancellationToken cancellationToken = default)
         {
+            if (ApplyFailures.TryGetValue(package.ReleaseTargetId, out var exception))
+            {
+                throw exception;
+            }
+
             AppliedPackages.Add(package);
             var accepted = !RejectedReleaseTargetIds.Contains(package.ReleaseTargetId);
             return Task.FromResult(new RuntimeArtifactDeploymentResult

@@ -42,6 +42,57 @@ public sealed class ContractReleaseInteractionServiceTests
     }
 
     [Fact]
+    public async Task CreateAndPlanCoverValidationBranchesAndExistingTargets()
+    {
+        var artifact = CreateArtifact("customer.created", "1.0.0");
+        ReleaseRepository releases = new();
+        ReleaseTargetRepository targets = new();
+        var firstNode = CreateRuntimeNode("runtime-a", DistributionMode.Push);
+        var secondNode = CreateRuntimeNode("runtime-b", DistributionMode.Pull);
+
+        using var provider = CreateProvider(
+            new ReleaseArtifactRepository([artifact]),
+            releases,
+            new RuntimeNodeRepository([firstNode, secondNode]),
+            targets);
+        var service = provider.GetRequiredService<IContractReleaseInteractionService>();
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.Create(" ", null, [artifact.Id]));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.Create("Empty", null, []));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.Create("Missing", null, [Guid.NewGuid()]));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.Plan(Guid.NewGuid(), []));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.Plan(Guid.NewGuid(), [firstNode.Id]));
+
+        ContractRelease emptyRelease = new() { Name = "Empty", CreatedAtUtc = DateTime.UtcNow };
+        releases.Items.Add(emptyRelease);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.Plan(emptyRelease.Id, [firstNode.Id]));
+
+        ContractRelease canceledRelease = new() { Name = "Canceled", Status = ContractReleaseStatus.Canceled, CreatedAtUtc = DateTime.UtcNow };
+        canceledRelease.Items.Add(new ContractReleaseItem { ReleaseId = canceledRelease.Id, ArtifactId = artifact.Id });
+        releases.Items.Add(canceledRelease);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.Plan(canceledRelease.Id, [firstNode.Id]));
+
+        var release = await service.Create("Customer contracts", "  Description  ", [artifact.Id]);
+        var item = Assert.Single(release.Items);
+        release.Targets.Add(new ContractReleaseTarget
+        {
+            ReleaseId = release.Id,
+            ReleaseItemId = item.Id,
+            ArtifactId = item.ArtifactId,
+            RuntimeNodeId = firstNode.Id
+        });
+
+        await service.Plan(release.Id, [firstNode.Id, secondNode.Id, secondNode.Id], rolloutGroup: " ");
+
+        var target = Assert.Single(targets.Items);
+        Assert.Equal(secondNode.Id, target.RuntimeNodeId);
+        Assert.Equal("ManualRelease", target.RolloutGroup);
+        Assert.Equal(ContractReleaseTargetStatus.AvailableForPull, target.Status);
+        Assert.Equal("Description", release.Description);
+        Assert.Equal(2, release.Targets.Count);
+    }
+
+    [Fact]
     public async Task CreateAllowsCommandRequestAndReplyArtifactsInSameRelease()
     {
         var definitionId = Guid.NewGuid();
@@ -225,6 +276,18 @@ public sealed class ContractReleaseInteractionServiceTests
         Assert.Equal("unit-test", attempt.InitiatedBy);
     }
 
+
+    private static RuntimeNode CreateRuntimeNode(string code, DistributionMode distributionMode)
+        => new()
+        {
+            Id = Guid.NewGuid(),
+            Name = code,
+            Code = code,
+            EnvironmentName = "dev",
+            DistributionMode = distributionMode,
+            IsEnabled = true,
+            Status = RuntimeNodeStatus.Active
+        };
 
     private static ContractArtifact CreateArtifact(
         string topic,
