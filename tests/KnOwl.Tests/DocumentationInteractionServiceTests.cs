@@ -89,14 +89,113 @@ public sealed class DocumentationInteractionServiceTests
             service.ImportVersion(new DocumentationVersionInput(page.Id, "v1", "index.md", "text/markdown", content)));
     }
 
-    private static DocumentationInteractionService CreateService(out InMemoryDocumentationRepository repository)
+    [Fact]
+    public async Task ImportMarkdownNormalizesEntryPathAndBuildsGeneratedSourcePackage()
+    {
+        var service = CreateService(out _);
+        var space = await service.UpsertSpace("Docs Space", "Docs Space", "Description", true);
+        var topic = await service.UpsertTopic(space.Key, "How To", "How To", "Topic", true);
+        var page = await service.UpsertPage(space.Key, topic.Key, "Intro Page", "Intro Page", "Page", true);
+        await using var content = new MemoryStream(Encoding.UTF8.GetBytes("# Intro\n\nSee ![missing](missing.png)."));
+
+        var version = await service.ImportVersion(new DocumentationVersionInput(page.Id, "1.0.1", "notes.txt", "text/plain", content, "folder/readme.txt"));
+        var package = await service.BuildSourcePackage(version.Id);
+        await using var packageStream = package.Content;
+        using var zip = new ZipArchive(packageStream, ZipArchiveMode.Read);
+
+        Assert.Equal("documentation-1.0.1.zip", package.FileName);
+        Assert.Equal("index.md", version.EntryPath);
+        Assert.Contains(zip.Entries, x => x.FullName == "index.md");
+    }
+
+    [Fact]
+    public async Task BuildPdfRendersLatestHtmlThroughConfiguredRenderer()
+    {
+        var renderer = new CapturingPdfRenderer();
+        var service = CreateService(out _, renderer);
+        var space = await service.UpsertSpace("knowl", "KnOwl", null, true);
+        var topic = await service.UpsertTopic(space.Key, "docs", "Docs", null, true);
+        var page = await service.UpsertPage(space.Key, topic.Key, "intro", "Intro", null, true);
+        await using var content = new MemoryStream(Encoding.UTF8.GetBytes("# Intro\n\nBody"));
+        var version = await service.ImportVersion(new DocumentationVersionInput(page.Id, "1.0.2", "index.md", "text/markdown", content));
+
+        var pdf = await service.BuildPdf(version.Id);
+        await using var stream = pdf.Content;
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+
+        Assert.Equal("intro-1.0.2.pdf", pdf.FileName);
+        Assert.Equal("Intro", renderer.Title);
+        Assert.Contains("<h1 id=\"intro\">Intro</h1>", renderer.Html);
+        Assert.Equal("pdf", await reader.ReadToEndAsync());
+    }
+
+    [Fact]
+    public async Task DocumentationOperationsReportMissingDependencies()
+    {
+        var service = CreateService(out _);
+        await using var content = new MemoryStream(Encoding.UTF8.GetBytes("# Missing"));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.GetTopics("missing"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.GetPages("missing", "topic"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.ImportVersion(new DocumentationVersionInput(Guid.NewGuid(), "1.0.0", "index.md", "text/markdown", content)));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.PublishVersion(Guid.NewGuid()));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.ArchiveVersion(Guid.NewGuid()));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildSourcePackage(Guid.NewGuid()));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildPdf(Guid.NewGuid()));
+    }
+
+    [Fact]
+    public async Task ImportRejectsOversizedAndEmptyZipPackages()
+    {
+        var service = CreateService(out _, options: new DocumentationOptions { MaxPackageBytes = 4 });
+        var space = await service.UpsertSpace("knowl", "KnOwl", null, true);
+        var topic = await service.UpsertTopic(space.Key, "docs", "Docs", null, true);
+        var page = await service.UpsertPage(space.Key, topic.Key, "intro", "Intro", null, true);
+        await using var tooLarge = new MemoryStream(Encoding.UTF8.GetBytes("# Intro"));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.ImportVersion(new DocumentationVersionInput(page.Id, "1.0.0", "index.md", "text/markdown", tooLarge)));
+
+        var serviceWithDefaultLimit = CreateService(out _);
+        var space2 = await serviceWithDefaultLimit.UpsertSpace("knowl", "KnOwl", null, true);
+        var topic2 = await serviceWithDefaultLimit.UpsertTopic(space2.Key, "docs", "Docs", null, true);
+        var page2 = await serviceWithDefaultLimit.UpsertPage(space2.Key, topic2.Key, "intro", "Intro", null, true);
+        await using var emptyZip = CreateZipWithoutMarkdown();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            serviceWithDefaultLimit.ImportVersion(new DocumentationVersionInput(page2.Id, "1.0.0", "empty.zip", "application/zip", emptyZip)));
+    }
+
+    [Fact]
+    public async Task SimplePdfRendererProducesEscapedPdfContent()
+    {
+        var renderer = new SimpleDocumentationPdfRenderer();
+        await using var stream = await renderer.RenderPdf(
+            "Intro (Guide)",
+            "<h1>Intro</h1><p>Long line with (parentheses), backslash \\ and enough repeated words to force wrapping at least once in the generated PDF output.</p>");
+        using var reader = new StreamReader(stream, Encoding.ASCII);
+        var pdf = await reader.ReadToEndAsync();
+
+        Assert.StartsWith("%PDF-1.4", pdf, StringComparison.Ordinal);
+        Assert.Contains("Intro \\(Guide\\)", pdf);
+        Assert.Contains("\\\\", pdf);
+        Assert.Contains("xref", pdf);
+    }
+
+    private static DocumentationInteractionService CreateService(
+        out InMemoryDocumentationRepository repository,
+        IDocumentationPdfRenderer? renderer = null,
+        DocumentationOptions? options = null)
     {
         repository = new InMemoryDocumentationRepository();
         return new DocumentationInteractionService(
             repository,
             new InMemoryDocumentationContentStore(),
-            new SimpleDocumentationPdfRenderer(),
-            Options.Create(new DocumentationOptions()));
+            renderer ?? new SimpleDocumentationPdfRenderer(),
+            Options.Create(options ?? new DocumentationOptions()));
     }
 
     private static MemoryStream CreatePackage()
@@ -168,6 +267,33 @@ public sealed class DocumentationInteractionServiceTests
 
         output.Position = 0;
         return output;
+    }
+
+    private static MemoryStream CreateZipWithoutMarkdown()
+    {
+        MemoryStream output = new();
+        using (ZipArchive zip = new(output, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            var asset = zip.CreateEntry("assets/readme.txt");
+            using var writer = new StreamWriter(asset.Open(), Encoding.UTF8);
+            writer.Write("No markdown here.");
+        }
+
+        output.Position = 0;
+        return output;
+    }
+
+    private sealed class CapturingPdfRenderer : IDocumentationPdfRenderer
+    {
+        public string Title { get; private set; } = string.Empty;
+        public string Html { get; private set; } = string.Empty;
+
+        public Task<Stream> RenderPdf(string title, string html, CancellationToken cancellationToken = default)
+        {
+            Title = title;
+            Html = html;
+            return Task.FromResult<Stream>(new MemoryStream(Encoding.UTF8.GetBytes("pdf")));
+        }
     }
 
     private sealed class InMemoryDocumentationContentStore : IDocumentationContentStore
