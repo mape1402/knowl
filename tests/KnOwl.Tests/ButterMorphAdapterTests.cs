@@ -1,9 +1,12 @@
+using System.Reflection;
 using System.Text.Json;
+using ButterMorph.Web.Razor;
 using KnOwl.ControlPlane.Application;
 using KnOwl.ControlPlane.WebUI.ButterMorph;
 using KnOwl.ControlPlane.WebUI.ContractMetadata;
 using KnOwl.ControlPlane.Design.Core;
 using ButterMorph.SchemaDesign;
+using Microsoft.Extensions.DependencyInjection;
 using KnOwlSchemaTypeDefinition = KnOwl.ControlPlane.Design.Core.SchemaTypeDefinition;
 using ButterMorphSchemaTypeDefinition = ButterMorph.SchemaDesign.SchemaTypeDefinition;
 
@@ -990,6 +993,268 @@ public sealed class ButterMorphAdapterTests
         Assert.Equal(2, fields.UpsertedVersions.Count);
     }
 
+    [Fact]
+    public async Task PayloadSchemaHostCoversEmptyAndFallbackLoadBranches()
+    {
+        var eventId = Guid.NewGuid();
+        var eventVersionId = Guid.NewGuid();
+        var commandId = Guid.NewGuid();
+        var commandVersionId = Guid.NewGuid();
+        var eventDefinition = new EventDefinition
+        {
+            Id = eventId,
+            Name = "Legacy Event",
+            Description = "Legacy event",
+            Versions =
+            [
+                new EventVersion
+                {
+                    VersionNumber = "preview",
+                    PayloadSchemaJson = "{}",
+                    CreatedAtUtc = DateTime.UtcNow
+                }
+            ]
+        };
+        var commandDefinition = new CommandDefinition
+        {
+            Id = commandId,
+            Name = "Legacy Command",
+            Description = "Legacy command",
+            Versions =
+            [
+                new CommandVersion
+                {
+                    VersionNumber = "preview",
+                    PayloadSchemaJson = "{}",
+                    ReplyPayloadSchemaJson = "{}",
+                    CreatedAtUtc = DateTime.UtcNow
+                }
+            ]
+        };
+        var dateType = new KnOwlSchemaTypeDefinition
+        {
+            Id = Guid.NewGuid(),
+            Name = "Date",
+            Key = "Date",
+            IsSystem = true
+        };
+        var customerType = new KnOwlSchemaTypeDefinition
+        {
+            Id = Guid.NewGuid(),
+            Name = "Customer",
+            Key = "customer",
+            IsSystem = false
+        };
+        var schemaTypes = new SchemaTypeInteractionStub
+        {
+            ActiveVersions =
+            [
+                new SchemaTypeVersion
+                {
+                    Id = Guid.NewGuid(),
+                    SchemaTypeDefinitionId = dateType.Id,
+                    SchemaTypeDefinition = dateType,
+                    VersionNumber = "1.0.0",
+                    DefinitionJson = KnOwlButterMorphDefinitionMapper.SerializeSchemaTypeDefinition(CreateSchemaTypeDefinition("Date", "1.0.0"))
+                },
+                new SchemaTypeVersion
+                {
+                    Id = Guid.NewGuid(),
+                    SchemaTypeDefinitionId = customerType.Id,
+                    SchemaTypeDefinition = customerType,
+                    VersionNumber = "2.0.0",
+                    DefinitionJson = KnOwlButterMorphDefinitionMapper.SerializeSchemaTypeDefinition(CreateSchemaTypeDefinition("customer", "2.0.0"))
+                }
+            ]
+        };
+        var host = new KnOwlPayloadSchemaDesignerHost(
+            new EventInteractionStub
+            {
+                Entity = eventDefinition,
+                Version = new EventVersion
+                {
+                    Id = eventVersionId,
+                    VersionNumber = "preview",
+                    PayloadSchemaJson = "{not-json",
+                    EventDefinition = eventDefinition
+                }
+            },
+            new CommandInteractionStub
+            {
+                Entity = commandDefinition,
+                Version = new CommandVersion
+                {
+                    Id = commandVersionId,
+                    VersionNumber = "preview",
+                    PayloadSchemaJson = string.Empty,
+                    ReplyPayloadSchemaJson = string.Empty,
+                    CommandDefinition = commandDefinition
+                }
+            },
+            schemaTypes,
+            new MetadataInteractionStub(),
+            new KnOwlButterMorphDraftStore());
+
+        var newEvent = await host.Load(new ButterMorphPayloadSchemaDesignerLoadRequest { ContextKey = KnOwlButterMorphContext.EventNew() });
+        var newCommand = await host.Load(new ButterMorphPayloadSchemaDesignerLoadRequest { ContextKey = KnOwlButterMorphContext.CommandNew() });
+        var commandCreateRequest = await host.Load(new ButterMorphPayloadSchemaDesignerLoadRequest { ContextKey = KnOwlButterMorphContext.CommandCreateRequestDraft(Guid.NewGuid()) });
+        var commandCreateReply = await host.Load(new ButterMorphPayloadSchemaDesignerLoadRequest { ContextKey = KnOwlButterMorphContext.CommandCreateReplyDraft(Guid.NewGuid()) });
+        var eventVersion = await host.Load(new ButterMorphPayloadSchemaDesignerLoadRequest { ContextKey = KnOwlButterMorphContext.EventVersion(eventId) });
+        var eventEdit = await host.Load(new ButterMorphPayloadSchemaDesignerLoadRequest { ContextKey = KnOwlButterMorphContext.EditEventVersion(eventVersionId) });
+        var commandVersion = await host.Load(new ButterMorphPayloadSchemaDesignerLoadRequest { ContextKey = KnOwlButterMorphContext.CommandVersion(commandId) });
+        var commandRequest = await host.Load(new ButterMorphPayloadSchemaDesignerLoadRequest { ContextKey = KnOwlButterMorphContext.CommandVersionRequestDraft(commandId) });
+        var commandRequestEdit = await host.Load(new ButterMorphPayloadSchemaDesignerLoadRequest { ContextKey = KnOwlButterMorphContext.EditCommandVersionRequest(commandVersionId) });
+        var commandReplyEdit = await host.Load(new ButterMorphPayloadSchemaDesignerLoadRequest { ContextKey = KnOwlButterMorphContext.EditCommandVersionReply(commandVersionId) });
+
+        Assert.Equal("1.0.0", newEvent.Version);
+        Assert.Equal("1.0.0", newCommand.Version);
+        Assert.Contains(commandCreateRequest.MetadataFields, x => x.Key == "topic");
+        Assert.DoesNotContain(commandCreateReply.MetadataFields, x => x.Key == "topic");
+        Assert.Equal("legacy-event", eventVersion.Key);
+        Assert.Equal("preview.1", eventVersion.Version);
+        Assert.Equal("{not-json", eventEdit.JsonSchema);
+        Assert.Equal("legacy-command", commandVersion.Key);
+        Assert.Equal("preview.1", commandVersion.Version);
+        Assert.Equal("legacy-command", commandRequest.Key);
+        Assert.Equal("preview.1", commandRequest.Version);
+        Assert.Equal(string.Empty, commandRequestEdit.JsonSchema);
+        Assert.Equal("legacy-command.reply", commandReplyEdit.Key);
+        Assert.Equal(string.Empty, commandReplyEdit.JsonSchema);
+        Assert.Contains(commandRequest.SchemaTypes, x => x.TypeId == "customer" && !x.IsSystem);
+        Assert.Contains(commandRequest.SchemaTypes, x => x.Name == "Date" && !x.IsSystem);
+    }
+
+    [Fact]
+    public async Task PayloadSchemaHostCoversSaveFailuresForDraftEditsAndInvalidTopics()
+    {
+        var commandVersionId = Guid.NewGuid();
+        var host = new KnOwlPayloadSchemaDesignerHost(
+            new EventInteractionStub(),
+            new CommandInteractionStub
+            {
+                Version = new CommandVersion
+                {
+                    Id = commandVersionId,
+                    Status = ContractVersionStatus.Approved,
+                    PayloadSchemaJson = "{}",
+                    ReplyPayloadSchemaJson = "{}"
+                }
+            },
+            new SchemaTypeInteractionStub(),
+            new MetadataInteractionStub(),
+            new KnOwlButterMorphDraftStore());
+
+        var missingEventVersion = await host.Save(CreatePayloadSave(KnOwlButterMorphContext.EditEventVersion(Guid.NewGuid()), "1.0.0"));
+        var missingCommandRequest = await host.Save(CreatePayloadSave(KnOwlButterMorphContext.EditCommandVersionRequest(Guid.NewGuid()), "1.0.0"));
+        var missingCommandReply = await host.Save(CreatePayloadSave(KnOwlButterMorphContext.EditCommandVersionReply(Guid.NewGuid()), "1.0.0"));
+        var blockedCommandReply = await host.Save(CreatePayloadSave(KnOwlButterMorphContext.EditCommandVersionReply(commandVersionId), "1.0.0"));
+        var commandMissingTopic = await host.Save(CreatePayloadSave(KnOwlButterMorphContext.CommandNew(), "1.0.0", key: " "));
+        var invalidTopicDefinition = new PayloadSchemaDefinition
+        {
+            Key = "fallback",
+            Name = "Invalid Topic",
+            Version = "1.0.0",
+            Type = "object",
+            Metadata = new Dictionary<string, JsonElement>
+            {
+                ["topic"] = KnOwlButterMorphDefinitionMapper.ParseElement("""{"value":123}""")
+            }
+        };
+        var commandInvalidTopic = await host.Save(new ButterMorphPayloadSchemaDesignerSaveRequest
+        {
+            ContextKey = KnOwlButterMorphContext.CommandNew(),
+            Definition = invalidTopicDefinition
+        });
+
+        Assert.False(missingEventVersion.Succeeded);
+        Assert.Contains("not found", missingEventVersion.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(missingCommandRequest.Succeeded);
+        Assert.Equal("Command version not found.", missingCommandRequest.Message);
+        Assert.False(missingCommandReply.Succeeded);
+        Assert.Equal("Command version not found.", missingCommandReply.Message);
+        Assert.False(blockedCommandReply.Succeeded);
+        Assert.Contains("Only draft command versions can be edited", blockedCommandReply.Message, StringComparison.Ordinal);
+        Assert.False(commandMissingTopic.Succeeded);
+        Assert.False(commandInvalidTopic.Succeeded);
+    }
+
+    [Fact]
+    public void MapperCoversNullFallbackAndNestedJsonNormalizationBranches()
+    {
+        var schemaEntity = new KnOwlSchemaTypeDefinition
+        {
+            Key = "fallback",
+            Name = "Fallback",
+            Description = null
+        };
+        var nullSchema = KnOwlButterMorphDefinitionMapper.ToDefinition(schemaEntity, new SchemaTypeVersion
+        {
+            VersionNumber = "3.0.0",
+            DefinitionJson = "null"
+        });
+        var metadataEntity = new ContractFieldMetadataDefinition
+        {
+            Key = "metadata",
+            Name = "Metadata",
+            IsActive = false
+        };
+        var nullMetadata = KnOwlButterMorphDefinitionMapper.ToDefinition(metadataEntity, new ContractFieldMetadataVersion
+        {
+            DefinitionJson = "null",
+            VersionNumber = "2.0.0"
+        });
+        var emptyNormalized = InvokePrivateString("NormalizeCustomFieldDefinitionJson", string.Empty);
+        var arrayNormalized = InvokePrivateString("NormalizeCustomFieldDefinitionJson", "[]");
+        var nestedNormalized = InvokePrivateString(
+            "NormalizeCustomFieldDefinitionJson",
+            """{"validation":"","childrenDefinition":"1","arrayItemDefinition":"{bad}","dataType":"string"}""");
+        var emptyDictionary = InvokePrivateDictionary("ParseDictionary", "[]");
+        var parsedDictionary = InvokePrivateDictionary("ParseDictionary", """{"minimum":1}""");
+
+        Assert.Equal("fallback", nullSchema.Key);
+        Assert.Equal("3.0.0", nullSchema.Version);
+        Assert.Equal("metadata", nullMetadata.Key);
+        Assert.False(nullMetadata.IsActive);
+        Assert.Equal("{}", emptyNormalized);
+        Assert.Equal("[]", arrayNormalized);
+        Assert.Contains("\"validation\":\"\"", nestedNormalized, StringComparison.Ordinal);
+        Assert.Empty(emptyDictionary);
+        Assert.Single(parsedDictionary);
+    }
+
+    [Fact]
+    public void ButterMorphDesignerRegistrationCopiesLightAndDarkThemePalettes()
+    {
+        ServiceCollection services = new();
+        services.AddSingleton<IEventInteractionService>(new EventInteractionStub());
+        services.AddSingleton<ICommandInteractionService>(new CommandInteractionStub());
+        services.AddSingleton<ISchemaTypeInteractionService>(new SchemaTypeInteractionStub());
+        services.AddSingleton<IContractFieldMetadataInteractionService>(new MetadataInteractionStub());
+
+        var theme = new KnOwl.ControlPlane.WebUI.KnOwlControlPlaneThemeOptions
+        {
+            Mode = KnOwl.ControlPlane.WebUI.KnOwlThemeMode.Dark
+        };
+        theme.Light.PrimaryColor = "#123456";
+        theme.Dark.PrimaryHoverColor = "#abcdef";
+
+        services.AddKnOwlButterMorphDesigner(theme);
+        using var provider = services.BuildServiceProvider();
+        var designerTheme = new ButterMorphDesignerThemeOptions();
+        typeof(KnOwl.ControlPlane.WebUI.ButterMorph.ServiceCollectionExtensions)
+            .GetMethod("ConfigureDesignerTheme", BindingFlags.NonPublic | BindingFlags.Static)!
+            .Invoke(null, [designerTheme, theme]);
+
+        Assert.NotNull(provider.GetRequiredService<KnOwlButterMorphDraftStore>());
+        Assert.IsType<KnOwlSchemaTypeDesignerHost>(provider.GetRequiredService<IButterMorphSchemaTypeDesignerHost>());
+        Assert.IsType<KnOwlFieldMetadataDesignerHost>(provider.GetRequiredService<IButterMorphFieldMetadataDesignerHost>());
+        Assert.IsType<KnOwlPayloadSchemaDesignerHost>(provider.GetRequiredService<IButterMorphPayloadSchemaDesignerHost>());
+        Assert.Equal(ButterMorphDesignerThemeMode.Dark, designerTheme.DefaultMode);
+        Assert.Equal("#123456", designerTheme.Light.PrimaryColor);
+        Assert.Equal("#abcdef", designerTheme.Dark.PrimaryHoverColor);
+        Assert.Equal("#abcdef", designerTheme.Dark.PrimaryDarkColor);
+    }
+
     private static global::ButterMorph.Web.Razor.ButterMorphPayloadSchemaDesignerSaveRequest CreatePayloadSave(
         string contextKey,
         string version,
@@ -1030,6 +1295,16 @@ public sealed class ButterMorphAdapterTests
             Definition = definition
         };
     }
+
+    private static string InvokePrivateString(string methodName, string value)
+        => (string)typeof(KnOwlButterMorphDefinitionMapper)
+            .GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static)!
+            .Invoke(null, [value])!;
+
+    private static IReadOnlyDictionary<string, JsonElement> InvokePrivateDictionary(string methodName, string value)
+        => (IReadOnlyDictionary<string, JsonElement>)typeof(KnOwlButterMorphDefinitionMapper)
+            .GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static)!
+            .Invoke(null, [value])!;
 
     private static ButterMorphSchemaTypeDefinition CreateSchemaTypeDefinition(string key, string version)
         => new()
