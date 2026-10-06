@@ -83,44 +83,108 @@ public sealed class ContractSnapshotValidationServiceTests
     }
 
     [Fact]
-    public async Task ValidateEventAndCommandVersionsCoverMissingInvalidAndReplyBranches()
+    public async Task ValidateEventVersionRejectsMissingVersion()
     {
         SnapshotEventRepository events = new();
-        SnapshotCommandRepository commands = new();
-        using var provider = CreateProvider(new SnapshotSchemaTypeRepository(), events, commands);
+        using var provider = CreateProvider(new SnapshotSchemaTypeRepository(), events);
         var validator = provider.GetRequiredService<IContractSnapshotValidationService>();
 
-        var missingEvent = await validator.ValidateEventVersion(Guid.NewGuid());
-        var missingCommand = await validator.ValidateCommandVersion(Guid.NewGuid());
+        var result = await validator.ValidateEventVersion(Guid.NewGuid());
 
-        commands.Version = new CommandVersion { Id = Guid.NewGuid(), PayloadSchemaJson = "{" };
-        var invalidJson = await validator.ValidateCommandVersion(commands.Version.Id);
+        Assert.False(result.IsValid);
+    }
 
-        commands.Version = new CommandVersion { Id = Guid.NewGuid(), PayloadSchemaJson = "[]" };
-        var invalidRoot = await validator.ValidateCommandVersion(commands.Version.Id);
+    [Fact]
+    public async Task ValidateCommandVersionRejectsMissingVersion()
+    {
+        SnapshotCommandRepository commands = new();
+        using var provider = CreateProvider(new SnapshotSchemaTypeRepository(), commands: commands);
+        var validator = provider.GetRequiredService<IContractSnapshotValidationService>();
 
-        commands.Version = new CommandVersion { Id = Guid.NewGuid(), PayloadSchemaJson = """{"type":"object"}""" };
-        var validWithoutReply = await validator.ValidateCommandVersion(commands.Version.Id);
+        var result = await validator.ValidateCommandVersion(Guid.NewGuid());
 
-        commands.Version = new CommandVersion
+        Assert.False(result.IsValid);
+    }
+
+    [Fact]
+    public async Task ValidateCommandVersionRejectsInvalidPayloadJson()
+    {
+        SnapshotCommandRepository commands = new()
         {
-            Id = Guid.NewGuid(),
-            PayloadSchemaJson = """{"type":"object"}""",
-            ReplyPayloadSchemaJson = """{"properties":{"reply":{"$ref":"#/$defs/Missing"}},"$defs":{}}"""
+            Version = new CommandVersion { Id = Guid.NewGuid(), PayloadSchemaJson = "{" }
         };
-        var invalidReply = await validator.ValidateCommandVersion(commands.Version.Id);
+        using var provider = CreateProvider(new SnapshotSchemaTypeRepository(), commands: commands);
+        var validator = provider.GetRequiredService<IContractSnapshotValidationService>();
 
-        events.Version = new EventVersion { Id = Guid.NewGuid(), PayloadSchemaJson = """{"type":"object"}""" };
-        var validEvent = await validator.ValidateEventVersion(events.Version.Id);
+        var result = await validator.ValidateCommandVersion(commands.Version.Id);
 
-        Assert.False(missingEvent.IsValid);
-        Assert.False(missingCommand.IsValid);
-        Assert.False(invalidJson.IsValid);
-        Assert.False(invalidRoot.IsValid);
-        Assert.True(validWithoutReply.IsValid);
-        Assert.False(invalidReply.IsValid);
-        Assert.All(invalidReply.Errors, error => Assert.StartsWith("Reply ", error, StringComparison.Ordinal));
-        Assert.True(validEvent.IsValid);
+        Assert.False(result.IsValid);
+    }
+
+    [Fact]
+    public async Task ValidateCommandVersionRejectsInvalidPayloadRoot()
+    {
+        SnapshotCommandRepository commands = new()
+        {
+            Version = new CommandVersion { Id = Guid.NewGuid(), PayloadSchemaJson = "[]" }
+        };
+        using var provider = CreateProvider(new SnapshotSchemaTypeRepository(), commands: commands);
+        var validator = provider.GetRequiredService<IContractSnapshotValidationService>();
+
+        var result = await validator.ValidateCommandVersion(commands.Version.Id);
+
+        Assert.False(result.IsValid);
+    }
+
+    [Fact]
+    public async Task ValidateCommandVersionAllowsMissingReplySchema()
+    {
+        SnapshotCommandRepository commands = new()
+        {
+            Version = new CommandVersion { Id = Guid.NewGuid(), PayloadSchemaJson = """{"type":"object"}""" }
+        };
+        using var provider = CreateProvider(new SnapshotSchemaTypeRepository(), commands: commands);
+        var validator = provider.GetRequiredService<IContractSnapshotValidationService>();
+
+        var result = await validator.ValidateCommandVersion(commands.Version.Id);
+
+        Assert.True(result.IsValid);
+    }
+
+    [Fact]
+    public async Task ValidateCommandVersionPrefixesReplySchemaErrors()
+    {
+        SnapshotCommandRepository commands = new()
+        {
+            Version = new CommandVersion
+            {
+                Id = Guid.NewGuid(),
+                PayloadSchemaJson = """{"type":"object"}""",
+                ReplyPayloadSchemaJson = """{"properties":{"reply":{"$ref":"#/$defs/Missing"}},"$defs":{}}"""
+            }
+        };
+        using var provider = CreateProvider(new SnapshotSchemaTypeRepository(), commands: commands);
+        var validator = provider.GetRequiredService<IContractSnapshotValidationService>();
+
+        var result = await validator.ValidateCommandVersion(commands.Version.Id);
+
+        Assert.False(result.IsValid);
+        Assert.All(result.Errors, error => Assert.StartsWith("Reply ", error, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ValidateEventVersionAllowsValidPayloadSchema()
+    {
+        SnapshotEventRepository events = new()
+        {
+            Version = new EventVersion { Id = Guid.NewGuid(), PayloadSchemaJson = """{"type":"object"}""" }
+        };
+        using var provider = CreateProvider(new SnapshotSchemaTypeRepository(), events);
+        var validator = provider.GetRequiredService<IContractSnapshotValidationService>();
+
+        var result = await validator.ValidateEventVersion(events.Version.Id);
+
+        Assert.True(result.IsValid);
     }
 
     [Fact]

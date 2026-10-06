@@ -42,7 +42,48 @@ public sealed class ContractReleaseInteractionServiceTests
     }
 
     [Fact]
-    public async Task CreateAndPlanCoverValidationBranchesAndExistingTargets()
+    public async Task CreateRejectsBlankNameEmptySelectionAndMissingArtifacts()
+    {
+        var artifact = CreateArtifact("customer.created", "1.0.0");
+        ReleaseRepository releases = new();
+
+        using var provider = CreateProvider(new ReleaseArtifactRepository([artifact]), releases);
+        var service = provider.GetRequiredService<IContractReleaseInteractionService>();
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.Create(" ", null, [artifact.Id]));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.Create("Empty", null, []));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.Create("Missing", null, [Guid.NewGuid()]));
+        Assert.Empty(releases.Items);
+    }
+
+    [Fact]
+    public async Task PlanRejectsMissingReleaseAndInvalidReleaseState()
+    {
+        var artifact = CreateArtifact("customer.created", "1.0.0");
+        ReleaseRepository releases = new();
+        var runtimeNode = CreateRuntimeNode("runtime-a", DistributionMode.Push);
+
+        using var provider = CreateProvider(
+            new ReleaseArtifactRepository([artifact]),
+            releases,
+            new RuntimeNodeRepository([runtimeNode]));
+        var service = provider.GetRequiredService<IContractReleaseInteractionService>();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.Plan(Guid.NewGuid(), []));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.Plan(Guid.NewGuid(), [runtimeNode.Id]));
+
+        ContractRelease emptyRelease = new() { Name = "Empty", CreatedAtUtc = DateTime.UtcNow };
+        releases.Items.Add(emptyRelease);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.Plan(emptyRelease.Id, [runtimeNode.Id]));
+
+        ContractRelease canceledRelease = new() { Name = "Canceled", Status = ContractReleaseStatus.Canceled, CreatedAtUtc = DateTime.UtcNow };
+        canceledRelease.Items.Add(new ContractReleaseItem { ReleaseId = canceledRelease.Id, ArtifactId = artifact.Id });
+        releases.Items.Add(canceledRelease);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.Plan(canceledRelease.Id, [runtimeNode.Id]));
+    }
+
+    [Fact]
+    public async Task PlanSkipsExistingTargetsAndCreatesOnlyMissingTargets()
     {
         var artifact = CreateArtifact("customer.created", "1.0.0");
         ReleaseRepository releases = new();
@@ -56,21 +97,6 @@ public sealed class ContractReleaseInteractionServiceTests
             new RuntimeNodeRepository([firstNode, secondNode]),
             targets);
         var service = provider.GetRequiredService<IContractReleaseInteractionService>();
-
-        await Assert.ThrowsAsync<ArgumentException>(() => service.Create(" ", null, [artifact.Id]));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.Create("Empty", null, []));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.Create("Missing", null, [Guid.NewGuid()]));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.Plan(Guid.NewGuid(), []));
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.Plan(Guid.NewGuid(), [firstNode.Id]));
-
-        ContractRelease emptyRelease = new() { Name = "Empty", CreatedAtUtc = DateTime.UtcNow };
-        releases.Items.Add(emptyRelease);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.Plan(emptyRelease.Id, [firstNode.Id]));
-
-        ContractRelease canceledRelease = new() { Name = "Canceled", Status = ContractReleaseStatus.Canceled, CreatedAtUtc = DateTime.UtcNow };
-        canceledRelease.Items.Add(new ContractReleaseItem { ReleaseId = canceledRelease.Id, ArtifactId = artifact.Id });
-        releases.Items.Add(canceledRelease);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.Plan(canceledRelease.Id, [firstNode.Id]));
 
         var release = await service.Create("Customer contracts", "  Description  ", [artifact.Id]);
         var item = Assert.Single(release.Items);
