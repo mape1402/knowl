@@ -49,6 +49,50 @@ public sealed class DocumentationInteractionServiceTests
     }
 
     [Fact]
+    public async Task DocumentationAccessorsArchiveAndPathValidationCoverBranches()
+    {
+        var service = CreateService(out _);
+        var space = await service.UpsertSpace("Docs Space", "Docs Space", "Space description", true);
+        var topic = await service.UpsertTopic(space.Key, "Guides", "Guides", "Topic description", true);
+        var page = await service.UpsertPage(space.Key, topic.Key, "Intro", "Intro", "Page description", true);
+        await using var content = new MemoryStream(Encoding.UTF8.GetBytes("# Intro"));
+        var version = await service.ImportVersion(new DocumentationVersionInput(page.Id, "1.0.0", "index.md", "text/markdown", content));
+
+        var spaces = await service.GetSpaces();
+        var sameSpace = await service.GetSpace(space.Id);
+        var topics = await service.GetTopics(space.Key);
+        var sameTopic = await service.GetTopic(topic.Id);
+        var pages = await service.GetPages(space.Key, topic.Key);
+        var samePage = await service.GetPage(page.Id, includeVersions: true);
+        var source = version.Assets.Single(x => x.Kind == DocAssetKind.SourceMarkdown);
+        var sameAsset = await service.GetAsset(source.Id);
+        await using var sourceStream = await service.OpenAsset(source);
+        using var reader = new StreamReader(sourceStream, Encoding.UTF8);
+
+        await service.ArchiveVersion(version.Id);
+        var latest = await service.Render(space.Key, topic.Key, page.Key, "latest");
+
+        Assert.Single(spaces);
+        Assert.Equal(space.Id, sameSpace?.Id);
+        Assert.Single(topics);
+        Assert.Equal(topic.Id, sameTopic?.Id);
+        Assert.Single(pages);
+        Assert.Equal(page.Id, samePage?.Id);
+        Assert.Equal(source.Id, sameAsset?.Id);
+        Assert.Equal("# Intro", await reader.ReadToEndAsync());
+        Assert.Equal(DocPageVersionStatus.Archived, version.Status);
+        Assert.NotNull(version.ArchivedAtUtc);
+        Assert.Null(latest);
+        Assert.Equal("docs/folder/image.png", DocumentationPath.CombineRelative("docs/index.md", "./folder/image.png"));
+        Assert.Equal("images/logo.png", DocumentationPath.CombineRelative("docs/index.md", "../images/logo.png"));
+        Assert.Throws<InvalidOperationException>(() => DocumentationPath.Normalize("../escape.md"));
+        Assert.Throws<InvalidOperationException>(() => DocumentationPath.Normalize("docs/../escape.md"));
+        Assert.Throws<InvalidOperationException>(() => DocumentationPath.Normalize(".."));
+        Assert.Throws<InvalidOperationException>(() => DocumentationPath.CombineRelative("index.md", "/rooted.png"));
+        Assert.Throws<InvalidOperationException>(() => DocumentationPath.CombineRelative("index.md", "../escape.png"));
+    }
+
+    [Fact]
     public async Task RenderSupportsRichMarkdownCodeBlocksAndTableOfContents()
     {
         var service = CreateService(out _);
@@ -74,6 +118,33 @@ public sealed class DocumentationInteractionServiceTests
         Assert.Contains(rendered.TableOfContents, x => x.Title == "Overview" && x.Id == "overview");
         Assert.Equal(2, rendered.TableOfContents.Count(x => x.Title == "Configuration"));
         Assert.Equal(2, rendered.TableOfContents.Select(x => x.Id).Where(x => x.StartsWith("configuration", StringComparison.Ordinal)).Distinct().Count());
+    }
+
+    [Fact]
+    public async Task ImportZipCoversEntryFallbackContentTypesAndAssetSuffixRewrites()
+    {
+        var service = CreateService(out _);
+        var space = await service.UpsertSpace("assets", "Assets", null, true);
+        var topic = await service.UpsertTopic(space.Key, "reference", "Reference", null, true);
+        var page = await service.UpsertPage(space.Key, topic.Key, "files", "Files", null, true);
+        await using var package = CreateMixedAssetPackage();
+
+        var version = await service.ImportVersion(new DocumentationVersionInput(page.Id, "3.0.0", "assets.zip", "application/zip", package, "missing.md"));
+        var rendered = await service.Render(space.Key, topic.Key, page.Key, "3.0.0");
+
+        Assert.NotNull(rendered);
+        Assert.Equal("docs/guide.md", version.EntryPath);
+        Assert.Contains("/docs/assets/", rendered.Html);
+        Assert.Contains("?size=large#logo", rendered.Html);
+        Assert.Contains(rendered.TableOfContents, x => x.Title == "Code Heading" && x.Id == "code-heading");
+        Assert.Contains(rendered.TableOfContents, x => x.Title == "Nested Bold Link" && x.Id == "nested-bold-link");
+        Assert.Contains(version.Assets, x => x.ContentType == "image/jpeg" && x.Kind == DocAssetKind.InlineResource);
+        Assert.Contains(version.Assets, x => x.ContentType == "image/gif" && x.Kind == DocAssetKind.InlineResource);
+        Assert.Contains(version.Assets, x => x.ContentType == "image/svg+xml" && x.Kind == DocAssetKind.InlineResource);
+        Assert.Contains(version.Assets, x => x.ContentType == "application/pdf" && x.Kind == DocAssetKind.Attachment);
+        Assert.Contains(version.Assets, x => x.ContentType == "application/json" && x.Kind == DocAssetKind.Attachment);
+        Assert.Contains(version.Assets, x => x.ContentType == "text/plain" && x.Kind == DocAssetKind.Attachment);
+        Assert.Contains(version.Assets, x => x.ContentType == "application/octet-stream" && x.Kind == DocAssetKind.Attachment);
     }
 
     [Fact]
@@ -269,6 +340,40 @@ public sealed class DocumentationInteractionServiceTests
         return output;
     }
 
+    private static MemoryStream CreateMixedAssetPackage()
+    {
+        MemoryStream output = new();
+        using (ZipArchive zip = new(output, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            WriteTextEntry(
+                zip,
+                "docs/guide.md",
+                """
+                # `Code` Heading
+
+                ## [Nested **Bold** Link](#local)
+
+                ![Logo](images/logo.jpg?size=large#logo)
+                ![Animation](images/animation.gif)
+                ![Vector](images/vector.svg)
+                [Manual](files/manual.pdf)
+                [Json](files/config.json)
+                [Notes](files/readme.txt)
+                [Binary](files/blob.bin)
+                """);
+            WriteBytesEntry(zip, "docs/images/logo.jpg", [0xFF, 0xD8, 0xFF]);
+            WriteBytesEntry(zip, "docs/images/animation.gif", [0x47, 0x49, 0x46]);
+            WriteTextEntry(zip, "docs/images/vector.svg", "<svg></svg>");
+            WriteBytesEntry(zip, "docs/files/manual.pdf", [0x25, 0x50, 0x44, 0x46]);
+            WriteTextEntry(zip, "docs/files/config.json", "{}");
+            WriteTextEntry(zip, "docs/files/readme.txt", "hello");
+            WriteBytesEntry(zip, "docs/files/blob.bin", [1, 2, 3]);
+        }
+
+        output.Position = 0;
+        return output;
+    }
+
     private static MemoryStream CreateZipWithoutMarkdown()
     {
         MemoryStream output = new();
@@ -281,6 +386,20 @@ public sealed class DocumentationInteractionServiceTests
 
         output.Position = 0;
         return output;
+    }
+
+    private static void WriteTextEntry(ZipArchive zip, string path, string content)
+    {
+        var entry = zip.CreateEntry(path);
+        using var writer = new StreamWriter(entry.Open(), Encoding.UTF8);
+        writer.Write(content);
+    }
+
+    private static void WriteBytesEntry(ZipArchive zip, string path, byte[] content)
+    {
+        var entry = zip.CreateEntry(path);
+        using var stream = entry.Open();
+        stream.Write(content);
     }
 
     private sealed class CapturingPdfRenderer : IDocumentationPdfRenderer

@@ -8,6 +8,7 @@ using KnOwl.Runtime.Distribution;
 using KnOwl.Runtime.Application;
 using KnOwl.Runtime.Application.Security;
 using KnOwl.Runtime.Storage;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.Net;
@@ -359,6 +360,46 @@ public sealed class DistributionSecurityTests
         Assert.Contains("enabled", disabled.Message);
     }
 
+    [Fact]
+    public async Task ArtifactEndpointAuthenticatorsResolveBearerTokensAndRouteScopes()
+    {
+        var runtimeNodeId = Guid.NewGuid();
+        var controlPlaneValidator = new RecordingControlPlaneTokenValidator();
+        var controlPlaneAuthenticator = new ArtifactDeliveryEndpointAuthenticator(controlPlaneValidator);
+        var pendingRequest = CreateRequest(HttpMethods.Get, "/distribution/artifacts/runtime-nodes/runtime/pending", "Bearer runtime-token ");
+        var readRequest = CreateRequest(HttpMethods.Get, "/distribution/artifacts/runtime-nodes/runtime/targets/id", "not-a-bearer");
+        var ackRequest = CreateRequest(HttpMethods.Post, "/distribution/artifacts/runtime-nodes/runtime/targets/id/ack", "Bearer ack-token");
+
+        var pending = await controlPlaneAuthenticator.AuthenticateRuntimeNode(pendingRequest, runtimeNodeId, string.Empty);
+        controlPlaneValidator.Next = ConnectionTokenValidationResult.Failure("Denied");
+        var read = await controlPlaneAuthenticator.AuthenticateRuntimeNode(readRequest, runtimeNodeId, string.Empty);
+        controlPlaneValidator.Next = ConnectionTokenValidationResult.Success(new ConnectionTokenPrincipal());
+        var ack = await controlPlaneAuthenticator.AuthenticateRuntimeNode(ackRequest, runtimeNodeId, string.Empty);
+
+        var runtimeValidator = new RecordingRuntimeTokenValidator
+        {
+            Next = ConnectionTokenValidationResult.Success(new ConnectionTokenPrincipal { NodeKey = "control-plane" })
+        };
+        var runtimeAuthenticator = new RuntimeArtifactDeliveryEndpointAuthenticator(runtimeValidator);
+        var push = await runtimeAuthenticator.Authenticate(CreateRequest(HttpMethods.Post, "/runtime/distribution/artifacts", "Bearer control-token"), string.Empty);
+        runtimeValidator.Next = ConnectionTokenValidationResult.Failure("Nope");
+        var pushFailure = await runtimeAuthenticator.Authenticate(CreateRequest(HttpMethods.Post, "/runtime/distribution/artifacts", ""), string.Empty);
+
+        Assert.True(pending.Succeeded);
+        Assert.False(read.Succeeded);
+        Assert.True(ack.Succeeded);
+        Assert.Equal("runtime-token", controlPlaneValidator.Calls[0].Token);
+        Assert.Contains(ArtifactDeliveryScope.ReleaseRead, controlPlaneValidator.Calls[0].Scopes);
+        Assert.Equal(string.Empty, controlPlaneValidator.Calls[1].Token);
+        Assert.Contains(ArtifactDeliveryScope.ArtifactRead, controlPlaneValidator.Calls[1].Scopes);
+        Assert.Contains(ArtifactDeliveryScope.ArtifactAcknowledge, controlPlaneValidator.Calls[2].Scopes);
+        Assert.True(push.Succeeded);
+        Assert.Equal("control-plane", push.SourceKey);
+        Assert.False(pushFailure.Succeeded);
+        Assert.Contains(ArtifactDeliveryScope.ArtifactPush, runtimeValidator.Calls[0].Scopes);
+        Assert.Equal(string.Empty, runtimeValidator.Calls[1].Token);
+    }
+
     private static ServiceProvider CreateControlPlaneConnectionProvider(
         IRuntimeNodeRepository repository,
         HttpMessageHandler handler)
@@ -385,6 +426,15 @@ public sealed class DistributionSecurityTests
         services.RemoveAll<IControlPlaneAccessTokenProvider>();
         services.AddSingleton<IControlPlaneAccessTokenProvider, StubControlPlaneAccessTokenProvider>();
         return services.BuildServiceProvider();
+    }
+
+    private static HttpRequest CreateRequest(string method, string path, string authorization)
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Method = method;
+        context.Request.Path = path;
+        context.Request.Headers.Authorization = authorization;
+        return context.Request;
     }
 
     private sealed class ControlPlaneRuntimeNodeRepositoryFake(List<RuntimeNode> nodes) : IRuntimeNodeRepository
@@ -501,6 +551,39 @@ public sealed class DistributionSecurityTests
         {
             Request = request;
             return Task.FromResult(Responder(request));
+        }
+    }
+
+    private sealed class RecordingControlPlaneTokenValidator : IControlPlaneConnectionTokenValidator
+    {
+        public List<(string Token, Guid RuntimeNodeId, IReadOnlyCollection<ArtifactDeliveryScope> Scopes)> Calls { get; } = [];
+        public ConnectionTokenValidationResult Next { get; set; } =
+            ConnectionTokenValidationResult.Success(new ConnectionTokenPrincipal());
+
+        public Task<ConnectionTokenValidationResult> Validate(
+            string token,
+            Guid runtimeNodeId,
+            IReadOnlyCollection<ArtifactDeliveryScope> requiredScopes,
+            CancellationToken cancellationToken = default)
+        {
+            Calls.Add((token, runtimeNodeId, requiredScopes));
+            return Task.FromResult(Next);
+        }
+    }
+
+    private sealed class RecordingRuntimeTokenValidator : IRuntimeConnectionTokenValidator
+    {
+        public List<(string Token, IReadOnlyCollection<ArtifactDeliveryScope> Scopes)> Calls { get; } = [];
+        public ConnectionTokenValidationResult Next { get; set; } =
+            ConnectionTokenValidationResult.Success(new ConnectionTokenPrincipal());
+
+        public Task<ConnectionTokenValidationResult> Validate(
+            string token,
+            IReadOnlyCollection<ArtifactDeliveryScope> requiredScopes,
+            CancellationToken cancellationToken = default)
+        {
+            Calls.Add((token, requiredScopes));
+            return Task.FromResult(Next);
         }
     }
 }
