@@ -3,6 +3,8 @@ using System.Reflection;
 using System.Text.Json;
 using KnOwl.ControlPlane.Application;
 using KnOwl.ControlPlane.Design.Core;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace KnOwl.Tests;
 
@@ -71,6 +73,33 @@ public sealed class SampleSeederCoverageTests
         using var metadataJson = JsonDocument.Parse(metadata.Versions.First().DefinitionJson);
         Assert.True(metadataJson.RootElement.GetProperty("isRequired").GetBoolean());
         Assert.Equal(2, metadataService.UpsertCalls);
+    }
+
+    [Fact]
+    public async Task DesignSeederInitializeSeedsAllSampleDefinitionsAndIsIdempotent()
+    {
+        var type = Type.GetType("KnOwl.ControlPlaneHost.Sample.Design.SampleDesignSeeder, KnOwl.ControlPlaneHost.Sample")
+            ?? throw new InvalidOperationException("Sample design seeder type was not found.");
+        var initialize = type.GetMethod("Initialize", BindingFlags.Public | BindingFlags.Static)
+            ?? throw new InvalidOperationException("Initialize method was not found.");
+        var schemaService = new SchemaTypeServiceFake();
+        var metadataService = new MetadataFieldServiceFake();
+        var builder = WebApplication.CreateBuilder();
+        builder.Services.AddSingleton<ISchemaTypeInteractionService>(schemaService);
+        builder.Services.AddSingleton<IContractFieldMetadataInteractionService>(metadataService);
+        await using var app = builder.Build();
+
+        await InvokeTask(initialize, app);
+        await InvokeTask(initialize, app);
+
+        Assert.Equal(2, schemaService.Definitions.Count);
+        Assert.All(schemaService.Definitions, definition => Assert.Equal(2, definition.Versions.Count));
+        Assert.Equal(2, metadataService.Definitions.Count);
+        Assert.All(metadataService.Definitions, definition => Assert.Equal(2, definition.Versions.Count));
+        Assert.Contains(schemaService.Definitions, x => x.Key == "sample-customer-reference");
+        Assert.Contains(schemaService.Definitions, x => x.Key == "sample-shipment-window");
+        Assert.Contains(metadataService.Definitions, x => x.Key == "sample-pii-classification");
+        Assert.Contains(metadataService.Definitions, x => x.Key == "sample-source-system");
     }
 
     private static async Task InvokeTask(MethodInfo method, params object?[] arguments)
