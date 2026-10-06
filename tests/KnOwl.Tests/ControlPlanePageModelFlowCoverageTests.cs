@@ -7,14 +7,20 @@ using KnOwl.ControlPlane.Distribution.Storage;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using CommandEditModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Commands.EditModel;
+using CommandIndexModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Commands.IndexModel;
 using CommandVersionModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Commands.VersionModel;
 using CommandViewModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Commands.ViewModel;
 using EventEditModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Events.EditModel;
+using EventIndexModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Events.IndexModel;
 using EventVersionModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Events.VersionModel;
 using EventViewModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Events.ViewModel;
 using MetadataIndexModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.MetadataFields.IndexModel;
+using MetadataVersionModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.MetadataFields.VersionModel;
+using MetadataViewModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.MetadataFields.ViewModel;
 using RuntimeEnvironmentIndexModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.RuntimeEnvironments.IndexModel;
 using RuntimeEnvironmentInput = KnOwl.ControlPlane.WebUI.Pages.Contracts.RuntimeEnvironments.RuntimeEnvironmentInput;
+using TypeVersionModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Types.VersionModel;
+using TypeViewModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Types.ViewModel;
 
 namespace KnOwl.Tests;
 
@@ -135,6 +141,170 @@ public sealed class ControlPlanePageModelFlowCoverageTests
         Assert.Equal(command.Id, versionRedirect.RouteValues?["id"]);
         Assert.Equal(version.Id, versionRedirect.RouteValues?["versionId"]);
         Assert.Contains("InReview", versionModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task EventAndCommandIndexesCoverSearchAndDeleteBranches()
+    {
+        var eventDefinition = CreateEvent();
+        eventDefinition.Versions.First().Comment = null;
+        var events = new EventServiceFake([eventDefinition]);
+        var eventIndex = new EventIndexModel(events)
+        {
+            Search = " approved "
+        };
+
+        await eventIndex.OnGetAsync(CancellationToken.None);
+        Assert.Single(eventIndex.Events);
+        Assert.Equal(1, eventIndex.TotalEvents);
+
+        eventIndex.Search = "missing";
+        await eventIndex.OnGetAsync(CancellationToken.None);
+        Assert.Empty(eventIndex.Events);
+
+        var eventDelete = Assert.IsType<RedirectToPageResult>(
+            await eventIndex.OnPostDeleteAsync(eventDefinition.Id, CancellationToken.None));
+        Assert.Null(eventDelete.PageName);
+        Assert.Equal(eventDefinition.Id, events.LastDeletedId);
+
+        var command = CreateCommand();
+        command.Versions.First().Comment = null;
+        var commands = new CommandServiceFake([command]);
+        var commandIndex = new CommandIndexModel(commands)
+        {
+            Search = " approved "
+        };
+
+        await commandIndex.OnGetAsync(CancellationToken.None);
+        Assert.Single(commandIndex.Commands);
+        Assert.Equal(1, commandIndex.TotalCommands);
+
+        commandIndex.Search = "missing";
+        await commandIndex.OnGetAsync(CancellationToken.None);
+        Assert.Empty(commandIndex.Commands);
+
+        var commandDelete = Assert.IsType<RedirectToPageResult>(
+            await commandIndex.OnPostDeleteAsync(command.Id, CancellationToken.None));
+        Assert.Null(commandDelete.PageName);
+        Assert.Equal(command.Id, commands.LastDeletedId);
+    }
+
+    [Fact]
+    public async Task TypeAndMetadataVersionViewsCoverSelectionSearchAndDeactivateBranches()
+    {
+        var type = new SchemaTypeDefinition
+        {
+            Name = "Customer",
+            Key = "customer",
+            Description = "Reusable type",
+            Versions =
+            {
+                new SchemaTypeVersion
+                {
+                    VersionNumber = "1.0.0",
+                    Comment = "Current",
+                    DefinitionJson = """{"baseType":"string","schema":{"type":"string"}}""",
+                    IsActive = true,
+                    CreatedAtUtc = DateTime.UtcNow.AddDays(-1)
+                },
+                new SchemaTypeVersion
+                {
+                    VersionNumber = "0.9.0",
+                    Comment = "Legacy",
+                    DefinitionJson = "{",
+                    IsActive = false,
+                    CreatedAtUtc = DateTime.UtcNow.AddDays(-2)
+                }
+            }
+        };
+        var schemaTypes = new SchemaTypeServiceFake([type]);
+        var typeView = new TypeViewModel(schemaTypes) { Search = " legacy " };
+
+        Assert.IsType<NotFoundResult>(await typeView.OnGetAsync(Guid.NewGuid(), cancellationToken: CancellationToken.None));
+        Assert.IsType<PageResult>(await typeView.OnGetAsync(type.Id, "1.0.0", CancellationToken.None));
+        Assert.Equal("1.0.0", typeView.SelectedVersion?.VersionNumber);
+        Assert.Single(typeView.Versions);
+        Assert.Equal("string", typeView.SelectedDefinition.BaseType);
+        Assert.Contains(Environment.NewLine, typeView.FormattedJsonSchema);
+        Assert.Equal("{}", TypeViewModel.ReadTypeDefinition("{").SchemaJson);
+
+        var typeDeactivate = Assert.IsType<RedirectToPageResult>(
+            await typeView.OnPostDeactivateVersionAsync(type.Id, type.Versions.First().Id, CancellationToken.None));
+        Assert.Equal(type.Id, typeDeactivate.RouteValues?["id"]);
+        Assert.False(type.Versions.First().IsActive);
+
+        schemaTypes.ThrowOnSetVersionActive = true;
+        Assert.IsType<RedirectToPageResult>(
+            await typeView.OnPostDeactivateVersionAsync(type.Id, Guid.NewGuid(), CancellationToken.None));
+
+        var typeVersion = new TypeVersionModel(schemaTypes);
+        Assert.IsType<NotFoundResult>(await typeVersion.OnGetAsync(Guid.NewGuid(), type.Versions.First().Id, CancellationToken.None));
+        Assert.IsType<NotFoundResult>(await typeVersion.OnGetAsync(type.Id, Guid.NewGuid(), CancellationToken.None));
+        Assert.IsType<PageResult>(await typeVersion.OnGetAsync(type.Id, type.Versions.Last().Id, CancellationToken.None));
+        Assert.Equal("{}", typeVersion.FormattedJsonSchema);
+        schemaTypes.ThrowOnSetVersionActive = false;
+        Assert.IsType<RedirectToPageResult>(
+            await typeVersion.OnPostDeactivateVersionAsync(type.Id, type.Versions.Last().Id, CancellationToken.None));
+        schemaTypes.ThrowOnSetVersionActive = true;
+        Assert.IsType<RedirectToPageResult>(
+            await typeVersion.OnPostDeactivateVersionAsync(type.Id, Guid.NewGuid(), CancellationToken.None));
+
+        var field = new ContractFieldMetadataDefinition
+        {
+            Name = "Trace Id",
+            Key = "trace-id",
+            Description = "Correlation",
+            IsActive = true,
+            Versions =
+            {
+                new ContractFieldMetadataVersion
+                {
+                    VersionNumber = "1.0.0",
+                    Comment = "Current",
+                    DefinitionJson = """{"name":"Trace Id","key":"trace-id"}""",
+                    IsActive = true,
+                    CreatedAtUtc = DateTime.UtcNow.AddDays(-1)
+                },
+                new ContractFieldMetadataVersion
+                {
+                    VersionNumber = "0.9.0",
+                    Comment = "Legacy",
+                    DefinitionJson = "{",
+                    IsActive = false,
+                    CreatedAtUtc = DateTime.UtcNow.AddDays(-2)
+                }
+            }
+        };
+        var metadataFields = new MetadataFieldServiceFake([field]);
+        var metadataView = new MetadataViewModel(metadataFields) { Search = " legacy " };
+
+        Assert.IsType<NotFoundResult>(await metadataView.OnGetAsync(Guid.NewGuid(), cancellationToken: CancellationToken.None));
+        Assert.IsType<PageResult>(await metadataView.OnGetAsync(field.Id, "1.0.0", CancellationToken.None));
+        Assert.Equal("1.0.0", metadataView.SelectedVersion?.VersionNumber);
+        Assert.Single(metadataView.Versions);
+        Assert.Contains(Environment.NewLine, metadataView.FormattedDefinitionJson);
+        Assert.NotEmpty(metadataView.ButterMorphContext);
+
+        var metadataDeactivate = Assert.IsType<RedirectToPageResult>(
+            await metadataView.OnPostDeactivateVersionAsync(field.Id, field.Versions.First().Id, CancellationToken.None));
+        Assert.Equal(field.Id, metadataDeactivate.RouteValues?["id"]);
+        Assert.False(field.Versions.First().IsActive);
+
+        metadataFields.ThrowOnSetVersionActive = true;
+        Assert.IsType<RedirectToPageResult>(
+            await metadataView.OnPostDeactivateVersionAsync(field.Id, Guid.NewGuid(), CancellationToken.None));
+
+        var metadataVersion = new MetadataVersionModel(metadataFields);
+        Assert.IsType<NotFoundResult>(await metadataVersion.OnGetAsync(Guid.NewGuid(), field.Versions.First().Id, CancellationToken.None));
+        Assert.IsType<NotFoundResult>(await metadataVersion.OnGetAsync(field.Id, Guid.NewGuid(), CancellationToken.None));
+        Assert.IsType<PageResult>(await metadataVersion.OnGetAsync(field.Id, field.Versions.Last().Id, CancellationToken.None));
+        Assert.Equal("{", metadataVersion.FormattedDefinitionJson);
+        metadataFields.ThrowOnSetVersionActive = false;
+        Assert.IsType<RedirectToPageResult>(
+            await metadataVersion.OnPostDeactivateVersionAsync(field.Id, field.Versions.Last().Id, CancellationToken.None));
+        metadataFields.ThrowOnSetVersionActive = true;
+        Assert.IsType<RedirectToPageResult>(
+            await metadataVersion.OnPostDeactivateVersionAsync(field.Id, Guid.NewGuid(), CancellationToken.None));
     }
 
     [Fact]
@@ -454,6 +624,7 @@ public sealed class ControlPlanePageModelFlowCoverageTests
         public string? LastUpdatedName { get; private set; }
         public string? LastUpdatedTopic { get; private set; }
         public string? LastUpdatedDescription { get; private set; }
+        public Guid? LastDeletedId { get; private set; }
 
         public Task<IReadOnlyList<EventDefinition>> GetAll(CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<EventDefinition>>(events);
@@ -488,7 +659,10 @@ public sealed class ControlPlanePageModelFlowCoverageTests
         }
 
         public Task Delete(Guid id, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
+        {
+            LastDeletedId = id;
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class CommandServiceFake(IReadOnlyList<CommandDefinition>? seed = null) : ICommandInteractionService
@@ -498,6 +672,7 @@ public sealed class ControlPlanePageModelFlowCoverageTests
         public string? LastUpdatedName { get; private set; }
         public string? LastUpdatedTopic { get; private set; }
         public string? LastUpdatedDescription { get; private set; }
+        public Guid? LastDeletedId { get; private set; }
 
         public Task<IReadOnlyList<CommandDefinition>> GetAll(CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<CommandDefinition>>(commands);
@@ -532,7 +707,10 @@ public sealed class ControlPlanePageModelFlowCoverageTests
         }
 
         public Task Delete(Guid id, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
+        {
+            LastDeletedId = id;
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class RuntimeEnvironmentRepositoryFake(IReadOnlyList<RuntimeEnvironment>? seed = null) : IRuntimeEnvironmentRepository
@@ -564,6 +742,7 @@ public sealed class ControlPlanePageModelFlowCoverageTests
 
         public Guid? LastUpdatedId { get; private set; }
         public bool? LastUpdatedIsActive { get; private set; }
+        public bool ThrowOnSetVersionActive { get; set; }
 
         public Task<IReadOnlyList<ContractFieldMetadataDefinition>> GetAll(CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<ContractFieldMetadataDefinition>>(metadata);
@@ -597,6 +776,69 @@ public sealed class ControlPlanePageModelFlowCoverageTests
             => Task.CompletedTask;
 
         public Task SetVersionActive(Guid metadataFieldId, Guid versionId, bool isActive, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+        {
+            if (ThrowOnSetVersionActive)
+            {
+                throw new KeyNotFoundException("missing metadata version");
+            }
+
+            var version = metadata.First(x => x.Id == metadataFieldId).Versions.First(x => x.Id == versionId);
+            version.IsActive = isActive;
+            version.UpdatedAtUtc = updatedAtUtc;
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class SchemaTypeServiceFake(IReadOnlyList<SchemaTypeDefinition>? seed = null) : ISchemaTypeInteractionService
+    {
+        private readonly List<SchemaTypeDefinition> schemaTypes = seed?.ToList() ?? [];
+
+        public bool ThrowOnSetVersionActive { get; set; }
+
+        public Task<IReadOnlyList<SchemaTypeDefinition>> GetAll(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<SchemaTypeDefinition>>(schemaTypes);
+
+        public Task<IReadOnlyList<SchemaTypeVersion>> GetActiveVersions(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<SchemaTypeVersion>>(schemaTypes.SelectMany(x => x.Versions).Where(x => x.IsActive).ToArray());
+
+        public Task<SchemaTypeDefinition?> GetById(Guid id, bool includeVersions = false, CancellationToken cancellationToken = default)
+            => Task.FromResult(schemaTypes.FirstOrDefault(x => x.Id == id));
+
+        public Task<SchemaTypeVersion?> GetVersionById(Guid versionId, CancellationToken cancellationToken = default)
+            => Task.FromResult(schemaTypes.SelectMany(x => x.Versions).FirstOrDefault(x => x.Id == versionId));
+
+        public Task<bool> KeyExists(string key, Guid? excludingId = null, CancellationToken cancellationToken = default)
+            => Task.FromResult(schemaTypes.Any(x => x.Key == key && (!excludingId.HasValue || x.Id != excludingId)));
+
+        public Task<bool> VersionExists(Guid typeId, string versionNumber, CancellationToken cancellationToken = default)
+            => Task.FromResult(schemaTypes.FirstOrDefault(x => x.Id == typeId)?.Versions.Any(x => x.VersionNumber == versionNumber) == true);
+
+        public Task Create(SchemaTypeDefinition schemaType, CancellationToken cancellationToken = default)
+        {
+            schemaTypes.Add(schemaType);
+            return Task.CompletedTask;
+        }
+
+        public Task UpdateDefinition(Guid id, string key, string name, string? description, bool isActive, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
+
+        public Task AddVersion(Guid typeId, SchemaTypeVersion version, CancellationToken cancellationToken = default)
+        {
+            schemaTypes.First(x => x.Id == typeId).Versions.Add(version);
+            return Task.CompletedTask;
+        }
+
+        public Task SetVersionActive(Guid typeId, Guid versionId, bool isActive, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+        {
+            if (ThrowOnSetVersionActive)
+            {
+                throw new KeyNotFoundException("missing type version");
+            }
+
+            var version = schemaTypes.First(x => x.Id == typeId).Versions.First(x => x.Id == versionId);
+            version.IsActive = isActive;
+            version.UpdatedAtUtc = updatedAtUtc;
+            return Task.CompletedTask;
+        }
     }
 }

@@ -114,6 +114,156 @@ public sealed class DistributionSecurityTests
     }
 
     [Fact]
+    public async Task TokenIssuersRejectInvalidRequestsAndPersistFailureDetails()
+    {
+        var hasher = new Pbkdf2ConnectionSecretHasher();
+        var runtimeNode = new RuntimeNode
+        {
+            Id = Guid.NewGuid(),
+            Name = "Runtime Dev",
+            Code = "runtime-dev",
+            IsEnabled = true,
+            Status = RuntimeNodeStatus.Active,
+            AccessTokenTtlSeconds = 30,
+            InboundClientId = "runtime-client",
+            InboundKeyId = "runtime-key",
+            InboundSecretHash = hasher.HashSecret("runtime-secret"),
+            InboundAllowedScopes = "release:read",
+            InboundCredentialStatus = ConnectionCredentialStatus.Active
+        };
+        using var controlPlane = new ServiceCollection()
+            .AddSingleton<IRuntimeNodeRepository>(new ControlPlaneRuntimeNodeRepositoryFake([runtimeNode]))
+            .AddKnOwlControlPlaneDistributionApplication()
+            .BuildServiceProvider();
+        var controlIssuer = controlPlane.GetRequiredService<IControlPlaneConnectionTokenIssuer>();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => controlIssuer.Issue(new ConnectionTokenRequest
+        {
+            GrantType = "password",
+            ClientId = "runtime-client",
+            ClientSecret = "runtime-secret",
+            Scope = "release:read"
+        }));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => controlIssuer.Issue(new ConnectionTokenRequest
+        {
+            GrantType = "client_credentials",
+            ClientId = "missing",
+            ClientSecret = "runtime-secret",
+            Scope = "release:read"
+        }));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => controlIssuer.Issue(new ConnectionTokenRequest
+        {
+            GrantType = "client_credentials",
+            ClientId = "runtime-client",
+            ClientSecret = "wrong",
+            Scope = "release:read"
+        }));
+        Assert.Equal("Client credential secret is invalid.", runtimeNode.InboundLastFailureReason);
+
+        runtimeNode.InboundCredentialStatus = ConnectionCredentialStatus.Active;
+        runtimeNode.Status = RuntimeNodeStatus.Disabled;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => controlIssuer.Issue(ValidRuntimeTokenRequest()));
+        Assert.Equal("Runtime node connection is disabled.", runtimeNode.InboundLastFailureReason);
+
+        runtimeNode.Status = RuntimeNodeStatus.Active;
+        runtimeNode.InboundCredentialStatus = ConnectionCredentialStatus.Missing;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => controlIssuer.Issue(ValidRuntimeTokenRequest()));
+        Assert.Equal("Inbound credential is not active.", runtimeNode.InboundLastFailureReason);
+
+        runtimeNode.InboundCredentialStatus = ConnectionCredentialStatus.Active;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => controlIssuer.Issue(ValidRuntimeTokenRequest(scope: "")));
+        Assert.Equal("At least one scope is required.", runtimeNode.InboundLastFailureReason);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => controlIssuer.Issue(ValidRuntimeTokenRequest(scope: "artifact:push")));
+        Assert.Equal("Requested scope is not allowed for this node.", runtimeNode.InboundLastFailureReason);
+
+        var runtimeSuccess = await controlIssuer.Issue(ValidRuntimeTokenRequest());
+        Assert.Equal(60, runtimeSuccess.ExpiresIn);
+        Assert.Equal("runtime-key", runtimeSuccess.KeyId);
+        Assert.Equal(string.Empty, runtimeNode.InboundLastFailureReason);
+
+        var designNode = new RuntimeDesignNode
+        {
+            Id = Guid.NewGuid(),
+            Key = "control-plane",
+            Name = "Control Plane",
+            IsEnabled = true,
+            Status = RuntimeDesignNodeStatus.Enabled,
+            AccessTokenTtlSeconds = 30,
+            InboundClientId = "control-client",
+            InboundKeyId = "control-key",
+            InboundSecretHash = hasher.HashSecret("control-secret"),
+            InboundAllowedScopes = "artifact:push",
+            InboundCredentialStatus = ConnectionCredentialStatus.Active
+        };
+        using var runtime = new ServiceCollection()
+            .AddSingleton<IRuntimeDesignNodeRepository>(new RuntimeDesignNodeRepositoryFake([designNode]))
+            .AddKnOwlRuntimeApplication()
+            .BuildServiceProvider();
+        var runtimeIssuer = runtime.GetRequiredService<IRuntimeConnectionTokenIssuer>();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => runtimeIssuer.Issue(new ConnectionTokenRequest
+        {
+            GrantType = "password",
+            ClientId = "control-client",
+            ClientSecret = "control-secret",
+            Scope = "artifact:push"
+        }));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => runtimeIssuer.Issue(new ConnectionTokenRequest
+        {
+            GrantType = "client_credentials",
+            ClientId = "missing",
+            ClientSecret = "control-secret",
+            Scope = "artifact:push"
+        }));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => runtimeIssuer.Issue(new ConnectionTokenRequest
+        {
+            GrantType = "client_credentials",
+            ClientId = "control-client",
+            ClientSecret = "wrong",
+            Scope = "artifact:push"
+        }));
+        Assert.Equal("Client credential secret is invalid.", designNode.InboundLastFailureReason);
+
+        designNode.Status = RuntimeDesignNodeStatus.Pending;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => runtimeIssuer.Issue(ValidControlPlaneTokenRequest()));
+        Assert.Equal("Control Plane connection is disabled.", designNode.InboundLastFailureReason);
+
+        designNode.Status = RuntimeDesignNodeStatus.Enabled;
+        designNode.InboundCredentialStatus = ConnectionCredentialStatus.Missing;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => runtimeIssuer.Issue(ValidControlPlaneTokenRequest()));
+        Assert.Equal("Inbound credential is not active.", designNode.InboundLastFailureReason);
+
+        designNode.InboundCredentialStatus = ConnectionCredentialStatus.Active;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => runtimeIssuer.Issue(ValidControlPlaneTokenRequest(scope: "")));
+        Assert.Equal("At least one scope is required.", designNode.InboundLastFailureReason);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => runtimeIssuer.Issue(ValidControlPlaneTokenRequest(scope: "release:read")));
+        Assert.Equal("Requested scope is not allowed for this node.", designNode.InboundLastFailureReason);
+
+        var controlSuccess = await runtimeIssuer.Issue(ValidControlPlaneTokenRequest());
+        Assert.Equal(60, controlSuccess.ExpiresIn);
+        Assert.Equal("control-key", controlSuccess.KeyId);
+        Assert.Equal(string.Empty, designNode.InboundLastFailureReason);
+
+        ConnectionTokenRequest ValidRuntimeTokenRequest(string scope = "release:read") => new()
+        {
+            GrantType = "client_credentials",
+            ClientId = "runtime-client",
+            ClientSecret = "runtime-secret",
+            Scope = scope
+        };
+
+        ConnectionTokenRequest ValidControlPlaneTokenRequest(string scope = "artifact:push") => new()
+        {
+            GrantType = "client_credentials",
+            ClientId = "control-client",
+            ClientSecret = "control-secret",
+            Scope = scope
+        };
+    }
+
+    [Fact]
     public async Task CredentialPackagesCanBeGeneratedAndImportedByBothSides()
     {
         var runtimeNode = new RuntimeNode
