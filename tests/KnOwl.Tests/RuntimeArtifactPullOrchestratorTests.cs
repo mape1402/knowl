@@ -11,6 +11,8 @@ using KnOwl.Runtime.Application.Security;
 using KnOwl.Runtime.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using System.Net;
+using System.Net.Http.Json;
 
 namespace KnOwl.Tests;
 
@@ -83,6 +85,110 @@ public sealed class RuntimeArtifactPullOrchestratorTests
             source => Assert.Equal("ready-pull", source.Key));
     }
 
+    [Fact]
+    public async Task PullServiceGetsPendingAppliesPackageAndAcknowledgesAcceptedDeployment()
+    {
+        var node = CreateDesignNode("control", DistributionMode.Hybrid, ConnectionCredentialStatus.Active);
+        node.EndpointBaseUri = "https://control.example.test/";
+        node.RemoteRuntimeNodeId = "runtime-123";
+        var package = CreatePackage("customer.created");
+        var handler = new CapturingHandler(request =>
+        {
+            if (request.Method == HttpMethod.Get)
+            {
+                Assert.EndsWith("/distribution/artifacts/runtime-nodes/runtime-123/pending", request.RequestUri!.AbsoluteUri, StringComparison.Ordinal);
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create<IReadOnlyCollection<RuntimeArtifactDeliveryPackage>>([package])
+                };
+            }
+
+            Assert.Equal(HttpMethod.Post, request.Method);
+            Assert.EndsWith($"/distribution/artifacts/runtime-nodes/runtime-123/targets/{package.ReleaseTargetId}/ack", request.RequestUri!.AbsoluteUri, StringComparison.Ordinal);
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+        var tokenProvider = new RecordingControlPlaneAccessTokenProvider();
+        var deploymentService = new RecordingDeploymentService
+        {
+            Result = new RuntimeArtifactDeploymentResult
+            {
+                Accepted = true,
+                RuntimeArtifactId = "runtime-artifact",
+                Status = "Ready",
+                Message = "Stored."
+            }
+        };
+        var service = new ControlPlaneArtifactPullService(
+            new HttpClient(handler),
+            new DesignNodeRepository([node]),
+            tokenProvider,
+            deploymentService);
+
+        var pending = await service.GetPending("control");
+        var applied = await service.Apply("control", package.ReleaseTargetId);
+        var direct = await service.ApplyPackage("control", package);
+
+        Assert.Single(pending);
+        Assert.True(applied.Accepted);
+        Assert.True(direct.Accepted);
+        Assert.Equal(4, handler.Requests.Count);
+        Assert.Collection(
+            tokenProvider.Scopes,
+            scopes => Assert.Contains(ArtifactDeliveryScope.ReleaseRead, scopes),
+            scopes => Assert.Contains(ArtifactDeliveryScope.ReleaseRead, scopes),
+            scopes => Assert.Contains(ArtifactDeliveryScope.ArtifactAcknowledge, scopes),
+            scopes => Assert.Contains(ArtifactDeliveryScope.ArtifactAcknowledge, scopes));
+        Assert.Equal("control", deploymentService.LastSourceKey);
+    }
+
+    [Fact]
+    public async Task PullServiceCoversRejectedDeploymentMissingPendingAndSourcePreconditions()
+    {
+        var source = CreateDesignNode("control", DistributionMode.Pull, ConnectionCredentialStatus.Active);
+        var missingTarget = Guid.NewGuid();
+        var service = new ControlPlaneArtifactPullService(
+            new HttpClient(new CapturingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create<IReadOnlyCollection<RuntimeArtifactDeliveryPackage>>([])
+            })),
+            new DesignNodeRepository([source]),
+            new NoopControlPlaneAccessTokenProvider(),
+            new RecordingDeploymentService
+            {
+                Result = new RuntimeArtifactDeploymentResult
+                {
+                    Accepted = false,
+                    Status = "Rejected",
+                    Message = "Runtime rejected."
+                }
+            });
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.GetPending("missing"));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.Apply("control", missingTarget));
+
+        var rejected = await service.ApplyPackage("control", CreatePackage("customer.rejected"));
+        Assert.False(rejected.Accepted);
+
+        foreach (var node in new[]
+        {
+            CreateInvalidDesignNode("disabled", n => n.IsEnabled = false),
+            CreateInvalidDesignNode("suspended", n => n.Status = RuntimeDesignNodeStatus.Suspended),
+            CreateInvalidDesignNode("push", n => n.DistributionMode = DistributionMode.Push),
+            CreateInvalidDesignNode("credential", n => n.OutboundCredentialStatus = ConnectionCredentialStatus.Missing),
+            CreateInvalidDesignNode("remote", n => n.RemoteRuntimeNodeId = string.Empty)
+        })
+        {
+            var invalid = new ControlPlaneArtifactPullService(
+                new HttpClient(),
+                new DesignNodeRepository([node]),
+                new NoopControlPlaneAccessTokenProvider(),
+                new NoopDeploymentService());
+            await Assert.ThrowsAsync<InvalidOperationException>(() => invalid.GetPending(node.Key));
+        }
+
+        await Assert.ThrowsAsync<ArgumentNullException>(() => service.ApplyPackage("control", null!));
+    }
+
     private static ServiceProvider CreateProvider(IControlPlaneArtifactPullService pull)
     {
         var services = new ServiceCollection();
@@ -123,6 +229,13 @@ public sealed class RuntimeArtifactPullOrchestratorTests
             IsEnabled = true,
             OutboundCredentialStatus = credentialStatus
         };
+
+    private static RuntimeDesignNode CreateInvalidDesignNode(string key, Action<RuntimeDesignNode> mutate)
+    {
+        var node = CreateDesignNode(key, DistributionMode.Pull, ConnectionCredentialStatus.Active);
+        mutate(node);
+        return node;
+    }
 
     private sealed class FakePullService : IControlPlaneArtifactPullService
     {
@@ -188,6 +301,22 @@ public sealed class RuntimeArtifactPullOrchestratorTests
             => Task.CompletedTask;
     }
 
+    private sealed class RecordingControlPlaneAccessTokenProvider : IControlPlaneAccessTokenProvider
+    {
+        public List<IReadOnlyCollection<ArtifactDeliveryScope>> Scopes { get; } = [];
+
+        public Task AttachToken(
+            HttpRequestMessage request,
+            ControlPlaneDistributionSource source,
+            IReadOnlyCollection<ArtifactDeliveryScope> scopes,
+            CancellationToken cancellationToken = default)
+        {
+            Scopes.Add(scopes);
+            request.Headers.Authorization = new("Bearer", "token");
+            return Task.CompletedTask;
+        }
+    }
+
     private sealed class NoopDeploymentService : IRuntimeContractDeploymentService
     {
         public Task<RuntimeArtifactDeploymentResult> DeployArtifact(
@@ -195,6 +324,32 @@ public sealed class RuntimeArtifactPullOrchestratorTests
             string sourceKey,
             CancellationToken cancellationToken = default)
             => Task.FromResult(new RuntimeArtifactDeploymentResult { Accepted = true, Status = "Ready" });
+    }
+
+    private sealed class RecordingDeploymentService : IRuntimeContractDeploymentService
+    {
+        public RuntimeArtifactDeploymentResult Result { get; init; } = new();
+        public string? LastSourceKey { get; private set; }
+
+        public Task<RuntimeArtifactDeploymentResult> DeployArtifact(
+            RuntimeArtifactDeliveryPackage package,
+            string sourceKey,
+            CancellationToken cancellationToken = default)
+        {
+            LastSourceKey = sourceKey;
+            return Task.FromResult(Result);
+        }
+    }
+
+    private sealed class CapturingHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) : HttpMessageHandler
+    {
+        public List<HttpRequestMessage> Requests { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Requests.Add(request);
+            return Task.FromResult(responder(request));
+        }
     }
 }
 
