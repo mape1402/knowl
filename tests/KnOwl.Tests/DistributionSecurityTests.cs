@@ -9,6 +9,9 @@ using KnOwl.Runtime.Application;
 using KnOwl.Runtime.Application.Security;
 using KnOwl.Runtime.Storage;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using System.Net;
+using System.Net.Http.Headers;
 
 namespace KnOwl.Tests;
 
@@ -172,6 +175,19 @@ public sealed class DistributionSecurityTests
         Assert.NotEmpty(runtimeNode.OutboundClientId);
         Assert.NotEmpty(designNode.InboundClientId);
         Assert.NotEmpty(designNode.OutboundClientId);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            controlPlaneConnection.ImportCredentialPackage(new ImportRuntimeNodeCredentialPackageInput
+            {
+                RuntimeNodeId = runtimeNode.Id,
+                Package = controlPlanePackage.Json
+            }));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            runtimeConnection.ImportCredentialPackage(new ImportRuntimeDesignNodeCredentialPackageInput
+            {
+                DesignNodeId = designNode.Id,
+                Package = runtimePackage.Json
+            }));
     }
 
     [Fact]
@@ -199,6 +215,176 @@ public sealed class DistributionSecurityTests
         Assert.Equal(DistributionMode.Pull, stored.DistributionMode);
         Assert.Equal(RuntimeDesignNodeStatus.Pending, stored.Status);
         Assert.False(stored.IsEnabled);
+    }
+
+    [Fact]
+    public async Task RuntimeDesignNodeUpsertRejectsMissingRequiredValuesAndUpdatesExistingNode()
+    {
+        var existing = new RuntimeDesignNode
+        {
+            Id = Guid.NewGuid(),
+            Key = "old",
+            Name = "Old",
+            Status = RuntimeDesignNodeStatus.Pending
+        };
+        var repository = new RuntimeDesignNodeRepositoryFake([existing]);
+        using var runtime = new ServiceCollection()
+            .AddSingleton<IRuntimeDesignNodeRepository>(repository)
+            .AddKnOwlRuntimeApplication()
+            .BuildServiceProvider();
+
+        var connection = runtime.GetRequiredService<IRuntimeDesignNodeConnectionService>();
+
+        await Assert.ThrowsAsync<ArgumentException>(() => connection.UpsertDesignNode(null, " ", "Name", DistributionMode.Pull, "", "", false));
+        await Assert.ThrowsAsync<ArgumentException>(() => connection.UpsertDesignNode(null, "key", " ", DistributionMode.Pull, "", "", false));
+
+        var node = await connection.UpsertDesignNode(
+            existing.Id,
+            " updated ",
+            " Updated ",
+            DistributionMode.Hybrid,
+            " https://control.example.test/ ",
+            " runtime-id ",
+            isEnabled: true);
+
+        Assert.Equal(existing.Id, node.Id);
+        Assert.Equal("updated", node.Key);
+        Assert.Equal("Updated", node.Name);
+        Assert.Equal("https://control.example.test", node.EndpointBaseUri);
+        Assert.Equal("runtime-id", node.RemoteRuntimeNodeId);
+        Assert.Equal(RuntimeDesignNodeStatus.Enabled, node.Status);
+    }
+
+    [Fact]
+    public async Task ControlPlaneRuntimeNodeConnectionValidationCoversSuccessAndPreconditions()
+    {
+        var node = new RuntimeNode
+        {
+            Id = Guid.NewGuid(),
+            Name = "Runtime Dev",
+            Code = "runtime-dev",
+            DistributionMode = DistributionMode.Push,
+            EndpointBaseUri = "https://runtime.example.test",
+            IsEnabled = true,
+            Status = RuntimeNodeStatus.Active,
+            OutboundCredentialStatus = ConnectionCredentialStatus.Active
+        };
+        var repository = new ControlPlaneRuntimeNodeRepositoryFake([node]);
+        var handler = new CapturingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        using var provider = CreateControlPlaneConnectionProvider(repository, handler);
+        var connection = provider.GetRequiredService<IRuntimeNodeConnectionInteractionService>();
+
+        var success = await connection.ValidateConnection(node.Id);
+
+        Assert.True(success.Succeeded);
+        Assert.EndsWith("/runtime/distribution/connect/validate", handler.Request!.RequestUri!.AbsoluteUri, StringComparison.Ordinal);
+
+        node.EndpointBaseUri = "";
+        var missingEndpoint = await connection.ValidateConnection(node.Id);
+        node.EndpointBaseUri = "https://runtime.example.test";
+        node.OutboundCredentialStatus = ConnectionCredentialStatus.Missing;
+        var missingCredentials = await connection.ValidateConnection(node.Id);
+        node.OutboundCredentialStatus = ConnectionCredentialStatus.Active;
+        node.DistributionMode = DistributionMode.Pull;
+        var wrongMode = await connection.ValidateConnection(node.Id);
+        node.DistributionMode = DistributionMode.Push;
+        node.IsDeleted = true;
+        var deleted = await connection.ValidateConnection(node.Id);
+
+        Assert.False(missingEndpoint.Succeeded);
+        Assert.Contains("endpoint", missingEndpoint.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(missingCredentials.Succeeded);
+        Assert.Contains("credentials", missingCredentials.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(wrongMode.Succeeded);
+        Assert.Contains("Control Plane can call Runtime", wrongMode.Message);
+        Assert.False(deleted.Succeeded);
+        Assert.Contains("active and enabled", deleted.Message);
+    }
+
+    [Fact]
+    public async Task RuntimeDesignNodeConnectionValidationCoversSuccessHttpErrorsAndPreconditions()
+    {
+        var node = new RuntimeDesignNode
+        {
+            Id = Guid.NewGuid(),
+            Key = "control-plane",
+            Name = "Control Plane",
+            DistributionMode = DistributionMode.Pull,
+            EndpointBaseUri = "https://control.example.test",
+            RemoteRuntimeNodeId = "runtime-1",
+            IsEnabled = true,
+            Status = RuntimeDesignNodeStatus.Enabled,
+            OutboundCredentialStatus = ConnectionCredentialStatus.Active
+        };
+        var repository = new RuntimeDesignNodeRepositoryFake([node]);
+        var handler = new CapturingHandler(_ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+        {
+            Content = new StringContent("Control Plane unavailable")
+        });
+        using var provider = CreateRuntimeConnectionProvider(repository, handler);
+        var connection = provider.GetRequiredService<IRuntimeDesignNodeConnectionService>();
+
+        var httpFailure = await connection.ValidateConnection(node.Id);
+        handler.Responder = _ => new HttpResponseMessage(HttpStatusCode.OK);
+        var success = await connection.ValidateConnection(node.Id);
+
+        node.RemoteRuntimeNodeId = "";
+        var missingRemote = await connection.ValidateConnection(node.Id);
+        node.RemoteRuntimeNodeId = "runtime-1";
+        node.EndpointBaseUri = "";
+        var missingEndpoint = await connection.ValidateConnection(node.Id);
+        node.EndpointBaseUri = "https://control.example.test";
+        node.OutboundCredentialStatus = ConnectionCredentialStatus.Missing;
+        var missingCredentials = await connection.ValidateConnection(node.Id);
+        node.OutboundCredentialStatus = ConnectionCredentialStatus.Active;
+        node.DistributionMode = DistributionMode.Push;
+        var wrongMode = await connection.ValidateConnection(node.Id);
+        node.DistributionMode = DistributionMode.Pull;
+        node.IsEnabled = false;
+        var disabled = await connection.ValidateConnection(node.Id);
+
+        Assert.False(httpFailure.Succeeded);
+        Assert.Equal("Control Plane unavailable", httpFailure.Message);
+        Assert.True(success.Succeeded);
+        Assert.Contains("/distribution/runtime-nodes/runtime-1/connect/validate", handler.Request!.RequestUri!.AbsoluteUri);
+        Assert.False(missingRemote.Succeeded);
+        Assert.Contains("Remote runtime node id", missingRemote.Message);
+        Assert.False(missingEndpoint.Succeeded);
+        Assert.Contains("endpoint", missingEndpoint.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(missingCredentials.Succeeded);
+        Assert.Contains("credentials", missingCredentials.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(wrongMode.Succeeded);
+        Assert.Contains("Runtime can call Control Plane", wrongMode.Message);
+        Assert.False(disabled.Succeeded);
+        Assert.Contains("enabled", disabled.Message);
+    }
+
+    private static ServiceProvider CreateControlPlaneConnectionProvider(
+        IRuntimeNodeRepository repository,
+        HttpMessageHandler handler)
+    {
+        var services = new ServiceCollection()
+            .AddSingleton(repository);
+        services.AddKnOwlControlPlaneDistributionApplication();
+        services.AddHttpClient("KnOwlRuntimeDistribution")
+            .ConfigurePrimaryHttpMessageHandler(() => handler);
+        services.RemoveAll<IRuntimeAccessTokenProvider>();
+        services.AddSingleton<IRuntimeAccessTokenProvider, StubRuntimeAccessTokenProvider>();
+        return services.BuildServiceProvider();
+    }
+
+    private static ServiceProvider CreateRuntimeConnectionProvider(
+        IRuntimeDesignNodeRepository repository,
+        HttpMessageHandler handler)
+    {
+        var services = new ServiceCollection()
+            .AddSingleton(repository);
+        services.AddKnOwlRuntimeApplication();
+        services.AddHttpClient("KnOwlControlPlaneDistribution")
+            .ConfigurePrimaryHttpMessageHandler(() => handler);
+        services.RemoveAll<IControlPlaneAccessTokenProvider>();
+        services.AddSingleton<IControlPlaneAccessTokenProvider, StubControlPlaneAccessTokenProvider>();
+        return services.BuildServiceProvider();
     }
 
     private sealed class ControlPlaneRuntimeNodeRepositoryFake(List<RuntimeNode> nodes) : IRuntimeNodeRepository
@@ -275,6 +461,46 @@ public sealed class DistributionSecurityTests
             }
 
             return Task.CompletedTask;
+        }
+    }
+
+    private sealed class StubRuntimeAccessTokenProvider : IRuntimeAccessTokenProvider
+    {
+        public Task AttachToken(
+            HttpRequestMessage request,
+            RuntimeNode node,
+            IReadOnlyCollection<ArtifactDeliveryScope> scopes,
+            CancellationToken cancellationToken = default)
+        {
+            Assert.Contains(ArtifactDeliveryScope.ConnectionValidate, scopes);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "runtime-token");
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class StubControlPlaneAccessTokenProvider : IControlPlaneAccessTokenProvider
+    {
+        public Task AttachToken(
+            HttpRequestMessage request,
+            ControlPlaneDistributionSource source,
+            IReadOnlyCollection<ArtifactDeliveryScope> scopes,
+            CancellationToken cancellationToken = default)
+        {
+            Assert.Contains(ArtifactDeliveryScope.ConnectionValidate, scopes);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "control-plane-token");
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class CapturingHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) : HttpMessageHandler
+    {
+        public Func<HttpRequestMessage, HttpResponseMessage> Responder { get; set; } = responder;
+        public HttpRequestMessage? Request { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Request = request;
+            return Task.FromResult(Responder(request));
         }
     }
 }
