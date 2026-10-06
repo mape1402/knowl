@@ -162,4 +162,62 @@ public sealed class ThemeOptionsTests
         Assert.Contains("--bs-primary-rgb: 170, 187, 204;", css);
         Assert.Contains("--bs-link-hover-color-rgb: 18, 52, 86;", css);
     }
+
+    [Fact]
+    public void RuntimeThemeLegacyPropertiesMirrorBothPalettes()
+    {
+        var options = new KnOwl.Runtime.WebUI.KnOwlRuntimeThemeOptions
+        {
+            PrimaryColor = "#111111",
+            PrimaryHoverColor = "#222222",
+            SidebarBackgroundColor = "#333333",
+            SidebarBrandBackgroundColor = "#444444",
+            SidebarTextColor = "#555555",
+            SidebarMutedTextColor = "#666666",
+            ContentBackgroundColor = "#777777",
+            SurfaceColor = "#888888",
+            TextColor = "#999999"
+        };
+
+        Assert.Equal("#111111", options.PrimaryColor);
+        Assert.Equal("#222222", options.PrimaryHoverColor);
+        Assert.Equal("#333333", options.SidebarBackgroundColor);
+        Assert.Equal("#444444", options.SidebarBrandBackgroundColor);
+        Assert.Equal("#555555", options.SidebarTextColor);
+        Assert.Equal("#666666", options.SidebarMutedTextColor);
+        Assert.Equal("#777777", options.ContentBackgroundColor);
+        Assert.Equal("#888888", options.SurfaceColor);
+        Assert.Equal("#999999", options.TextColor);
+        Assert.Equal("#555555", options.Dark.SidebarTextColor);
+        Assert.Equal("#666666", options.Dark.SidebarMutedTextColor);
+        Assert.Equal("#888888", options.Dark.SurfaceColor);
+        Assert.Equal("#999999", options.Dark.TextColor);
+    }
+
+    [Fact]
+    public void ControlPlaneThemeLegacyPropertiesExposeConfiguredValues()
+    {
+        var options = new KnOwl.ControlPlane.WebUI.KnOwlControlPlaneThemeOptions
+        {
+            PrimaryColor = "#111111",
+            PrimaryHoverColor = "#222222",
+            SidebarBackgroundColor = "#333333",
+            SidebarBrandBackgroundColor = "#444444",
+            SidebarTextColor = "#555555",
+            SidebarMutedTextColor = "#666666",
+            ContentBackgroundColor = "#777777",
+            SurfaceColor = "#888888",
+            TextColor = "#999999"
+        };
+
+        Assert.Equal("#111111", options.PrimaryColor);
+        Assert.Equal("#222222", options.PrimaryHoverColor);
+        Assert.Equal("#333333", options.SidebarBackgroundColor);
+        Assert.Equal("#444444", options.SidebarBrandBackgroundColor);
+        Assert.Equal("#555555", options.SidebarTextColor);
+        Assert.Equal("#666666", options.SidebarMutedTextColor);
+        Assert.Equal("#777777", options.ContentBackgroundColor);
+        Assert.Equal("#888888", options.SurfaceColor);
+        Assert.Equal("#999999", options.TextColor);
+    }
 }

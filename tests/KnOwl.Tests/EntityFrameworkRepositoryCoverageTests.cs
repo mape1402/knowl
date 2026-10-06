@@ -61,12 +61,18 @@ public sealed class EntityFrameworkRepositoryCoverageTests
         db.ChangeTracker.Clear();
         await commandRepository.UpdateDraftVersion(commandVersion.Id, """{"request":true}""", """{"reply":true}""", "Draft", now);
         await commandRepository.UpdateVersionStatus(commandVersion.Id, ContractVersionStatus.InReview, now);
+        Assert.NotEmpty(await commandRepository.GetAllWithVersions());
         await commandRepository.Delete(command.Id);
 
         var schema = new SchemaTypeDefinition { Key = "customer-ref", Name = "Customer Ref", Description = "Ref", IsActive = true };
         await schemaRepository.Create(schema);
         var newSchemaVersion = new SchemaTypeVersion { VersionNumber = "1.0.0", DefinitionJson = "{}", IsActive = true };
         await schemaRepository.AddVersion(schema.Id, newSchemaVersion);
+        db.ChangeTracker.Clear();
+        var activeSchemaVersion = Assert.Single(await schemaRepository.GetActiveVersionsWithDefinitions());
+        Assert.Equal(schema.Id, activeSchemaVersion.SchemaTypeDefinitionId);
+        Assert.NotNull(activeSchemaVersion.SchemaTypeDefinition);
+        Assert.NotNull(await schemaRepository.GetVersionById(activeSchemaVersion.Id));
         db.ChangeTracker.Clear();
         await schemaRepository.UpdateDefinition(schema.Id, "customer-ref", "Customer Reference", null, false, now);
         var schemaVersion = Assert.Single((await schemaRepository.GetById(schema.Id, includeVersions: true))!.Versions);
@@ -101,6 +107,8 @@ public sealed class EntityFrameworkRepositoryCoverageTests
 
         await Assert.ThrowsAsync<KeyNotFoundException>(() => eventRepository.UpdateDefinition(Guid.NewGuid(), "x", "x", null, now));
         await Assert.ThrowsAsync<KeyNotFoundException>(() => commandRepository.AddVersion(Guid.NewGuid(), new CommandVersion { VersionNumber = "9.9.9", PayloadSchemaJson = "{}" }));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => schemaRepository.UpdateDefinition(Guid.NewGuid(), "x", "x", null, true, now));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => schemaRepository.SetVersionActive(schema.Id, Guid.NewGuid(), true, now));
         await Assert.ThrowsAsync<KeyNotFoundException>(() => schemaRepository.SetVersionActive(Guid.NewGuid(), Guid.NewGuid(), true, now));
         await Assert.ThrowsAsync<KeyNotFoundException>(() => metadataRepository.SetVersionActive(Guid.NewGuid(), Guid.NewGuid(), true, now));
     }
