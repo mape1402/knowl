@@ -994,6 +994,86 @@ public sealed class ButterMorphAdapterTests
     }
 
     [Fact]
+    public async Task FieldMetadataDesignerHostCoversFailureAndVersionFallbackBranches()
+    {
+        var fieldId = Guid.NewGuid();
+        var blankVersion = new ContractFieldMetadataDefinition
+        {
+            Id = fieldId,
+            Key = "blank",
+            Name = "Blank",
+            Versions =
+            [
+                new ContractFieldMetadataVersion
+                {
+                    VersionNumber = string.Empty,
+                    DefinitionJson = KnOwlButterMorphDefinitionMapper.SerializeCustomFieldDefinition(CreateCustomFieldDefinition("blank", string.Empty))
+                }
+            ]
+        };
+        var previewVersion = new ContractFieldMetadataDefinition
+        {
+            Id = Guid.NewGuid(),
+            Key = "preview",
+            Name = "Preview",
+            Versions =
+            [
+                new ContractFieldMetadataVersion
+                {
+                    VersionNumber = "preview",
+                    DefinitionJson = KnOwlButterMorphDefinitionMapper.SerializeCustomFieldDefinition(CreateCustomFieldDefinition("preview", "preview"))
+                }
+            ]
+        };
+        var fields = new MetadataInteractionStub([blankVersion, previewVersion]) { Entity = blankVersion };
+        var host = new KnOwlFieldMetadataDesignerHost(fields);
+
+        var blankLoaded = await host.Load(new global::ButterMorph.Web.Razor.ButterMorphFieldMetadataDesignerLoadRequest
+        {
+            ContextKey = KnOwlButterMorphContext.NewMetadataFieldVersion(fieldId)
+        });
+        fields.Entity = previewVersion;
+        var fallbackLoaded = await host.Load(new global::ButterMorph.Web.Razor.ButterMorphFieldMetadataDesignerLoadRequest
+        {
+            ContextKey = KnOwlButterMorphContext.NewMetadataFieldVersion(previewVersion.Id)
+        });
+
+        var missingVersion = await host.Save(CreateFieldSave(KnOwlButterMorphContext.NewMetadataFieldVersion(Guid.NewGuid()), "missing", "1.0.0"));
+        var missingEdit = await host.Save(CreateFieldSave(KnOwlButterMorphContext.EditMetadataField(Guid.NewGuid()), "missing", "1.0.0"));
+
+        fields.Entity = blankVersion;
+        fields.KeyExistsResult = true;
+        var duplicateVersionKey = await host.Save(CreateFieldSave(KnOwlButterMorphContext.NewMetadataFieldVersion(fieldId), "blank", "1.0.1"));
+        var duplicateEditKey = await host.Save(CreateFieldSave(KnOwlButterMorphContext.EditMetadataField(fieldId), "blank", "1.0.0"));
+
+        fields.KeyExistsResult = false;
+        fields.ThrowUpdateDefinition = true;
+        var failedVersionUpdate = await host.Save(CreateFieldSave(KnOwlButterMorphContext.NewMetadataFieldVersion(fieldId), "blank", "1.0.1"));
+        var failedEditUpdate = await host.Save(CreateFieldSave(KnOwlButterMorphContext.EditMetadataField(fieldId), "blank", "1.0.0"));
+
+        fields.ThrowUpdateDefinition = false;
+        fields.ThrowGetById = true;
+        var changedBeforeSave = await host.Save(CreateFieldSave(KnOwlButterMorphContext.EditMetadataField(fieldId), "blank", "1.0.0"));
+
+        Assert.Equal("1.0.0", blankLoaded.Definition.Version);
+        Assert.Equal("preview.1", fallbackLoaded.Definition.Version);
+        Assert.False(missingVersion.Succeeded);
+        Assert.Equal("Metadata field was not found.", missingVersion.Message);
+        Assert.False(missingEdit.Succeeded);
+        Assert.Equal("Metadata field was not found.", missingEdit.Message);
+        Assert.False(duplicateVersionKey.Succeeded);
+        Assert.Equal("A metadata field with this key already exists.", duplicateVersionKey.Message);
+        Assert.False(duplicateEditKey.Succeeded);
+        Assert.Equal("A metadata field with this key already exists.", duplicateEditKey.Message);
+        Assert.False(failedVersionUpdate.Succeeded);
+        Assert.Equal("Metadata field was not found.", failedVersionUpdate.Message);
+        Assert.False(failedEditUpdate.Succeeded);
+        Assert.Equal("Metadata field was not found.", failedEditUpdate.Message);
+        Assert.False(changedBeforeSave.Succeeded);
+        Assert.Contains("changed or was deleted", changedBeforeSave.Message);
+    }
+
+    [Fact]
     public async Task PayloadSchemaHostCoversEmptyAndFallbackLoadBranches()
     {
         var eventId = Guid.NewGuid();
@@ -1453,19 +1533,39 @@ public sealed class ButterMorphAdapterTests
     private sealed class MetadataInteractionStub(IReadOnlyList<ContractFieldMetadataDefinition>? active = null) : IContractFieldMetadataInteractionService
     {
         private readonly IReadOnlyList<ContractFieldMetadataDefinition> _active = active ?? [];
-        public ContractFieldMetadataDefinition? Entity { get; init; }
+        public ContractFieldMetadataDefinition? Entity { get; set; }
         public bool KeyExistsResult { get; set; }
         public bool VersionExistsResult { get; set; }
+        public bool ThrowGetById { get; set; }
+        public bool ThrowUpdateDefinition { get; set; }
         public List<ContractFieldMetadataDefinition> Created { get; } = [];
         public List<ContractFieldMetadataVersion> UpsertedVersions { get; } = [];
 
         public Task<IReadOnlyList<ContractFieldMetadataDefinition>> GetAll(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ContractFieldMetadataDefinition>>([]);
         public Task<IReadOnlyList<ContractFieldMetadataDefinition>> GetActive(CancellationToken cancellationToken = default) => Task.FromResult(_active);
-        public Task<ContractFieldMetadataDefinition?> GetById(Guid id, bool includeVersions = false, CancellationToken cancellationToken = default) => Task.FromResult(Entity?.Id == id ? Entity : _active.FirstOrDefault(x => x.Id == id));
+        public Task<ContractFieldMetadataDefinition?> GetById(Guid id, bool includeVersions = false, CancellationToken cancellationToken = default)
+        {
+            if (ThrowGetById)
+            {
+                throw new KeyNotFoundException("missing metadata field");
+            }
+
+            return Task.FromResult(Entity?.Id == id ? Entity : _active.FirstOrDefault(x => x.Id == id));
+        }
+
         public Task<bool> KeyExists(string key, Guid? excludingId = null, CancellationToken cancellationToken = default) => Task.FromResult(KeyExistsResult);
         public Task<bool> VersionExists(Guid metadataFieldId, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(VersionExistsResult);
         public Task Create(ContractFieldMetadataDefinition metadataField, CancellationToken cancellationToken = default) { Created.Add(metadataField); return Task.CompletedTask; }
-        public Task UpdateDefinition(Guid id, string key, string name, string? description, bool isActive, DateTime updatedAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpdateDefinition(Guid id, string key, string name, string? description, bool isActive, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+        {
+            if (ThrowUpdateDefinition)
+            {
+                throw new KeyNotFoundException("missing metadata field");
+            }
+
+            return Task.CompletedTask;
+        }
+
         public Task UpsertVersion(Guid metadataFieldId, ContractFieldMetadataVersion version, CancellationToken cancellationToken = default) { UpsertedVersions.Add(version); return Task.CompletedTask; }
         public Task SetVersionActive(Guid metadataFieldId, Guid versionId, bool isActive, DateTime updatedAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }}
