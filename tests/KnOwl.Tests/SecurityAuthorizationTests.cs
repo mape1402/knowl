@@ -126,6 +126,74 @@ public sealed class SecurityAuthorizationTests
     }
 
     [Fact]
+    public async Task InMemorySecurityStoreCoversDirectQueriesAndUpdates()
+    {
+        var store = new InMemoryKnOwlSecurityStore();
+        var subject = await store.UpsertSubject(new KnOwlSubject
+        {
+            Provider = Provider,
+            SubjectId = "User",
+            DisplayName = "User",
+            Email = "user@example.test",
+            IsEnabled = true
+        });
+        var updated = await store.UpsertSubject(new KnOwlSubject
+        {
+            Provider = Provider.ToUpperInvariant(),
+            SubjectId = "user",
+            DisplayName = "Updated User",
+            Email = "updated@example.test",
+            IsEnabled = false
+        });
+        var role = await store.AssignRole(new KnOwlRoleAssignment
+        {
+            Provider = Provider,
+            SubjectId = "user",
+            Role = KnOwlRoles.Reader,
+            ScopeType = KnOwlAuthorizationScopeTypes.Global,
+            ScopeId = "*",
+            IsEnabled = true
+        });
+        var permission = await store.AssignPermission(new KnOwlPermissionAssignment
+        {
+            Provider = Provider,
+            SubjectId = "user",
+            Permission = KnOwlPermissions.EventsRead,
+            ScopeType = KnOwlAuthorizationScopeTypes.Global,
+            ScopeId = "*",
+            IsEnabled = true
+        });
+        var group = await store.AssignExternalGroupRole(new KnOwlExternalGroupRoleAssignment
+        {
+            Provider = Provider,
+            ExternalGroupId = "Team-A",
+            Role = KnOwlRoles.Designer,
+            ScopeType = KnOwlAuthorizationScopeTypes.Global,
+            ScopeId = "*",
+            IsEnabled = true
+        });
+
+        Assert.Equal(subject.Id, updated.Id);
+        Assert.Equal("Updated User", updated.DisplayName);
+        Assert.NotNull(updated.UpdatedAtUtc);
+        Assert.Single(await store.GetSubjects());
+        Assert.NotNull(await store.GetSubject(Provider, "USER"));
+        Assert.Same(role, Assert.Single(await store.GetRoleAssignments()));
+        Assert.Same(role, Assert.Single(await store.GetRoleAssignments(Provider.ToUpperInvariant(), "USER")));
+        Assert.Same(permission, Assert.Single(await store.GetPermissionAssignments()));
+        Assert.Same(permission, Assert.Single(await store.GetPermissionAssignments(Provider.ToUpperInvariant(), "USER")));
+        Assert.Same(group, Assert.Single(await store.GetExternalGroupRoleAssignments()));
+        Assert.Same(group, Assert.Single(await store.GetExternalGroupRoleAssignments(Provider.ToUpperInvariant(), ["team-a"])));
+        Assert.False(await store.HasEnabledAdmin());
+
+        await store.SynchronizeBootstrapAdmin(new KnOwlExternalSubject(Provider, "admin", "Admin", "admin@example.test", []));
+        await store.SynchronizeBootstrapAdmin(new KnOwlExternalSubject(Provider, "admin", "Admin", "admin@example.test", []));
+
+        Assert.True(await store.HasEnabledAdmin());
+        Assert.Single((await store.GetRoleAssignments(Provider, "admin")).Where(x => x.Role == KnOwlRoles.Admin));
+    }
+
+    [Fact]
     public async Task ControlPlaneSecurityEndpointRequiresAuthentication()
     {
         await using var app = await CreateSecurityApi(new InMemoryKnOwlSecurityStore());

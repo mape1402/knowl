@@ -13,6 +13,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.Net;
 using System.Net.Http.Headers;
+using System.Text.Json;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace KnOwl.Tests;
 
@@ -400,6 +403,185 @@ public sealed class DistributionSecurityTests
         Assert.Equal(string.Empty, runtimeValidator.Calls[1].Token);
     }
 
+    [Fact]
+    public async Task ControlPlaneConnectionTokenValidatorCoversCacheAndFailureBranches()
+    {
+        var node = new RuntimeNode
+        {
+            Id = Guid.NewGuid(),
+            Code = "runtime",
+            IsEnabled = true,
+            Status = RuntimeNodeStatus.Active,
+            InboundCredentialStatus = ConnectionCredentialStatus.Active,
+            InboundClientId = "client",
+            InboundKeyId = "key",
+            TokenValidationCacheTtlSeconds = 1
+        };
+        var repository = new ControlPlaneRuntimeNodeRepositoryFake([node]);
+        var cache = new MemoryDistributedCache(Microsoft.Extensions.Options.Options.Create(new MemoryDistributedCacheOptions()));
+        var validator = CreateControlPlaneValidator(repository, cache);
+
+        Assert.False((await validator.Validate("", node.Id, [])).Succeeded);
+        Assert.False((await validator.Validate("missing", node.Id, [])).Succeeded);
+
+        await StoreIssuedToken(cache, "control-plane", "expired", new ConnectionTokenCacheEntry
+        {
+            NodeId = node.Id.ToString("N"),
+            NodeKey = node.Code,
+            ClientId = node.InboundClientId,
+            KeyId = node.InboundKeyId,
+            Scopes = "release:read",
+            ExpiresAtUtc = DateTime.UtcNow.AddSeconds(-1)
+        });
+        Assert.False((await validator.Validate("expired", node.Id, [ArtifactDeliveryScope.ReleaseRead])).Succeeded);
+
+        await StoreIssuedToken(cache, "control-plane", "wrong-node", new ConnectionTokenCacheEntry
+        {
+            NodeId = Guid.NewGuid().ToString("N"),
+            ClientId = node.InboundClientId,
+            KeyId = node.InboundKeyId,
+            Scopes = "release:read",
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(5)
+        });
+        Assert.False((await validator.Validate("wrong-node", node.Id, [ArtifactDeliveryScope.ReleaseRead])).Succeeded);
+
+        await StoreIssuedToken(cache, "control-plane", "inactive", new ConnectionTokenCacheEntry
+        {
+            NodeId = node.Id.ToString("N"),
+            ClientId = node.InboundClientId,
+            KeyId = node.InboundKeyId,
+            Scopes = "release:read",
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(5)
+        });
+        node.InboundCredentialStatus = ConnectionCredentialStatus.Missing;
+        Assert.False((await validator.Validate("inactive", node.Id, [ArtifactDeliveryScope.ReleaseRead])).Succeeded);
+        node.InboundCredentialStatus = ConnectionCredentialStatus.Active;
+
+        await StoreIssuedToken(cache, "control-plane", "key-mismatch", new ConnectionTokenCacheEntry
+        {
+            NodeId = node.Id.ToString("N"),
+            ClientId = "other-client",
+            KeyId = node.InboundKeyId,
+            Scopes = "release:read",
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(5)
+        });
+        Assert.False((await validator.Validate("key-mismatch", node.Id, [ArtifactDeliveryScope.ReleaseRead])).Succeeded);
+
+        await StoreIssuedToken(cache, "control-plane", "missing-scope", new ConnectionTokenCacheEntry
+        {
+            NodeId = node.Id.ToString("N"),
+            ClientId = node.InboundClientId,
+            KeyId = node.InboundKeyId,
+            Scopes = "release:read",
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(5)
+        });
+        Assert.False((await validator.Validate("missing-scope", node.Id, [ArtifactDeliveryScope.ArtifactAcknowledge])).Succeeded);
+
+        await StoreIssuedToken(cache, "control-plane", "success", new ConnectionTokenCacheEntry
+        {
+            NodeId = node.Id.ToString("N"),
+            NodeKey = node.Code,
+            ClientId = node.InboundClientId,
+            KeyId = node.InboundKeyId,
+            Scopes = "release:read artifact:ack",
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(5)
+        });
+        var success = await validator.Validate("success", node.Id, []);
+        var cached = await validator.Validate("success", node.Id, [ArtifactDeliveryScope.ReleaseRead]);
+
+        Assert.True(success.Succeeded);
+        Assert.True(cached.Succeeded);
+    }
+
+    [Fact]
+    public async Task RuntimeConnectionTokenValidatorCoversCacheAndFailureBranches()
+    {
+        var node = new RuntimeDesignNode
+        {
+            Id = Guid.NewGuid(),
+            Key = "control-plane",
+            IsEnabled = true,
+            Status = RuntimeDesignNodeStatus.Enabled,
+            InboundCredentialStatus = ConnectionCredentialStatus.Active,
+            InboundClientId = "client",
+            InboundKeyId = "key",
+            TokenValidationCacheTtlSeconds = 1
+        };
+        var repository = new RuntimeDesignNodeRepositoryFake([node]);
+        var cache = new MemoryDistributedCache(Microsoft.Extensions.Options.Options.Create(new MemoryDistributedCacheOptions()));
+        var validator = CreateRuntimeValidator(repository, cache);
+
+        Assert.False((await validator.Validate("", [])).Succeeded);
+        Assert.False((await validator.Validate("missing", [])).Succeeded);
+
+        await StoreIssuedToken(cache, "runtime", "expired", new ConnectionTokenCacheEntry
+        {
+            NodeId = node.Id.ToString("N"),
+            ClientId = node.InboundClientId,
+            KeyId = node.InboundKeyId,
+            Scopes = "artifact:push",
+            ExpiresAtUtc = DateTime.UtcNow.AddSeconds(-1)
+        });
+        Assert.False((await validator.Validate("expired", [ArtifactDeliveryScope.ArtifactPush])).Succeeded);
+
+        await StoreIssuedToken(cache, "runtime", "bad-node", new ConnectionTokenCacheEntry
+        {
+            NodeId = "not-a-guid",
+            ClientId = node.InboundClientId,
+            KeyId = node.InboundKeyId,
+            Scopes = "artifact:push",
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(5)
+        });
+        Assert.False((await validator.Validate("bad-node", [ArtifactDeliveryScope.ArtifactPush])).Succeeded);
+
+        await StoreIssuedToken(cache, "runtime", "inactive", new ConnectionTokenCacheEntry
+        {
+            NodeId = node.Id.ToString("N"),
+            ClientId = node.InboundClientId,
+            KeyId = node.InboundKeyId,
+            Scopes = "artifact:push",
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(5)
+        });
+        node.IsEnabled = false;
+        Assert.False((await validator.Validate("inactive", [ArtifactDeliveryScope.ArtifactPush])).Succeeded);
+        node.IsEnabled = true;
+
+        await StoreIssuedToken(cache, "runtime", "key-mismatch", new ConnectionTokenCacheEntry
+        {
+            NodeId = node.Id.ToString("N"),
+            ClientId = node.InboundClientId,
+            KeyId = "other-key",
+            Scopes = "artifact:push",
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(5)
+        });
+        Assert.False((await validator.Validate("key-mismatch", [ArtifactDeliveryScope.ArtifactPush])).Succeeded);
+
+        await StoreIssuedToken(cache, "runtime", "missing-scope", new ConnectionTokenCacheEntry
+        {
+            NodeId = node.Id.ToString("N"),
+            ClientId = node.InboundClientId,
+            KeyId = node.InboundKeyId,
+            Scopes = "connection:validate",
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(5)
+        });
+        Assert.False((await validator.Validate("missing-scope", [ArtifactDeliveryScope.ArtifactPush])).Succeeded);
+
+        await StoreIssuedToken(cache, "runtime", "success", new ConnectionTokenCacheEntry
+        {
+            NodeId = node.Id.ToString("N"),
+            NodeKey = node.Key,
+            ClientId = node.InboundClientId,
+            KeyId = node.InboundKeyId,
+            Scopes = "artifact:push connection:validate",
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(5)
+        });
+        var success = await validator.Validate("success", []);
+        var cached = await validator.Validate("success", [ArtifactDeliveryScope.ArtifactPush]);
+
+        Assert.True(success.Succeeded);
+        Assert.True(cached.Succeeded);
+    }
+
     private static ServiceProvider CreateControlPlaneConnectionProvider(
         IRuntimeNodeRepository repository,
         HttpMessageHandler handler)
@@ -435,6 +617,37 @@ public sealed class DistributionSecurityTests
         context.Request.Path = path;
         context.Request.Headers.Authorization = authorization;
         return context.Request;
+    }
+
+    private static ControlPlaneConnectionTokenValidator CreateControlPlaneValidator(
+        IRuntimeNodeRepository runtimeNodes,
+        IDistributedCache cache)
+        => new(
+            runtimeNodes,
+            new Sha256TokenHashService(),
+            new DefaultConnectionScopeFormatter(),
+            new ConnectionTokenCacheKeyBuilder(),
+            cache);
+
+    private static RuntimeConnectionTokenValidator CreateRuntimeValidator(
+        IRuntimeDesignNodeRepository designNodes,
+        IDistributedCache cache)
+        => new(
+            designNodes,
+            new Sha256TokenHashService(),
+            new DefaultConnectionScopeFormatter(),
+            new ConnectionTokenCacheKeyBuilder(),
+            cache);
+
+    private static Task StoreIssuedToken(
+        IDistributedCache cache,
+        string issuer,
+        string token,
+        ConnectionTokenCacheEntry entry)
+    {
+        var hash = new Sha256TokenHashService().HashToken(token);
+        var key = new ConnectionTokenCacheKeyBuilder().BuildIssuedTokenKey(issuer, hash);
+        return cache.SetStringAsync(key, JsonSerializer.Serialize(entry, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
     }
 
     private sealed class ControlPlaneRuntimeNodeRepositoryFake(List<RuntimeNode> nodes) : IRuntimeNodeRepository
