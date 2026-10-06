@@ -133,6 +133,45 @@ public sealed class DocumentationWebUiMarkupTests
         Assert.Contains("Escape", js);
     }
 
+    [Fact]
+    public void DocumentationReaderSupportsMermaidDiagrams()
+    {
+        var css = File.ReadAllText(GetControlPlaneCssPath());
+        var js = File.ReadAllText(GetControlPlaneJsPath());
+        var mermaidAsset = new FileInfo(GetControlPlaneMermaidPath());
+
+        Assert.Contains("data-documentation-mermaid", js);
+        Assert.Contains("data-documentation-mermaid-toolbar", js);
+        Assert.Contains("data-documentation-mermaid-open", js);
+        Assert.Contains("documentation-mermaid-dialog-overlay", js);
+        Assert.Contains("Zoom in", js);
+        Assert.Contains("Zoom out", js);
+        Assert.Contains("bindDiagramPan", js);
+        Assert.DoesNotContain("controller.scale <= 1", js);
+        Assert.Contains("setPointerCapture", js);
+        Assert.Contains("mousedown", js);
+        Assert.Contains("mousemove", js);
+        Assert.Contains("catch", js);
+        Assert.Contains("setAttribute('viewBox'", js);
+        Assert.Contains("mermaid.min.js", js);
+        Assert.Contains("securityLevel: 'strict'", js);
+        Assert.Contains("knowl:theme-change", js);
+        Assert.Contains(".documentation-mermaid", css);
+        Assert.Contains(".documentation-mermaid-toolbar", css);
+        Assert.Contains(".documentation-mermaid-button", css);
+        Assert.Contains(".documentation-mermaid-inline-canvas", css);
+        Assert.Contains(".documentation-mermaid-inline-canvas.is-panning", css);
+        Assert.Contains("touch-action: none", css);
+        Assert.Contains(".documentation-mermaid-open", css);
+        Assert.Contains(".documentation-mermaid-dialog", css);
+        Assert.Contains(".documentation-mermaid-dialog-viewport", css);
+        Assert.Contains(".documentation-mermaid svg", css);
+        Assert.DoesNotContain("will-change: transform", css);
+        Assert.Contains(".documentation-mermaid-error", css);
+        Assert.True(mermaidAsset.Exists);
+        Assert.True(mermaidAsset.Length > 1_000_000);
+    }
+
     private static string GetDocumentationPagesPath()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
@@ -205,5 +244,31 @@ public sealed class DocumentationWebUiMarkupTests
         }
 
         throw new FileNotFoundException("Could not locate Control Plane site.js.");
+    }
+
+    private static string GetControlPlaneMermaidPath()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (directory is not null)
+        {
+            var candidate = Path.Combine(
+                directory.FullName,
+                "src",
+                "KnOwl.ControlPlane.WebUI",
+                "wwwroot",
+                "lib",
+                "mermaid",
+                "mermaid.min.js");
+
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new FileNotFoundException("Could not locate vendored Mermaid script.");
     }
 }

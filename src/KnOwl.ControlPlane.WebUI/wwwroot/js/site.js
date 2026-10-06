@@ -348,6 +348,8 @@
             }
             toggle.setAttribute('aria-pressed', selected === 'dark' ? 'true' : 'false');
         });
+
+        document.dispatchEvent(new CustomEvent('knowl:theme-change', { detail: { mode: selected } }));
     };
 
     const initialMode = localStorage.getItem(STORAGE_KEY) || root.dataset.knowlTheme || 'light';
@@ -358,4 +360,533 @@
         localStorage.setItem(STORAGE_KEY, next);
         applyMode(next);
     }));
+}());
+
+// ── Mermaid diagrams in documentation ───────────────────
+(function () {
+    const reader = document.querySelector('.documentation-reader');
+    if (!reader) {
+        return;
+    }
+
+    const sourceBlocks = Array.from(reader.querySelectorAll('pre > code.language-mermaid, pre > code.lang-mermaid'));
+    if (!sourceBlocks.length) {
+        return;
+    }
+
+    const MERMAID_SCRIPT_URL = '/_content/KnOwl.ControlPlane.WebUI/lib/mermaid/mermaid.min.js';
+    let loadPromise;
+    let renderVersion = 0;
+    let activeDialog;
+
+    const cssValue = (name, fallback) => {
+        const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        return value || fallback;
+    };
+
+    const mermaidThemeVariables = () => {
+        const surface = cssValue('--knowl-surface', '#ffffff');
+        const subtle = cssValue('--knowl-subtle-bg', '#f4f4fb');
+        const border = cssValue('--knowl-border', '#d9dcec');
+        const text = cssValue('--knowl-text', '#1f1433');
+        const primary = cssValue('--knowl-primary', '#2563eb');
+        const mode = document.documentElement.dataset.knowlTheme === 'dark' ? 'dark' : 'light';
+
+        return {
+            darkMode: mode === 'dark',
+            background: 'transparent',
+            mainBkg: surface,
+            secondBkg: subtle,
+            tertiaryColor: surface,
+            primaryColor: surface,
+            primaryTextColor: text,
+            primaryBorderColor: border,
+            secondaryColor: subtle,
+            secondaryTextColor: text,
+            secondaryBorderColor: border,
+            tertiaryTextColor: text,
+            tertiaryBorderColor: border,
+            lineColor: primary,
+            textColor: text,
+            nodeTextColor: text,
+            noteBkgColor: subtle,
+            noteTextColor: text,
+            clusterBkg: subtle,
+            clusterBorder: border,
+            edgeLabelBackground: surface,
+            actorBkg: surface,
+            actorBorder: border,
+            actorTextColor: text,
+            labelTextColor: text,
+            titleColor: text,
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif'
+        };
+    };
+
+    const loadMermaid = () => {
+        if (window.mermaid) {
+            return Promise.resolve(window.mermaid);
+        }
+
+        if (!loadPromise) {
+            loadPromise = new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = MERMAID_SCRIPT_URL;
+                script.async = true;
+                script.onload = () => window.mermaid
+                    ? resolve(window.mermaid)
+                    : reject(new Error('Mermaid did not expose a global API.'));
+                script.onerror = () => reject(new Error('Mermaid could not be loaded.'));
+                document.head.appendChild(script);
+            });
+        }
+
+        return loadPromise;
+    };
+
+    const clampZoom = value => Math.min(4, Math.max(0.35, value));
+
+    const closeDiagramDialog = () => {
+        if (!activeDialog) {
+            return;
+        }
+
+        const { overlay, previousFocus, onKeyDown } = activeDialog;
+        document.removeEventListener('keydown', onKeyDown);
+        overlay.remove();
+        previousFocus?.focus?.({ preventScroll: true });
+        activeDialog = null;
+    };
+
+    const parseViewBox = value => {
+        if (!value) {
+            return null;
+        }
+
+        const parts = value.split(/[\s,]+/).map(Number.parseFloat).filter(Number.isFinite);
+        if (parts.length === 4 && parts[2] > 0 && parts[3] > 0) {
+            return {
+                x: parts[0],
+                y: parts[1],
+                width: parts[2],
+                height: parts[3]
+            };
+        }
+
+        return null;
+    };
+
+    const serializeViewBox = viewBox => `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`;
+
+    const readSvgViewBox = svg => {
+        const viewBox = parseViewBox(svg.dataset.documentationMermaidBaseViewBox)
+            || parseViewBox(svg.getAttribute('viewBox'));
+        if (viewBox) {
+            return viewBox;
+        }
+
+        const width = Number.parseFloat(svg.getAttribute('width')) || svg.getBoundingClientRect().width || 800;
+        const height = Number.parseFloat(svg.getAttribute('height')) || svg.getBoundingClientRect().height || 450;
+        return {
+            x: 0,
+            y: 0,
+            width,
+            height
+        };
+    };
+
+    const createDiagramButton = (label, icon, titleText, className = 'documentation-mermaid-button') => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = className;
+        button.setAttribute('aria-label', titleText);
+        button.title = titleText;
+        button.innerHTML = `<i class="bi ${icon}"></i><span>${label}</span>`;
+        return button;
+    };
+
+    const createSvgZoomController = (svg, viewport, zoomTarget) => {
+        const baseViewBox = readSvgViewBox(svg);
+        svg.dataset.documentationMermaidBaseViewBox = serializeViewBox(baseViewBox);
+        svg.setAttribute('viewBox', serializeViewBox(baseViewBox));
+        svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+
+        const view = {
+            centerX: baseViewBox.x + baseViewBox.width / 2,
+            centerY: baseViewBox.y + baseViewBox.height / 2,
+            scale: 1
+        };
+
+        const currentViewBox = () => {
+            const width = baseViewBox.width / view.scale;
+            const height = baseViewBox.height / view.scale;
+            return {
+                x: view.centerX - width / 2,
+                y: view.centerY - height / 2,
+                width,
+                height
+            };
+        };
+
+        const applyViewBox = () => {
+            svg.setAttribute('viewBox', serializeViewBox(currentViewBox()));
+            if (zoomTarget) {
+                zoomTarget.dataset.zoom = view.scale.toFixed(2);
+            }
+        };
+
+        const setScale = (scale, anchor) => {
+            const previous = currentViewBox();
+            const nextScale = clampZoom(scale);
+
+            if (anchor) {
+                const rect = viewport.getBoundingClientRect();
+                const relativeX = rect.width ? (anchor.clientX - rect.left) / rect.width : 0.5;
+                const relativeY = rect.height ? (anchor.clientY - rect.top) / rect.height : 0.5;
+                const anchorX = previous.x + previous.width * relativeX;
+                const anchorY = previous.y + previous.height * relativeY;
+                const nextWidth = baseViewBox.width / nextScale;
+                const nextHeight = baseViewBox.height / nextScale;
+                view.centerX = anchorX - (relativeX - 0.5) * nextWidth;
+                view.centerY = anchorY - (relativeY - 0.5) * nextHeight;
+            }
+
+            view.scale = nextScale;
+            applyViewBox();
+        };
+
+        const reset = () => {
+            view.scale = 1;
+            view.centerX = baseViewBox.x + baseViewBox.width / 2;
+            view.centerY = baseViewBox.y + baseViewBox.height / 2;
+            applyViewBox();
+        };
+
+        const pan = (deltaX, deltaY, origin) => {
+            const box = currentViewBox();
+            const rect = viewport.getBoundingClientRect();
+            const unitsPerPixelX = rect.width ? box.width / rect.width : 1;
+            const unitsPerPixelY = rect.height ? box.height / rect.height : 1;
+            view.centerX = origin.x - deltaX * unitsPerPixelX;
+            view.centerY = origin.y - deltaY * unitsPerPixelY;
+            applyViewBox();
+        };
+
+        applyViewBox();
+
+        return {
+            get scale() {
+                return view.scale;
+            },
+            getCenter: () => ({ x: view.centerX, y: view.centerY }),
+            pan,
+            reset,
+            setScale,
+            zoomIn: () => setScale(view.scale + 0.2),
+            zoomOut: () => setScale(view.scale - 0.2)
+        };
+    };
+
+    const bindDiagramPan = (viewport, controller, options = {}) => {
+        let dragging = false;
+        let inputMode = null;
+        let dragStart = { x: 0, y: 0 };
+        let dragOrigin = { x: 0, y: 0 };
+
+        const beginPan = (mode, event) => {
+            if (dragging || (event.button !== undefined && event.button !== 0)) {
+                return;
+            }
+
+            event.preventDefault();
+            dragging = true;
+            inputMode = mode;
+            dragStart = { x: event.clientX, y: event.clientY };
+            dragOrigin = controller.getCenter();
+
+            if (mode === 'pointer') {
+                try {
+                    viewport.setPointerCapture?.(event.pointerId);
+                } catch {
+                    // Some synthetic or browser-emulated pointer events cannot be captured.
+                }
+            }
+
+            viewport.classList.add('is-panning');
+        };
+
+        const movePan = (mode, event) => {
+            if (!dragging || inputMode !== mode) {
+                return;
+            }
+
+            event.preventDefault();
+            controller.pan(event.clientX - dragStart.x, event.clientY - dragStart.y, dragOrigin);
+        };
+
+        const endPan = (mode, event) => {
+            if (!dragging || inputMode !== mode) {
+                return;
+            }
+
+            dragging = false;
+            inputMode = null;
+
+            if (mode === 'pointer') {
+                try {
+                    viewport.releasePointerCapture?.(event.pointerId);
+                } catch {
+                    // Ignore release failures for pointers the browser did not capture.
+                }
+            }
+
+            viewport.classList.remove('is-panning');
+        };
+
+        viewport.addEventListener('pointerdown', event => beginPan('pointer', event));
+        viewport.addEventListener('pointermove', event => movePan('pointer', event));
+        viewport.addEventListener('pointerup', event => endPan('pointer', event));
+        viewport.addEventListener('pointercancel', event => endPan('pointer', event));
+        viewport.addEventListener('mousedown', event => beginPan('mouse', event));
+        document.addEventListener('mousemove', event => movePan('mouse', event));
+        document.addEventListener('mouseup', event => endPan('mouse', event));
+
+        if (options.wheelZoom) {
+            viewport.addEventListener('wheel', event => {
+                event.preventDefault();
+                const next = controller.scale + (event.deltaY < 0 ? 0.12 : -0.12);
+                controller.setScale(next, event);
+            }, { passive: false });
+        }
+    };
+
+    const openDiagramDialog = diagram => {
+        const svg = diagram.querySelector('svg');
+        if (!svg) {
+            return;
+        }
+
+        closeDiagramDialog();
+
+        const previousFocus = document.activeElement;
+        const overlay = document.createElement('div');
+        overlay.className = 'documentation-mermaid-dialog-overlay';
+        overlay.setAttribute('data-documentation-mermaid-dialog', '');
+
+        const dialog = document.createElement('div');
+        dialog.className = 'documentation-mermaid-dialog';
+        dialog.setAttribute('role', 'dialog');
+        dialog.setAttribute('aria-modal', 'true');
+        dialog.setAttribute('aria-label', 'Mermaid diagram viewer');
+        dialog.tabIndex = -1;
+
+        const header = document.createElement('div');
+        header.className = 'documentation-mermaid-dialog-header';
+
+        const title = document.createElement('div');
+        title.className = 'documentation-mermaid-dialog-title';
+        title.textContent = 'Mermaid diagram';
+
+        const controls = document.createElement('div');
+        controls.className = 'documentation-mermaid-dialog-controls';
+
+        const zoomOut = createDiagramButton('Zoom out', 'bi-zoom-out', 'Zoom out', 'documentation-mermaid-dialog-button');
+        const zoomReset = createDiagramButton('Reset', 'bi-aspect-ratio', 'Reset zoom', 'documentation-mermaid-dialog-button');
+        const zoomIn = createDiagramButton('Zoom in', 'bi-zoom-in', 'Zoom in', 'documentation-mermaid-dialog-button');
+        const close = createDiagramButton('Close', 'bi-x-lg', 'Close diagram', 'documentation-mermaid-dialog-button');
+
+        controls.append(zoomOut, zoomReset, zoomIn, close);
+        header.append(title, controls);
+
+        const viewport = document.createElement('div');
+        viewport.className = 'documentation-mermaid-dialog-viewport';
+
+        const canvas = document.createElement('div');
+        canvas.className = 'documentation-mermaid-dialog-canvas';
+        const dialogSvg = svg.cloneNode(true);
+        dialogSvg.removeAttribute('width');
+        dialogSvg.removeAttribute('height');
+        dialogSvg.style.height = '100%';
+        dialogSvg.style.maxHeight = 'none';
+        dialogSvg.style.maxWidth = 'none';
+        dialogSvg.style.width = '100%';
+        canvas.appendChild(dialogSvg);
+        viewport.appendChild(canvas);
+
+        dialog.append(header, viewport);
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        const controller = createSvgZoomController(dialogSvg, viewport, canvas);
+        bindDiagramPan(viewport, controller, { wheelZoom: true });
+
+        zoomOut.addEventListener('click', controller.zoomOut);
+        zoomReset.addEventListener('click', controller.reset);
+        zoomIn.addEventListener('click', controller.zoomIn);
+        close.addEventListener('click', closeDiagramDialog);
+        overlay.addEventListener('click', event => {
+            if (event.target === overlay) {
+                closeDiagramDialog();
+            }
+        });
+
+        function onKeyDown(event) {
+            if (event.key === 'Escape') {
+                closeDiagramDialog();
+            }
+        }
+
+        activeDialog = { overlay, previousFocus, onKeyDown };
+        document.addEventListener('keydown', onKeyDown);
+        dialog.focus();
+    };
+
+    const appendDiagramActions = diagram => {
+        const svg = diagram.querySelector('svg');
+        if (diagram.querySelector('[data-documentation-mermaid-toolbar]') || !svg) {
+            return;
+        }
+
+        const canvas = document.createElement('div');
+        canvas.className = 'documentation-mermaid-inline-canvas';
+        svg.replaceWith(canvas);
+        canvas.appendChild(svg);
+
+        const controller = createSvgZoomController(svg, canvas, canvas);
+        bindDiagramPan(canvas, controller);
+
+        const toolbar = document.createElement('div');
+        toolbar.className = 'documentation-mermaid-toolbar';
+        toolbar.dataset.documentationMermaidToolbar = '';
+
+        const zoomOut = createDiagramButton('Zoom out', 'bi-zoom-out', 'Zoom out');
+        const zoomReset = createDiagramButton('Reset', 'bi-aspect-ratio', 'Reset zoom');
+        const zoomIn = createDiagramButton('Zoom in', 'bi-zoom-in', 'Zoom in');
+        const open = createDiagramButton('Open', 'bi-arrows-fullscreen', 'Open Mermaid diagram', 'documentation-mermaid-button documentation-mermaid-open');
+        open.setAttribute('data-documentation-mermaid-open', '');
+
+        zoomOut.addEventListener('click', controller.zoomOut);
+        zoomReset.addEventListener('click', controller.reset);
+        zoomIn.addEventListener('click', controller.zoomIn);
+        open.addEventListener('click', event => {
+            event.stopPropagation();
+            openDiagramDialog(diagram);
+        });
+
+        toolbar.append(zoomOut, zoomReset, zoomIn, open);
+        diagram.prepend(toolbar);
+    };
+
+    const showFallback = (diagram, error) => {
+        const source = diagram.dataset.mermaidSource || '';
+        diagram.className = 'documentation-mermaid documentation-mermaid-error';
+        diagram.removeAttribute('aria-busy');
+        diagram.innerHTML = '';
+
+        const message = document.createElement('div');
+        message.className = 'documentation-mermaid-error-title';
+        message.textContent = 'Diagram could not be rendered.';
+
+        const detail = document.createElement('div');
+        detail.className = 'documentation-mermaid-error-detail';
+        detail.textContent = error?.message || 'Review the Mermaid syntax.';
+
+        const pre = document.createElement('pre');
+        const code = document.createElement('code');
+        code.textContent = source;
+        pre.appendChild(code);
+
+        diagram.appendChild(message);
+        diagram.appendChild(detail);
+        diagram.appendChild(pre);
+    };
+
+    const prepareDiagrams = () => {
+        sourceBlocks.forEach((code, index) => {
+            const pre = code.closest('pre');
+            if (!pre || pre.dataset.documentationMermaidPrepared === 'true') {
+                return;
+            }
+
+            const diagram = document.createElement('div');
+            diagram.className = 'documentation-mermaid';
+            diagram.dataset.documentationMermaid = '';
+            diagram.dataset.mermaidSource = code.textContent || '';
+            diagram.dataset.mermaidIndex = String(index);
+            diagram.setAttribute('role', 'img');
+            diagram.setAttribute('aria-label', 'Mermaid diagram');
+            pre.dataset.documentationMermaidPrepared = 'true';
+            pre.replaceWith(diagram);
+        });
+
+        return Array.from(reader.querySelectorAll('[data-documentation-mermaid]'));
+    };
+
+    const renderDiagram = async (mermaid, diagram, version) => {
+        if (version !== renderVersion) {
+            return;
+        }
+
+        const source = diagram.dataset.mermaidSource || '';
+        const index = diagram.dataset.mermaidIndex || '0';
+        const id = `documentation-mermaid-${Date.now()}-${index}`;
+        diagram.className = 'documentation-mermaid documentation-mermaid-loading';
+        diagram.setAttribute('aria-busy', 'true');
+        diagram.textContent = 'Rendering diagram...';
+
+        try {
+            const result = await mermaid.render(id, source);
+            if (version !== renderVersion) {
+                return;
+            }
+
+            diagram.innerHTML = result.svg;
+            result.bindFunctions?.(diagram);
+            diagram.className = 'documentation-mermaid documentation-mermaid-ready';
+            diagram.removeAttribute('aria-busy');
+            appendDiagramActions(diagram);
+        } catch (error) {
+            if (version === renderVersion) {
+                showFallback(diagram, error);
+            }
+        }
+    };
+
+    const renderMermaid = async () => {
+        const diagrams = prepareDiagrams();
+        if (!diagrams.length) {
+            return;
+        }
+
+        const version = ++renderVersion;
+        let mermaid;
+
+        try {
+            mermaid = await loadMermaid();
+        } catch (error) {
+            diagrams.forEach(diagram => showFallback(diagram, error));
+            return;
+        }
+
+        mermaid.initialize({
+            startOnLoad: false,
+            securityLevel: 'strict',
+            theme: 'base',
+            themeVariables: mermaidThemeVariables(),
+            flowchart: {
+                htmlLabels: false,
+                useMaxWidth: true
+            },
+            sequence: {
+                useMaxWidth: true
+            }
+        });
+
+        await Promise.all(diagrams.map(diagram => renderDiagram(mermaid, diagram, version)));
+    };
+
+    renderMermaid();
+    document.addEventListener('knowl:theme-change', () => {
+        window.setTimeout(renderMermaid, 0);
+    });
 }());

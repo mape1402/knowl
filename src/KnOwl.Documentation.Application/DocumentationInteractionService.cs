@@ -6,6 +6,7 @@ using KnOwl.Documentation;
 using KnOwl.Documentation.Storage;
 using Markdig;
 using Markdig.Extensions.AutoIdentifiers;
+using Markdig.Extensions.Diagrams;
 using Markdig.Helpers;
 using Markdig.Renderers;
 using Markdig.Renderers.Html;
@@ -23,11 +24,7 @@ public sealed class DocumentationInteractionService(
 {
     private static readonly Regex SemanticVersion = new(@"^\d+\.\d+\.\d+$", RegexOptions.Compiled);
     private static readonly Regex SlugInvalidCharacters = new(@"[^a-z0-9\-\._ ]+", RegexOptions.Compiled);
-    private static readonly MarkdownPipeline MarkdownPipeline = new MarkdownPipelineBuilder()
-        .UseAdvancedExtensions()
-        .DisableHtml()
-        .UseAutoIdentifiers(AutoIdentifierOptions.GitHub)
-        .Build();
+    private static readonly MarkdownPipeline MarkdownPipeline = CreateMarkdownPipeline();
     private readonly DocumentationOptions optionsValue = options.Value;
 
     public Task<IReadOnlyList<DocumentationSpace>> GetSpaces(CancellationToken cancellationToken = default)
@@ -276,6 +273,24 @@ public sealed class DocumentationInteractionService(
         renderer.Render(document);
         writer.Flush();
         return (writer.ToString(), tableOfContents);
+    }
+
+    private static MarkdownPipeline CreateMarkdownPipeline()
+    {
+        var builder = new MarkdownPipelineBuilder()
+            .UseAdvancedExtensions()
+            .DisableHtml()
+            .UseAutoIdentifiers(AutoIdentifierOptions.GitHub);
+
+        for (var index = builder.Extensions.Count - 1; index >= 0; index--)
+        {
+            if (builder.Extensions[index] is DiagramExtension)
+            {
+                builder.Extensions.RemoveAt(index);
+            }
+        }
+
+        return builder.Build();
     }
 
     private static IReadOnlyList<DocumentationTableOfContentsItem> BuildTableOfContents(MarkdownDocument document)
