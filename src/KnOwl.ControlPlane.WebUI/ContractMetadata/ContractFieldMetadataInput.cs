@@ -148,8 +148,8 @@ public class ContractFieldMetadataInput
         if (root.TryGetProperty("minLength", out var minLength) && minLength.TryGetInt32(out var minLengthValue)) input.MinLength = minLengthValue;
         if (root.TryGetProperty("maxLength", out var maxLength) && maxLength.TryGetInt32(out var maxLengthValue)) input.MaxLength = maxLengthValue;
         if (root.TryGetProperty("pattern", out var pattern) && pattern.ValueKind == JsonValueKind.String) input.Pattern = pattern.GetString();
-        if (root.TryGetProperty("minimum", out var minimum) && minimum.TryGetDecimal(out var minimumValue)) input.Minimum = minimumValue;
-        if (root.TryGetProperty("maximum", out var maximum) && maximum.TryGetDecimal(out var maximumValue)) input.Maximum = maximumValue;
+        if (root.TryGetProperty("minimum", out var minimum) && minimum.ValueKind == JsonValueKind.Number && minimum.TryGetDecimal(out var minimumValue)) input.Minimum = minimumValue;
+        if (root.TryGetProperty("maximum", out var maximum) && maximum.ValueKind == JsonValueKind.Number && maximum.TryGetDecimal(out var maximumValue)) input.Maximum = maximumValue;
         if (input.DataType == "date" && root.TryGetProperty("minimum", out var dateMinimum) && dateMinimum.ValueKind == JsonValueKind.String) input.DateMinimum = dateMinimum.GetString();
         if (input.DataType == "date" && root.TryGetProperty("maximum", out var dateMaximum) && dateMaximum.ValueKind == JsonValueKind.String) input.DateMaximum = dateMaximum.GetString();
         if (root.TryGetProperty("allowedValues", out var allowedValues) && allowedValues.ValueKind == JsonValueKind.Array)
