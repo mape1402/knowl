@@ -20,9 +20,338 @@ namespace KnOwl.Tests;
 public sealed class ApiMapperCoverageTests
 {
     [Fact]
-    public void ControlPlaneMapperMapsDesignCatalogResponses()
+    public void ControlPlaneMapperMapsSchemaTypeIdentity()
     {
-        var schemaType = new SchemaTypeDefinition
+        var schemaType = CreateSchemaType();
+
+        var response = MapControlPlane<SchemaTypeDefinition, SchemaTypeResponse>(schemaType);
+
+        Assert.Equal(schemaType.Id, response.Id);
+        Assert.Equal("customer", response.Key);
+        Assert.Equal("Customer", response.Name);
+        Assert.Equal("Customer type", response.Description);
+        Assert.False(response.IsSystem);
+        Assert.True(response.IsActive);
+    }
+
+    [Fact]
+    public void ControlPlaneMapperOrdersSchemaTypeVersions()
+    {
+        var schemaType = CreateSchemaType();
+
+        var response = MapControlPlane<SchemaTypeDefinition, SchemaTypeResponse>(schemaType);
+
+        Assert.Equal(["1.0.0", "2.0.0"], response.Versions.Select(x => x.VersionNumber).ToArray());
+    }
+
+    [Fact]
+    public void ControlPlaneMapperMapsSchemaTypeVersion()
+    {
+        var version = new SchemaTypeVersion { Id = Guid.NewGuid(), VersionNumber = "1.0.0", DefinitionJson = """{"type":"object"}""", Comment = "initial", IsActive = false };
+
+        var response = MapControlPlane<SchemaTypeVersion, SchemaTypeVersionResponse>(version);
+
+        Assert.Equal(version.Id, response.Id);
+        Assert.Equal("""{"type":"object"}""", response.DefinitionJson);
+        Assert.False(response.IsActive);
+    }
+
+    [Fact]
+    public void ControlPlaneMapperMapsMetadataFieldIdentity()
+    {
+        var metadata = CreateMetadataField();
+
+        var response = MapControlPlane<ContractFieldMetadataDefinition, MetadataFieldResponse>(metadata);
+
+        Assert.Equal(metadata.Id, response.Id);
+        Assert.Equal("trace-id", response.Key);
+        Assert.Equal("Trace Id", response.Name);
+        Assert.True(response.IsActive);
+    }
+
+    [Fact]
+    public void ControlPlaneMapperOrdersMetadataFieldVersions()
+    {
+        var metadata = CreateMetadataField();
+
+        var response = MapControlPlane<ContractFieldMetadataDefinition, MetadataFieldResponse>(metadata);
+
+        Assert.Equal(["1.0.0", "1.1.0"], response.Versions.Select(x => x.VersionNumber).ToArray());
+    }
+
+    [Fact]
+    public void ControlPlaneMapperMapsMetadataFieldVersion()
+    {
+        var version = new ContractFieldMetadataVersion { Id = Guid.NewGuid(), VersionNumber = "1.0.0", DefinitionJson = "{}", Comment = "initial", IsActive = false };
+
+        var response = MapControlPlane<ContractFieldMetadataVersion, MetadataFieldVersionResponse>(version);
+
+        Assert.Equal(version.Id, response.Id);
+        Assert.Equal("{}", response.DefinitionJson);
+        Assert.False(response.IsActive);
+    }
+
+    [Fact]
+    public void ControlPlaneMapperMapsEventIdentity()
+    {
+        var @event = CreateEvent();
+
+        var response = MapControlPlane<EventDefinition, EventDefinitionResponse>(@event);
+
+        Assert.Equal(@event.Id, response.Id);
+        Assert.Equal("Customer Created", response.Name);
+        Assert.Equal("customer.created", response.Topic);
+    }
+
+    [Fact]
+    public void ControlPlaneMapperOrdersEventVersions()
+    {
+        var @event = CreateEvent();
+
+        var response = MapControlPlane<EventDefinition, EventDefinitionResponse>(@event);
+
+        Assert.Equal(["1.0.0", "1.0.1"], response.Versions.Select(x => x.VersionNumber).ToArray());
+    }
+
+    [Fact]
+    public void ControlPlaneMapperMapsEventVersionStatus()
+    {
+        var version = new EventVersion { Id = Guid.NewGuid(), VersionNumber = "1.0.0", PayloadSchemaJson = "{}", Comment = "initial", Status = ContractVersionStatus.Deployed };
+
+        var response = MapControlPlane<EventVersion, EventVersionResponse>(version);
+
+        Assert.Equal(version.Id, response.Id);
+        Assert.Equal(ContractVersionStatus.Deployed, response.Status);
+    }
+
+    [Fact]
+    public void ControlPlaneMapperMapsCommandIdentity()
+    {
+        var command = CreateCommand();
+
+        var response = MapControlPlane<CommandDefinition, CommandDefinitionResponse>(command);
+
+        Assert.Equal(command.Id, response.Id);
+        Assert.Equal("Create Customer", response.Name);
+        Assert.Equal("customer.create", response.Topic);
+    }
+
+    [Fact]
+    public void ControlPlaneMapperOrdersCommandVersions()
+    {
+        var command = CreateCommand();
+
+        var response = MapControlPlane<CommandDefinition, CommandDefinitionResponse>(command);
+
+        Assert.Equal(["1.0.0", "2.0.0"], response.Versions.Select(x => x.VersionNumber).ToArray());
+    }
+
+    [Fact]
+    public void ControlPlaneMapperMapsCommandVersionReplySchema()
+    {
+        var version = new CommandVersion { Id = Guid.NewGuid(), VersionNumber = "1.0.0", PayloadSchemaJson = "{}", ReplyPayloadSchemaJson = """{"type":"object"}""", Comment = "initial", Status = ContractVersionStatus.Approved };
+
+        var response = MapControlPlane<CommandVersion, CommandVersionResponse>(version);
+
+        Assert.Equal(version.Id, response.Id);
+        Assert.Equal("""{"type":"object"}""", response.ReplyDefinitionJson);
+    }
+
+    [Fact]
+    public void ControlPlaneMapperMapsContractArtifactIdentity()
+    {
+        var artifact = CreateArtifact();
+
+        var response = MapControlPlane<ContractArtifact, ContractArtifactResponse>(artifact);
+
+        Assert.Equal(artifact.Id, response.Id);
+        Assert.Equal(ContractArtifactType.Command, response.ArtifactType);
+        Assert.Equal("customer.create", response.Topic);
+    }
+
+    [Fact]
+    public void ControlPlaneMapperMapsRuntimeEnvironmentState()
+    {
+        var environment = CreateRuntimeEnvironment();
+
+        var response = MapControlPlane<RuntimeEnvironment, RuntimeEnvironmentResponse>(environment);
+
+        Assert.Equal(environment.Id, response.Id);
+        Assert.Equal("dev", response.Code);
+        Assert.True(response.IsEnabled);
+    }
+
+    [Fact]
+    public void ControlPlaneMapperMapsRuntimeNodeDistributionAndCredentials()
+    {
+        var environment = CreateRuntimeEnvironment();
+        var node = CreateRuntimeNode(environment);
+
+        var response = MapControlPlane<RuntimeNode, RuntimeNodeResponse>(node);
+
+        Assert.Equal(DistributionMode.Hybrid, response.DistributionMode);
+        Assert.Equal(ConnectionCredentialStatus.Active, response.InboundCredentialStatus);
+        Assert.Equal(ConnectionCredentialStatus.Disabled, response.OutboundCredentialStatus);
+    }
+
+    [Fact]
+    public void ControlPlaneMapperMapsReleaseArtifactIds()
+    {
+        var artifact = CreateArtifact();
+        var release = CreateRelease(artifact, CreateRuntimeNode(CreateRuntimeEnvironment()));
+
+        var response = MapControlPlane<ContractRelease, ContractReleaseResponse>(release);
+
+        Assert.Equal([artifact.Id], response.ArtifactIds.ToArray());
+    }
+
+    [Fact]
+    public void ControlPlaneMapperMapsReleaseTargets()
+    {
+        var artifact = CreateArtifact();
+        var release = CreateRelease(artifact, CreateRuntimeNode(CreateRuntimeEnvironment()));
+
+        var response = MapControlPlane<ContractRelease, ContractReleaseResponse>(release);
+
+        Assert.Equal(release.Targets.Single().Id, response.Targets.Single().Id);
+    }
+
+    [Fact]
+    public void ControlPlaneMapperMapsReleaseTargetStatus()
+    {
+        var target = CreateReleaseTarget(CreateArtifact(), CreateRuntimeNode(CreateRuntimeEnvironment()));
+
+        var response = MapControlPlane<ContractReleaseTarget, ReleaseTargetResponse>(target);
+
+        Assert.Equal(target.Id, response.Id);
+        Assert.Equal(ContractReleaseTargetStatus.Delivered, response.Status);
+        Assert.Equal(ContractReleaseActivationStatus.Activated, response.ActivationStatus);
+    }
+
+    [Fact]
+    public void ControlPlaneMapperMapsDeliveryResult()
+    {
+        var delivery = new RuntimeArtifactDeliveryResult { ReleaseTargetId = Guid.NewGuid(), Succeeded = true, Status = "Delivered", Message = "OK" };
+
+        var response = MapControlPlane<RuntimeArtifactDeliveryResult, DeliveryResultResponse>(delivery);
+
+        Assert.True(response.Succeeded);
+        Assert.Equal("Delivered", response.Status);
+    }
+
+    [Fact]
+    public void ControlPlaneMapperMapsSecuritySubject()
+    {
+        var subject = new KnOwlSubject { Provider = "oidc", SubjectId = "user-1", DisplayName = "User", Email = "user@example.test" };
+
+        var response = MapControlPlane<KnOwlSubject, SecuritySubjectResponse>(subject);
+
+        Assert.Equal("user@example.test", response.Email);
+    }
+
+    [Fact]
+    public void ControlPlaneMapperMapsSecurityRoleAssignment()
+    {
+        var assignment = new KnOwlRoleAssignment { Provider = "oidc", SubjectId = "user-1", Role = "Admin" };
+
+        var response = MapControlPlane<KnOwlRoleAssignment, SecurityRoleAssignmentResponse>(assignment);
+
+        Assert.Equal("Admin", response.Role);
+    }
+
+    [Fact]
+    public void ControlPlaneMapperMapsSecurityPermissionAssignment()
+    {
+        var assignment = new KnOwlPermissionAssignment { Provider = "oidc", SubjectId = "user-1", Permission = "contracts.read" };
+
+        var response = MapControlPlane<KnOwlPermissionAssignment, SecurityPermissionAssignmentResponse>(assignment);
+
+        Assert.Equal("contracts.read", response.Permission);
+    }
+
+    [Fact]
+    public void ControlPlaneMapperMapsSecurityExternalGroupRoleAssignment()
+    {
+        var assignment = new KnOwlExternalGroupRoleAssignment { Provider = "oidc", ExternalGroupId = "group-1", Role = "Reader" };
+
+        var response = MapControlPlane<KnOwlExternalGroupRoleAssignment, SecurityExternalGroupRoleAssignmentResponse>(assignment);
+
+        Assert.Equal("group-1", response.ExternalGroupId);
+    }
+
+    [Fact]
+    public void RuntimeMapperMapsArtifactIdentity()
+    {
+        var artifact = CreateRuntimeArtifact();
+
+        var response = MapRuntime<RuntimeContractArtifact, RuntimeArtifactResponse>(artifact);
+
+        Assert.Equal(artifact.SourceArtifactId, response.SourceArtifactId);
+        Assert.Equal("customer.created", response.Topic);
+    }
+
+    [Fact]
+    public void RuntimeMapperMapsDesignNodeConnectionState()
+    {
+        var designNode = CreateRuntimeDesignNode();
+
+        var response = MapRuntime<RuntimeDesignNode, RuntimeDesignNodeResponse>(designNode);
+
+        Assert.Equal("Enabled", response.Status);
+        Assert.Equal("runtime-1", response.RemoteRuntimeNodeId);
+    }
+
+    [Fact]
+    public void DocumentationMapperMapsSpaceIdentity()
+    {
+        var space = new DocumentationSpace { Id = Guid.NewGuid(), Key = "space", Name = "Space", Description = "Docs" };
+
+        var response = MapDocumentation<DocumentationSpace, DocumentationSpaceResponse>(space);
+
+        Assert.Equal("space", response.Key);
+    }
+
+    [Fact]
+    public void DocumentationMapperMapsTopicParent()
+    {
+        var topic = new DocumentationTopic { Id = Guid.NewGuid(), SpaceId = Guid.NewGuid(), Key = "topic", Name = "Topic", Description = "Topic docs" };
+
+        var response = MapDocumentation<DocumentationTopic, DocumentationTopicResponse>(topic);
+
+        Assert.Equal(topic.SpaceId, response.SpaceId);
+    }
+
+    [Fact]
+    public void DocumentationMapperMapsPageTitle()
+    {
+        var page = new DocumentationPage { Id = Guid.NewGuid(), TopicId = Guid.NewGuid(), Key = "page", Title = "Page", Description = "Page docs" };
+
+        var response = MapDocumentation<DocumentationPage, DocumentationPageResponse>(page);
+
+        Assert.Equal("Page", response.Title);
+    }
+
+    [Fact]
+    public void DocumentationMapperMapsVersionPublication()
+    {
+        var version = new DocumentationPageVersion
+        {
+            Id = Guid.NewGuid(),
+            PageId = Guid.NewGuid(),
+            VersionNumber = "1.0.0",
+            EntryPath = "docs/index.md",
+            Status = DocPageVersionStatus.Published,
+            PublishedAtUtc = DateTime.UtcNow
+        };
+
+        var response = MapDocumentation<DocumentationPageVersion, DocumentationPageVersionResponse>(version);
+
+        Assert.Equal(DocPageVersionStatus.Published, response.Status);
+        Assert.Equal("docs/index.md", response.EntryPath);
+    }
+
+    private static SchemaTypeDefinition CreateSchemaType()
+        => new()
         {
             Id = Guid.NewGuid(),
             Key = "customer",
@@ -36,11 +365,9 @@ public sealed class ApiMapperCoverageTests
                 new SchemaTypeVersion { Id = Guid.NewGuid(), VersionNumber = "1.0.0", DefinitionJson = """{"type":"object"}""", Comment = "first", IsActive = true }
             ]
         };
-        var schemaResponse = MapControlPlane<SchemaTypeDefinition, SchemaTypeResponse>(schemaType);
-        Assert.Equal("customer", schemaResponse.Key);
-        Assert.Equal(["1.0.0", "2.0.0"], schemaResponse.Versions.Select(x => x.VersionNumber).ToArray());
 
-        var metadata = new ContractFieldMetadataDefinition
+    private static ContractFieldMetadataDefinition CreateMetadataField()
+        => new()
         {
             Id = Guid.NewGuid(),
             Key = "trace-id",
@@ -53,11 +380,9 @@ public sealed class ApiMapperCoverageTests
                 new ContractFieldMetadataVersion { Id = Guid.NewGuid(), VersionNumber = "1.0.0", DefinitionJson = "{}", Comment = "initial" }
             ]
         };
-        var metadataResponse = MapControlPlane<ContractFieldMetadataDefinition, MetadataFieldResponse>(metadata);
-        Assert.Equal("trace-id", metadataResponse.Key);
-        Assert.Equal(["1.0.0", "1.1.0"], metadataResponse.Versions.Select(x => x.VersionNumber).ToArray());
 
-        var @event = new EventDefinition
+    private static EventDefinition CreateEvent()
+        => new()
         {
             Id = Guid.NewGuid(),
             Name = "Customer Created",
@@ -69,11 +394,9 @@ public sealed class ApiMapperCoverageTests
                 new EventVersion { Id = Guid.NewGuid(), VersionNumber = "1.0.0", PayloadSchemaJson = "{}", Comment = "initial", Status = ContractVersionStatus.Deployed }
             ]
         };
-        var eventResponse = MapControlPlane<EventDefinition, EventDefinitionResponse>(@event);
-        Assert.Equal("customer.created", eventResponse.Topic);
-        Assert.Equal(ContractVersionStatus.Deployed, eventResponse.Versions[0].Status);
 
-        var command = new CommandDefinition
+    private static CommandDefinition CreateCommand()
+        => new()
         {
             Id = Guid.NewGuid(),
             Name = "Create Customer",
@@ -85,15 +408,9 @@ public sealed class ApiMapperCoverageTests
                 new CommandVersion { Id = Guid.NewGuid(), VersionNumber = "1.0.0", PayloadSchemaJson = "{}", ReplyPayloadSchemaJson = """{"type":"object"}""", Comment = "initial", Status = ContractVersionStatus.Approved }
             ]
         };
-        var commandResponse = MapControlPlane<CommandDefinition, CommandDefinitionResponse>(command);
-        Assert.Equal("customer.create", commandResponse.Topic);
-        Assert.Equal("""{"type":"object"}""", commandResponse.Versions[0].ReplyDefinitionJson);
-    }
 
-    [Fact]
-    public void ControlPlaneMapperMapsDistributionAndSecurityResponses()
-    {
-        var artifact = new ContractArtifact
+    private static ContractArtifact CreateArtifact()
+        => new()
         {
             Id = Guid.NewGuid(),
             ArtifactType = ContractArtifactType.Command,
@@ -107,9 +424,9 @@ public sealed class ApiMapperCoverageTests
             ContentHash = "hash",
             SourceStatus = "Deployed"
         };
-        Assert.Equal(ContractArtifactType.Command, MapControlPlane<ContractArtifact, ContractArtifactResponse>(artifact).ArtifactType);
 
-        var environment = new RuntimeEnvironment
+    private static RuntimeEnvironment CreateRuntimeEnvironment()
+        => new()
         {
             Id = Guid.NewGuid(),
             Name = "Development",
@@ -118,9 +435,9 @@ public sealed class ApiMapperCoverageTests
             IsEnabled = true,
             UpdatedAtUtc = DateTime.UtcNow
         };
-        Assert.Equal("dev", MapControlPlane<RuntimeEnvironment, RuntimeEnvironmentResponse>(environment).Code);
 
-        var node = new RuntimeNode
+    private static RuntimeNode CreateRuntimeNode(RuntimeEnvironment environment)
+        => new()
         {
             Id = Guid.NewGuid(),
             Name = "Runtime",
@@ -136,11 +453,9 @@ public sealed class ApiMapperCoverageTests
             InboundCredentialStatus = ConnectionCredentialStatus.Active,
             OutboundCredentialStatus = ConnectionCredentialStatus.Disabled
         };
-        var nodeResponse = MapControlPlane<RuntimeNode, RuntimeNodeResponse>(node);
-        Assert.Equal(DistributionMode.Hybrid, nodeResponse.DistributionMode);
-        Assert.Equal(ConnectionCredentialStatus.Disabled, nodeResponse.OutboundCredentialStatus);
 
-        var target = new ContractReleaseTarget
+    private static ContractReleaseTarget CreateReleaseTarget(ContractArtifact artifact, RuntimeNode node)
+        => new()
         {
             Id = Guid.NewGuid(),
             RuntimeNodeId = node.Id,
@@ -150,7 +465,11 @@ public sealed class ApiMapperCoverageTests
             ActivationStatus = ContractReleaseActivationStatus.Activated,
             CorrelationId = "corr"
         };
-        var release = new ContractRelease
+
+    private static ContractRelease CreateRelease(ContractArtifact artifact, RuntimeNode node)
+    {
+        var target = CreateReleaseTarget(artifact, node);
+        return new ContractRelease
         {
             Id = Guid.NewGuid(),
             Name = "Release",
@@ -160,50 +479,10 @@ public sealed class ApiMapperCoverageTests
             Items = [new ContractReleaseItem { ArtifactId = artifact.Id }],
             Targets = [target]
         };
-        var releaseResponse = MapControlPlane<ContractRelease, ContractReleaseResponse>(release);
-        Assert.Equal([artifact.Id], releaseResponse.ArtifactIds.ToArray());
-        Assert.Equal(target.Id, Assert.Single(releaseResponse.Targets).Id);
-
-        var delivery = new RuntimeArtifactDeliveryResult
-        {
-            ReleaseTargetId = target.Id,
-            Succeeded = true,
-            Status = "Delivered",
-            Message = "OK"
-        };
-        Assert.True(MapControlPlane<RuntimeArtifactDeliveryResult, DeliveryResultResponse>(delivery).Succeeded);
-
-        Assert.Equal("user@example.test", MapControlPlane<KnOwlSubject, SecuritySubjectResponse>(new KnOwlSubject
-        {
-            Provider = "oidc",
-            SubjectId = "user-1",
-            DisplayName = "User",
-            Email = "user@example.test"
-        }).Email);
-        Assert.Equal("Admin", MapControlPlane<KnOwlRoleAssignment, SecurityRoleAssignmentResponse>(new KnOwlRoleAssignment
-        {
-            Provider = "oidc",
-            SubjectId = "user-1",
-            Role = "Admin"
-        }).Role);
-        Assert.Equal("contracts.read", MapControlPlane<KnOwlPermissionAssignment, SecurityPermissionAssignmentResponse>(new KnOwlPermissionAssignment
-        {
-            Provider = "oidc",
-            SubjectId = "user-1",
-            Permission = "contracts.read"
-        }).Permission);
-        Assert.Equal("group-1", MapControlPlane<KnOwlExternalGroupRoleAssignment, SecurityExternalGroupRoleAssignmentResponse>(new KnOwlExternalGroupRoleAssignment
-        {
-            Provider = "oidc",
-            ExternalGroupId = "group-1",
-            Role = "Reader"
-        }).ExternalGroupId);
     }
 
-    [Fact]
-    public void RuntimeAndDocumentationMappersMapResponses()
-    {
-        var runtimeArtifact = new RuntimeContractArtifact
+    private static RuntimeContractArtifact CreateRuntimeArtifact()
+        => new()
         {
             Id = Guid.NewGuid(),
             SourceArtifactId = Guid.NewGuid(),
@@ -218,10 +497,9 @@ public sealed class ApiMapperCoverageTests
             PayloadSchemaJson = "{}",
             ContentHash = "hash"
         };
-        var runtimeArtifactResponse = MapRuntime<RuntimeContractArtifact, RuntimeArtifactResponse>(runtimeArtifact);
-        Assert.Equal(runtimeArtifact.SourceArtifactId, runtimeArtifactResponse.SourceArtifactId);
 
-        var designNode = new RuntimeDesignNode
+    private static RuntimeDesignNode CreateRuntimeDesignNode()
+        => new()
         {
             Id = Guid.NewGuid(),
             Key = "control-plane",
@@ -235,28 +513,6 @@ public sealed class ApiMapperCoverageTests
             InboundCredentialStatus = ConnectionCredentialStatus.Active,
             OutboundCredentialStatus = ConnectionCredentialStatus.Active
         };
-        var designNodeResponse = MapRuntime<RuntimeDesignNode, RuntimeDesignNodeResponse>(designNode);
-        Assert.Equal("Enabled", designNodeResponse.Status);
-        Assert.Equal("runtime-1", designNodeResponse.RemoteRuntimeNodeId);
-
-        var space = new DocumentationSpace { Id = Guid.NewGuid(), Key = "space", Name = "Space", Description = "Docs" };
-        var topic = new DocumentationTopic { Id = Guid.NewGuid(), SpaceId = space.Id, Key = "topic", Name = "Topic", Description = "Topic docs" };
-        var page = new DocumentationPage { Id = Guid.NewGuid(), TopicId = topic.Id, Key = "page", Title = "Page", Description = "Page docs" };
-        var version = new DocumentationPageVersion
-        {
-            Id = Guid.NewGuid(),
-            PageId = page.Id,
-            VersionNumber = "1.0.0",
-            EntryPath = "docs/index.md",
-            Status = DocPageVersionStatus.Published,
-            PublishedAtUtc = DateTime.UtcNow
-        };
-
-        Assert.Equal("space", MapDocumentation<DocumentationSpace, DocumentationSpaceResponse>(space).Key);
-        Assert.Equal(space.Id, MapDocumentation<DocumentationTopic, DocumentationTopicResponse>(topic).SpaceId);
-        Assert.Equal("Page", MapDocumentation<DocumentationPage, DocumentationPageResponse>(page).Title);
-        Assert.Equal(DocPageVersionStatus.Published, MapDocumentation<DocumentationPageVersion, DocumentationPageVersionResponse>(version).Status);
-    }
 
     private static TResponse MapControlPlane<TSource, TResponse>(TSource source)
         => InvokeMapper<TSource, TResponse>(
