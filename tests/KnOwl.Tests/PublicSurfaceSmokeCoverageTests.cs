@@ -10,31 +10,81 @@ namespace KnOwl.Tests;
 public sealed class PublicSurfaceSmokeCoverageTests
 {
     [Fact]
-    public void PublicConcreteTypesSupportBasicConstructionAndPropertyAccess()
+    public void PublicConcreteTypeCasesCoverBroadSurfaceArea()
     {
-        var assemblies = AppDomain.CurrentDomain
-            .GetAssemblies()
-            .Where(assembly => assembly.GetName().Name?.StartsWith("KnOwl.", StringComparison.Ordinal) == true)
-            .OrderBy(assembly => assembly.GetName().Name, StringComparer.Ordinal)
-            .ToArray();
+        Assert.True(PublicConcreteTypeCases().Count() > 100);
+    }
 
-        var exercised = 0;
+    [Theory]
+    [MemberData(nameof(PublicConcreteTypeCases))]
+    public void PublicConcreteTypeSupportsBasicConstructionAndPropertyAccess(string assemblyName, string typeName)
+    {
+        var type = Assembly.Load(assemblyName).GetType(typeName, throwOnError: true)!;
 
-        foreach (var type in assemblies.SelectMany(GetLoadableTypes).Where(IsSafeConcreteType))
+        Assert.True(TryCreate(type, out var instance), $"Could not create {type.FullName}.");
+
+        ExerciseProperties(instance!, type);
+        _ = instance!.ToString();
+        _ = instance.Equals(instance);
+        _ = instance.GetHashCode();
+    }
+
+    public static IEnumerable<object[]> PublicConcreteTypeCases()
+    {
+        foreach (var type in LoadKnOwlAssemblies()
+            .SelectMany(GetLoadableTypes)
+            .Where(IsSafeConcreteType)
+            .Where(type => TryCreate(type, out _))
+            .OrderBy(type => type.Assembly.GetName().Name, StringComparer.Ordinal)
+            .ThenBy(type => type.FullName, StringComparer.Ordinal))
         {
-            if (!TryCreate(type, out var instance))
+            yield return [type.Assembly.GetName().Name!, type.FullName!];
+        }
+    }
+
+    private static IEnumerable<Assembly> LoadKnOwlAssemblies()
+    {
+        var names = new[]
+        {
+            "KnOwl.Contracts",
+            "KnOwl.ControlPlane",
+            "KnOwl.ControlPlane.Api",
+            "KnOwl.ControlPlane.Application",
+            "KnOwl.ControlPlane.Bootstrap",
+            "KnOwl.ControlPlane.Storage.EntityFramework",
+            "KnOwl.ControlPlane.WebUI",
+            "KnOwl.Documentation",
+            "KnOwl.Documentation.Api",
+            "KnOwl.Documentation.Application",
+            "KnOwl.Documentation.Storage.EntityFramework",
+            "KnOwl.Documentation.WebUI",
+            "KnOwl.Runtime",
+            "KnOwl.Runtime.Api",
+            "KnOwl.Runtime.Application",
+            "KnOwl.Runtime.Bootstrap",
+            "KnOwl.Runtime.Storage.EntityFramework",
+            "KnOwl.Runtime.WebUI",
+            "KnOwl.Security",
+            "KnOwl.Security.Storage.EntityFramework"
+        };
+
+        foreach (var name in names)
+        {
+            Assembly? assembly;
+            try
             {
-                continue;
+                assembly = Assembly.Load(name);
+            }
+            catch
+            {
+                assembly = null;
             }
 
-            ExerciseProperties(instance!, type);
-            _ = instance!.ToString();
-            _ = instance.Equals(instance);
-            _ = instance.GetHashCode();
-            exercised++;
+            if (assembly is not null)
+            {
+                yield return assembly;
+            }
         }
-
-        Assert.True(exercised > 100);
     }
 
     private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
