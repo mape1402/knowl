@@ -46,6 +46,18 @@ public sealed class RuntimeConnectionWizardPageModelTests
     }
 
     [Fact]
+    public async Task RuntimeControlPlaneWizardRejectsInvalidModelState()
+    {
+        var model = CreateRuntimeControlPlanesPage(new RuntimeDesignNodeRepositoryFake([]));
+        model.Input = new ControlPlaneConnectionInput();
+
+        var result = await model.OnPostWizardUpsertAsync(CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Contains("Key", ReadMessage(badRequest.Value), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task RuntimeControlPlaneWizardSavesPendingConnectionWithoutRemoteEndpoint()
     {
         var repository = new RuntimeDesignNodeRepositoryFake([]);
@@ -159,6 +171,81 @@ public sealed class RuntimeConnectionWizardPageModelTests
     }
 
     [Fact]
+    public async Task RuntimeControlPlaneCredentialActionsReportServiceFailures()
+    {
+        var node = new RuntimeDesignNode
+        {
+            Id = Guid.NewGuid(),
+            Key = "control-plane",
+            Name = "Control Plane",
+            DistributionMode = DistributionMode.Hybrid
+        };
+        var model = CreateRuntimeControlPlanesPage(
+            new RuntimeDesignNodeRepositoryFake([node]),
+            new FailingRuntimeDesignNodeConnectionService("runtime connection failed"));
+
+        var generation = Assert.IsType<BadRequestObjectResult>(
+            await model.OnPostWizardGenerateCredentialsAsync(node.Id, CancellationToken.None));
+        Assert.Equal("runtime connection failed", ReadMessage(generation.Value));
+
+        model.CredentialImportInput = new RuntimeCredentialImportInput
+        {
+            DesignNodeId = node.Id,
+            Package = "credential-package"
+        };
+        var import = Assert.IsType<BadRequestObjectResult>(
+            await model.OnPostWizardImportCredentialsAsync(CancellationToken.None));
+        Assert.Equal("runtime connection failed", ReadMessage(import.Value));
+
+        var validation = Assert.IsType<BadRequestObjectResult>(
+            await model.OnPostWizardValidateConnectionAsync(node.Id, CancellationToken.None));
+        Assert.Equal("runtime connection failed", ReadMessage(validation.Value));
+
+        var redirect = Assert.IsType<RedirectToPageResult>(
+            await model.OnPostValidateConnectionAsync(node.Id, CancellationToken.None));
+        Assert.Null(redirect.PageName);
+        Assert.Equal("runtime connection failed", model.StatusMessage);
+    }
+
+    [Fact]
+    public async Task RuntimeControlPlanesOrderByLastUpdateThenName()
+    {
+        var latest = new RuntimeDesignNode
+        {
+            Id = Guid.NewGuid(),
+            Key = "latest",
+            Name = "Latest",
+            DistributionMode = DistributionMode.Pull,
+            UpdatedAtUtc = DateTime.UtcNow
+        };
+        var alpha = new RuntimeDesignNode
+        {
+            Id = Guid.NewGuid(),
+            Key = "alpha",
+            Name = "Alpha",
+            DistributionMode = DistributionMode.Pull,
+            UpdatedAtUtc = latest.UpdatedAtUtc.AddDays(-1)
+        };
+        var zeta = new RuntimeDesignNode
+        {
+            Id = Guid.NewGuid(),
+            Key = "zeta",
+            Name = "Zeta",
+            DistributionMode = DistributionMode.Pull,
+            UpdatedAtUtc = alpha.UpdatedAtUtc
+        };
+        var model = CreateRuntimeControlPlanesPage(new RuntimeDesignNodeRepositoryFake([zeta, latest, alpha]));
+
+        await model.OnGet(CancellationToken.None);
+
+        Assert.Collection(
+            model.DesignNodes,
+            item => Assert.Equal(latest.Id, item.Id),
+            item => Assert.Equal(alpha.Id, item.Id),
+            item => Assert.Equal(zeta.Id, item.Id));
+    }
+
+    [Fact]
     public async Task RuntimeControlPlanesSearchFiltersConnectionsByPolicyAndEndpoint()
     {
         var repository = new RuntimeDesignNodeRepositoryFake(
@@ -220,6 +307,21 @@ public sealed class RuntimeConnectionWizardPageModelTests
         var badRequest = Assert.IsType<BadRequestObjectResult>(result);
         Assert.Equal("Runtime node code 'Demo' already exists.", ReadMessage(badRequest.Value));
         Assert.Single(runtimeNodes.Nodes);
+    }
+
+    [Fact]
+    public async Task ControlPlaneRuntimeNodeWizardRejectsInvalidModelState()
+    {
+        var environment = CreateEnvironment();
+        var model = CreateControlPlaneRuntimeNodesPage(
+            new RuntimeNodeRepositoryFake([]),
+            [environment]);
+        model.Input = new RuntimeNodeInput();
+
+        var result = await model.OnPostWizardUpsertAsync(CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Contains("Name", ReadMessage(badRequest.Value), StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -357,6 +459,99 @@ public sealed class RuntimeConnectionWizardPageModelTests
     }
 
     [Fact]
+    public async Task ControlPlaneRuntimeNodeWizardCredentialActionsUseStandardHandlers()
+    {
+        var environment = CreateEnvironment();
+        var readyNode = new RuntimeNode
+        {
+            Id = Guid.NewGuid(),
+            Name = "Runtime",
+            Code = "runtime",
+            EnvironmentId = environment.Id,
+            EnvironmentName = environment.Name,
+            DistributionMode = DistributionMode.Hybrid,
+            EndpointBaseUri = "https://runtime.example.test",
+            Status = RuntimeNodeStatus.Active,
+            IsEnabled = true,
+            InboundCredentialStatus = ConnectionCredentialStatus.Active,
+            OutboundCredentialStatus = ConnectionCredentialStatus.Active
+        };
+        var connectionService = new RecordingRuntimeNodeConnectionInteractionService();
+        var model = CreateControlPlaneRuntimeNodesPage(
+            new RuntimeNodeRepositoryFake([readyNode]),
+            [environment],
+            connectionService);
+
+        model.CredentialInput = new RuntimeNodeCredentialInput { RuntimeNodeId = readyNode.Id };
+        var generated = Assert.IsType<JsonResult>(
+            await model.OnPostWizardGenerateCredentialsAsync(CancellationToken.None));
+        Assert.Equal("Control Plane credentials generated.", ReadMessage(generated.Value));
+
+        model.CredentialImportInput = new RuntimeNodeCredentialImportInput
+        {
+            RuntimeNodeId = readyNode.Id,
+            Package = "runtime-package"
+        };
+        var imported = Assert.IsType<JsonResult>(
+            await model.OnPostWizardImportCredentialsAsync(CancellationToken.None));
+        Assert.Equal("Runtime credentials imported.", ReadMessage(imported.Value));
+
+        model.Request.Headers["X-Requested-With"] = "XMLHttpRequest";
+        var validation = Assert.IsType<JsonResult>(
+            await model.OnPostWizardValidateConnectionAsync(readyNode.Id, CancellationToken.None));
+        Assert.Equal("Runtime OK", ReadMessage(validation.Value));
+    }
+
+    [Fact]
+    public async Task ControlPlaneRuntimeNodeCredentialActionsReportServiceFailures()
+    {
+        var environment = CreateEnvironment();
+        var readyNode = new RuntimeNode
+        {
+            Id = Guid.NewGuid(),
+            Name = "Runtime",
+            Code = "runtime",
+            EnvironmentId = environment.Id,
+            EnvironmentName = environment.Name,
+            DistributionMode = DistributionMode.Hybrid,
+            EndpointBaseUri = "https://runtime.example.test",
+            Status = RuntimeNodeStatus.Active,
+            IsEnabled = true,
+            InboundCredentialStatus = ConnectionCredentialStatus.Active,
+            OutboundCredentialStatus = ConnectionCredentialStatus.Active
+        };
+        var model = CreateControlPlaneRuntimeNodesPage(
+            new RuntimeNodeRepositoryFake([readyNode]),
+            [environment],
+            new FailingRuntimeNodeConnectionInteractionService("runtime node connection failed"));
+
+        model.CredentialInput = new RuntimeNodeCredentialInput { RuntimeNodeId = readyNode.Id };
+        var generation = Assert.IsType<BadRequestObjectResult>(
+            await model.OnPostGenerateCredentialsAsync(CancellationToken.None));
+        Assert.Equal("runtime node connection failed", ReadMessage(generation.Value));
+
+        model.CredentialImportInput = new RuntimeNodeCredentialImportInput
+        {
+            RuntimeNodeId = readyNode.Id,
+            Package = "runtime-package"
+        };
+        var import = Assert.IsType<BadRequestObjectResult>(
+            await model.OnPostImportCredentialsAsync(CancellationToken.None));
+        Assert.Equal("runtime node connection failed", ReadMessage(import.Value));
+
+        model.Request.Headers["X-Requested-With"] = "XMLHttpRequest";
+        var ajaxValidation = Assert.IsType<BadRequestObjectResult>(
+            await model.OnPostValidateConnectionAsync(readyNode.Id, CancellationToken.None));
+        Assert.Equal("runtime node connection failed", ReadMessage(ajaxValidation.Value));
+
+        model.Request.Headers.Remove("X-Requested-With");
+        var redirect = Assert.IsType<RedirectToPageResult>(
+            await model.OnPostValidateConnectionAsync(readyNode.Id, CancellationToken.None));
+        Assert.Null(redirect.PageName);
+        Assert.Equal("runtime node connection failed", model.StatusMessage);
+    }
+
+    [Fact]
     public void RuntimeNodeInputMapsNewExistingAndEmptyDescription()
     {
         var environment = CreateEnvironment();
@@ -468,6 +663,15 @@ public sealed class RuntimeConnectionWizardPageModelTests
     }
 
     [Fact]
+    public async Task ControlPlaneRuntimeNodeDeleteRejectsEmptyIdentifier()
+    {
+        var environment = CreateEnvironment();
+        var model = CreateControlPlaneRuntimeNodesPage(new RuntimeNodeRepositoryFake([]), [environment]);
+
+        Assert.IsType<NotFoundResult>(await model.OnPostDeleteAsync(Guid.Empty, CancellationToken.None));
+    }
+
+    [Fact]
     public async Task ControlPlaneRuntimeNodeStandardPostReturnsPageForInvalidInput()
     {
         var environment = CreateEnvironment();
@@ -477,6 +681,27 @@ public sealed class RuntimeConnectionWizardPageModelTests
         model.Input = new RuntimeNodeInput();
 
         Assert.IsType<PageResult>(await model.OnPostAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ControlPlaneRuntimeNodeStandardPostRejectsUnselectedEnvironment()
+    {
+        var environment = CreateEnvironment();
+        var runtimeNodes = new RuntimeNodeRepositoryFake([]);
+        var model = CreateControlPlaneRuntimeNodesPage(runtimeNodes, [environment]);
+
+        model.Input = new RuntimeNodeInput
+        {
+            Name = "Missing Environment",
+            Code = "missing-environment",
+            DistributionMode = DistributionMode.Pull,
+            Status = RuntimeNodeStatus.Active
+        };
+
+        Assert.IsType<PageResult>(await model.OnPostAsync(CancellationToken.None));
+        Assert.Contains(
+            model.ModelState.Values.SelectMany(x => x.Errors),
+            error => error.ErrorMessage.Contains("Environment", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -1210,6 +1435,41 @@ public sealed class RuntimeConnectionWizardPageModelTests
                 Succeeded = true,
                 Message = "Runtime OK"
             });
+    }
+
+    private sealed class FailingRuntimeDesignNodeConnectionService(string message) : IRuntimeDesignNodeConnectionService
+    {
+        public Task<RuntimeDesignNode> UpsertDesignNode(
+            Guid? id,
+            string key,
+            string name,
+            DistributionMode distributionMode,
+            string endpointBaseUri,
+            string remoteRuntimeNodeId,
+            bool isEnabled,
+            CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException(message);
+
+        public Task<RuntimeDesignNodeCredentialPackageModel> GenerateCredentialPackage(Guid designNodeId, string issuerBaseUrl, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException(message);
+
+        public Task ImportCredentialPackage(ImportRuntimeDesignNodeCredentialPackageInput input, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException(message);
+
+        public Task<RuntimeDesignNodeConnectionValidationModel> ValidateConnection(Guid designNodeId, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException(message);
+    }
+
+    private sealed class FailingRuntimeNodeConnectionInteractionService(string message) : IRuntimeNodeConnectionInteractionService
+    {
+        public Task<RuntimeNodeCredentialPackageModel> GenerateCredentialPackage(Guid runtimeNodeId, string issuerBaseUrl, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException(message);
+
+        public Task ImportCredentialPackage(ImportRuntimeNodeCredentialPackageInput input, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException(message);
+
+        public Task<RuntimeNodeConnectionValidationModel> ValidateConnection(Guid runtimeNodeId, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException(message);
     }
 
     private sealed class DbUpdateException(string message) : Exception(message);

@@ -89,6 +89,23 @@ public sealed class ArtifactDeliveryInteractionServiceTests
     }
 
     [Fact]
+    public async Task PushForPullNodeToleratesMissingReleaseTargetSnapshot()
+    {
+        var runtimeNodeId = Guid.NewGuid();
+        var target = CreateTarget(runtimeNodeId, ContractReleaseTargetStatus.PushScheduled, DistributionMode.Pull);
+        TargetRepository targets = new([target]) { ReturnNoReleaseTargets = true };
+        var releases = new ReleaseRepository();
+
+        using var provider = CreateProvider(targets, releases);
+        var service = provider.GetRequiredService<IArtifactDeliveryInteractionService>();
+
+        var result = await service.Push(target.Id);
+
+        Assert.True(result.Succeeded);
+        Assert.Null(releases.Status);
+    }
+
+    [Fact]
     public async Task PushAlreadyActivatedTargetReturnsCurrentRuntimeArtifact()
     {
         var runtimeNodeId = Guid.NewGuid();
@@ -186,6 +203,105 @@ public sealed class ArtifactDeliveryInteractionServiceTests
         Assert.Equal("distribution", attempt.InitiatedBy);
         Assert.False(attempt.Succeeded);
         Assert.Equal("ArtifactDeliveryFailed", attempt.ErrorCode);
+    }
+
+    [Fact]
+    public async Task PushForPushNodeRequiresActiveOutboundCredential()
+    {
+        var runtimeNodeId = Guid.NewGuid();
+        var target = CreateTarget(runtimeNodeId, ContractReleaseTargetStatus.PushScheduled, DistributionMode.Push);
+        target.RuntimeNode!.EndpointBaseUri = "https://runtime.example.test";
+        target.RuntimeNode.OutboundCredentialStatus = ConnectionCredentialStatus.Missing;
+        TargetRepository targets = new([target]);
+
+        using var provider = CreateProvider(targets, new ReleaseRepository());
+        var service = provider.GetRequiredService<IArtifactDeliveryInteractionService>();
+
+        var result = await service.Push(target.Id);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ContractReleaseTargetStatus.Failed, target.Status);
+        Assert.Equal($"Runtime node '{target.RuntimeNode.Name}' outbound credential is not active.", target.FailureReason);
+    }
+
+    [Fact]
+    public async Task PushForPushNodeRequiresEndpoint()
+    {
+        var runtimeNodeId = Guid.NewGuid();
+        var target = CreateTarget(runtimeNodeId, ContractReleaseTargetStatus.PushScheduled, DistributionMode.Push);
+        target.RuntimeNode!.OutboundCredentialStatus = ConnectionCredentialStatus.Active;
+        TargetRepository targets = new([target]);
+
+        using var provider = CreateProvider(targets, new ReleaseRepository());
+        var service = provider.GetRequiredService<IArtifactDeliveryInteractionService>();
+
+        var result = await service.Push(target.Id);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ContractReleaseTargetStatus.Failed, target.Status);
+        Assert.Equal("Runtime node endpoint is not configured for push.", target.FailureReason);
+    }
+
+    [Fact]
+    public async Task PushForPushNodeRecordsFallbackMessageForMalformedJson()
+    {
+        var runtimeNodeId = Guid.NewGuid();
+        var target = CreateTarget(runtimeNodeId, ContractReleaseTargetStatus.PushScheduled, DistributionMode.Hybrid);
+        ConfigurePushRuntime(target.RuntimeNode!, endpointPath: "/deploy");
+        var handler = new CapturingHandler(_ => new HttpResponseMessage(HttpStatusCode.Accepted)
+        {
+            Content = new StringContent("{not-json", Encoding.UTF8, "application/json")
+        });
+        TargetRepository targets = new([target]);
+
+        using var provider = CreateProvider(targets, new ReleaseRepository(), handler);
+        var service = provider.GetRequiredService<IArtifactDeliveryInteractionService>();
+
+        var result = await service.Push(target.Id);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("{not-json", target.FailureReason);
+        Assert.Equal(ContractReleaseTargetStatus.AvailableForPull, target.Status);
+    }
+
+    [Fact]
+    public async Task PushForPushNodeFallsBackToHttpStatusWhenRuntimeErrorIsBlank()
+    {
+        var runtimeNodeId = Guid.NewGuid();
+        var target = CreateTarget(runtimeNodeId, ContractReleaseTargetStatus.PushScheduled, DistributionMode.Push);
+        ConfigurePushRuntime(target.RuntimeNode!, endpointPath: "/deploy");
+        var handler = new CapturingHandler(_ => new HttpResponseMessage(HttpStatusCode.BadRequest)
+        {
+            Content = new StringContent("   ", Encoding.UTF8, "text/plain")
+        });
+        TargetRepository targets = new([target]);
+
+        using var provider = CreateProvider(targets, new ReleaseRepository(), handler);
+        var service = provider.GetRequiredService<IArtifactDeliveryInteractionService>();
+
+        var result = await service.Push(target.Id);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("Runtime push returned HTTP 400.", target.FailureReason);
+    }
+
+    [Fact]
+    public async Task PushForInactiveRuntimeNodeFailsBeforeDelivery()
+    {
+        var runtimeNodeId = Guid.NewGuid();
+        var target = CreateTarget(runtimeNodeId, ContractReleaseTargetStatus.PushScheduled, DistributionMode.Push);
+        ConfigurePushRuntime(target.RuntimeNode!, endpointPath: "/deploy");
+        target.RuntimeNode!.IsEnabled = false;
+        TargetRepository targets = new([target]);
+
+        using var provider = CreateProvider(targets, new ReleaseRepository());
+        var service = provider.GetRequiredService<IArtifactDeliveryInteractionService>();
+
+        var result = await service.Push(target.Id);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ContractReleaseTargetStatus.Failed, target.Status);
+        Assert.Equal($"Runtime node '{target.RuntimeNode.Name}' is not active and enabled.", target.FailureReason);
     }
 
     [Fact]
@@ -410,7 +526,8 @@ public sealed class ArtifactDeliveryInteractionServiceTests
     private sealed class TargetRepository(List<ContractReleaseTarget> targets) : IContractReleaseTargetRepository
     {
         public List<ContractReleaseAttempt> Attempts { get; } = [];
-        public Task<IReadOnlyList<ContractReleaseTarget>> GetByRelease(Guid releaseId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ContractReleaseTarget>>(targets.Where(x => x.ReleaseId == releaseId).ToList());
+        public bool ReturnNoReleaseTargets { get; init; }
+        public Task<IReadOnlyList<ContractReleaseTarget>> GetByRelease(Guid releaseId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ContractReleaseTarget>>(ReturnNoReleaseTargets ? [] : targets.Where(x => x.ReleaseId == releaseId).ToList());
         public Task<IReadOnlyList<ContractReleaseTarget>> GetPendingForRuntimeNode(Guid runtimeNodeId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ContractReleaseTarget>>(targets.Where(x => x.RuntimeNodeId == runtimeNodeId && (x.Status == ContractReleaseTargetStatus.AvailableForPull || x.Status == ContractReleaseTargetStatus.PushScheduled || x.Status == ContractReleaseTargetStatus.Pending)).ToList());
         public Task<ContractReleaseTarget?> GetById(Guid id, bool includeArtifact = false, CancellationToken cancellationToken = default) => Task.FromResult(targets.FirstOrDefault(x => x.Id == id));
         public Task CreateMany(IReadOnlyCollection<ContractReleaseTarget> values, CancellationToken cancellationToken = default) { targets.AddRange(values); return Task.CompletedTask; }

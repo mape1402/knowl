@@ -455,6 +455,10 @@ public sealed class DistributionSecurityTests
         Assert.True(success.Succeeded);
         Assert.EndsWith("/runtime/distribution/connect/validate", handler.Request!.RequestUri!.AbsoluteUri, StringComparison.Ordinal);
 
+        handler.Responder = _ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
+        var emptyHttpFailure = await connection.ValidateConnection(node.Id);
+        handler.Responder = _ => new HttpResponseMessage(HttpStatusCode.OK);
+
         node.EndpointBaseUri = "";
         var missingEndpoint = await connection.ValidateConnection(node.Id);
         node.EndpointBaseUri = "https://runtime.example.test";
@@ -467,6 +471,8 @@ public sealed class DistributionSecurityTests
         node.IsDeleted = true;
         var deleted = await connection.ValidateConnection(node.Id);
 
+        Assert.False(emptyHttpFailure.Succeeded);
+        Assert.Equal("Runtime returned HTTP 503.", emptyHttpFailure.Message);
         Assert.False(missingEndpoint.Succeeded);
         Assert.Contains("endpoint", missingEndpoint.Message, StringComparison.OrdinalIgnoreCase);
         Assert.False(missingCredentials.Succeeded);

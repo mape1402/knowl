@@ -350,6 +350,41 @@ public sealed class ButterMorphAdapterTests
     }
 
     [Fact]
+    public void MapperNormalizesWhitespaceScopesAndNestedPersistedJsonStrings()
+    {
+        ContractFieldMetadataDefinition entity = new()
+        {
+            Id = Guid.NewGuid(),
+            Key = "retention-days",
+            Name = "Retention Days",
+            IsActive = true
+        };
+        ContractFieldMetadataVersion version = new()
+        {
+            VersionNumber = "2.0.0",
+            IsActive = true,
+            DefinitionJson = """
+                {
+                  "dataType": "integer",
+                  "appliesTo": [" ", "Unknown"],
+                  "isRequired": false,
+                  "isActive": true,
+                  "validation": "{\"minimum\":1}",
+                  "childrenDefinition": "{\"type\":\"object\"}",
+                  "arrayItemDefinition": "[{\"type\":\"string\"}]"
+                }
+                """
+        };
+
+        var item = KnOwlButterMorphDefinitionMapper.ToCatalogItem(entity, version);
+
+        Assert.Equal("[\"Schema\"]", item.AppliesToJson);
+        Assert.Contains("\"minimum\":1", item.Validation, StringComparison.Ordinal);
+        Assert.Contains("\"type\":\"object\"", item.ChildrenDefinitionJson, StringComparison.Ordinal);
+        Assert.Contains("\"type\":\"string\"", item.ArrayItemDefinitionJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task PayloadSchemaHostAddsOptionalTopicMetadataForCommandSchemas()
     {
         var host = new KnOwlPayloadSchemaDesignerHost(

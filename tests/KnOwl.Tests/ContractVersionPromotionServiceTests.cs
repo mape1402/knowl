@@ -84,6 +84,25 @@ public sealed class ContractVersionPromotionServiceTests
         Assert.Null(commands.LastStatusUpdate);
     }
 
+    [Fact]
+    public async Task TransitionCommandVersionPersistsAllowedTargetAndReportsAllowedTargets()
+    {
+        var versionId = Guid.NewGuid();
+        PromotionCommandRepository commands = new()
+        {
+            Version = new CommandVersion { Id = versionId, Status = ContractVersionStatus.Draft }
+        };
+
+        using var provider = CreateProvider(new PromotionEventRepository(), commands);
+        var service = provider.GetRequiredService<IContractVersionPromotionService>();
+
+        await service.TransitionCommandVersion(versionId, ContractVersionStatus.InReview);
+        var allowed = service.GetAllowedTargets(ContractVersionStatus.InReview);
+
+        Assert.Equal((versionId, ContractVersionStatus.InReview), commands.LastStatusUpdate);
+        Assert.Contains(ContractVersionStatus.Approved, allowed);
+    }
+
     private static ServiceProvider CreateProvider(IEventRepository events, ICommandRepository commands)
     {
         return new ServiceCollection()

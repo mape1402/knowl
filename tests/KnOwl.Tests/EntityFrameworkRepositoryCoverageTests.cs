@@ -87,9 +87,18 @@ public sealed class EntityFrameworkRepositoryCoverageTests
         await metadataRepository.Create(metadata);
         var newMetadataVersion = new ContractFieldMetadataVersion { VersionNumber = "1.0.0", DefinitionJson = "{}", IsActive = true };
         await metadataRepository.UpsertVersion(metadata.Id, newMetadataVersion);
+        await metadataRepository.UpsertVersion(metadata.Id, new ContractFieldMetadataVersion
+        {
+            VersionNumber = "1.0.0",
+            DefinitionJson = """{"dataType":"string"}""",
+            Comment = "Updated existing metadata version",
+            IsActive = false,
+            UpdatedAtUtc = now
+        });
         db.ChangeTracker.Clear();
         await metadataRepository.UpdateDefinition(metadata.Id, "trace-id", "Trace", null, false, now);
         var metadataVersion = Assert.Single((await metadataRepository.GetById(metadata.Id, includeVersions: true))!.Versions);
+        Assert.Equal("Updated existing metadata version", metadataVersion.Comment);
         db.ChangeTracker.Clear();
         await metadataRepository.SetVersionActive(metadata.Id, metadataVersion.Id, false, now);
 
@@ -110,10 +119,19 @@ public sealed class EntityFrameworkRepositoryCoverageTests
         Assert.True(await metadataRepository.VersionExists(metadata.Id, "1.0.0"));
 
         await Assert.ThrowsAsync<KeyNotFoundException>(() => eventRepository.UpdateDefinition(Guid.NewGuid(), "x", "x", null, now));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => eventRepository.UpdateVersionStatus(Guid.NewGuid(), ContractVersionStatus.InReview, now));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => eventRepository.UpdateDraftVersion(Guid.NewGuid(), "{}", "Missing", now));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => eventRepository.UpdateDraftVersion(eventVersion.Id, "{}", "Not draft", now));
+        Assert.Null(await eventRepository.GetById(Guid.NewGuid(), includeVersions: true));
         await Assert.ThrowsAsync<KeyNotFoundException>(() => commandRepository.AddVersion(Guid.NewGuid(), new CommandVersion { VersionNumber = "9.9.9", PayloadSchemaJson = "{}" }));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => commandRepository.UpdateVersionStatus(Guid.NewGuid(), ContractVersionStatus.InReview, now));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => commandRepository.UpdateDraftVersion(Guid.NewGuid(), "{}", null, "Missing", now));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => commandRepository.UpdateDraftVersion(commandVersion.Id, "{}", null, "Not draft", now));
+        Assert.Null(await commandRepository.GetById(Guid.NewGuid(), includeVersions: true));
         await Assert.ThrowsAsync<KeyNotFoundException>(() => schemaRepository.UpdateDefinition(Guid.NewGuid(), "x", "x", null, true, now));
         await Assert.ThrowsAsync<KeyNotFoundException>(() => schemaRepository.SetVersionActive(schema.Id, Guid.NewGuid(), true, now));
         await Assert.ThrowsAsync<KeyNotFoundException>(() => schemaRepository.SetVersionActive(Guid.NewGuid(), Guid.NewGuid(), true, now));
+        Assert.Null(await metadataRepository.GetById(Guid.NewGuid(), includeVersions: true));
         await Assert.ThrowsAsync<KeyNotFoundException>(() => metadataRepository.SetVersionActive(Guid.NewGuid(), Guid.NewGuid(), true, now));
     }
 
@@ -259,6 +277,24 @@ public sealed class EntityFrameworkRepositoryCoverageTests
         });
         version.Status = DocPageVersionStatus.Archived;
         await repository.UpdateVersion(version);
+        var publishedVersion = await repository.AddVersion(new DocumentationPageVersion
+        {
+            PageId = page.Id,
+            VersionNumber = "1.1.0",
+            EntryPath = "docs/latest.md",
+            ContentHash = "hash-latest",
+            Status = DocPageVersionStatus.Published,
+            PublishedAtUtc = DateTime.UtcNow.AddMinutes(1)
+        });
+        await repository.AddAsset(new DocumentationAsset
+        {
+            PageVersionId = publishedVersion.Id,
+            LogicalPath = "docs/latest.md",
+            FileName = "latest.md",
+            ContentType = "text/markdown",
+            ContentHash = "hash-latest",
+            StorageKey = "asset-latest"
+        });
 
         await content.Save("asset", new MemoryStream("# Title"u8.ToArray()), "text/markdown");
         await content.Save("asset", new MemoryStream("Updated"u8.ToArray()), "text/plain");
@@ -266,6 +302,7 @@ public sealed class EntityFrameworkRepositoryCoverageTests
         using var reader = new StreamReader(opened, Encoding.UTF8);
         var openedText = await reader.ReadToEndAsync();
         await content.Delete("asset");
+        var latestPublished = await repository.GetLatestPublishedVersion("knowl", "guides", "intro", includeAssets: true);
 
         Assert.NotEmpty(await repository.GetSpaces());
         Assert.NotNull(await repository.GetSpace(space.Id));
@@ -281,7 +318,9 @@ public sealed class EntityFrameworkRepositoryCoverageTests
         Assert.NotNull(await repository.GetVersion(version.Id, includeAssets: true));
         Assert.NotNull(await repository.GetVersionByPath("knowl", "guides", "intro", "1.0.0", includeAssets: true));
         Assert.Null(await repository.GetVersionByPath("knowl", "guides", "missing", "1.0.0"));
-        Assert.Null(await repository.GetLatestPublishedVersion("knowl", "guides", "intro"));
+        Assert.Null(await repository.GetLatestPublishedVersion("missing", "guides", "intro"));
+        Assert.NotNull(latestPublished);
+        Assert.Single(latestPublished!.Assets);
         Assert.NotNull(await repository.GetAsset(asset.Id));
         Assert.NotNull(await repository.GetAssetByLogicalPath(version.Id, "docs/index.md"));
         Assert.Equal("Updated", openedText);

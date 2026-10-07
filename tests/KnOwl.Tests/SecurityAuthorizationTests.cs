@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using KnOwl.Contracts.Security;
 using KnOwl.ControlPlane.Api;
 using KnOwl.ControlPlane.Api.Contracts;
 using KnOwl.Security;
@@ -23,6 +24,23 @@ public sealed class SecurityAuthorizationTests
 {
     private const string TestScheme = "Test";
     private const string Provider = "test";
+
+    [Fact]
+    public void SubjectResolverReturnsNullWhenAuthenticatedPrincipalHasNoSubjectClaim()
+    {
+        var resolver = new ClaimsKnOwlSubjectResolver(Options.Create(new KnOwlSecurityOptions()));
+        var identity = new ClaimsIdentity([new Claim(ClaimTypes.Name, "No Subject")], TestScheme);
+
+        Assert.Null(resolver.Resolve(new ClaimsPrincipal(identity)));
+    }
+
+    [Fact]
+    public void Sha256TokenHashRejectsBlankTokens()
+    {
+        var hasher = new Sha256TokenHashService();
+
+        Assert.Throws<ArgumentException>(() => hasher.HashToken(" "));
+    }
 
     [Fact]
     public async Task BootstrapAdminReceivesAllPermissionsAndIsSynchronized()
@@ -228,7 +246,7 @@ public sealed class SecurityAuthorizationTests
         await store.SynchronizeBootstrapAdmin(new KnOwlExternalSubject(Provider, "admin", "Admin", "admin@example.test", []));
 
         Assert.True(await store.HasEnabledAdmin());
-        Assert.Single((await store.GetRoleAssignments(Provider, "admin")).Where(x => x.Role == KnOwlRoles.Admin));
+        Assert.Single(await store.GetRoleAssignments(Provider, "admin"), x => x.Role == KnOwlRoles.Admin);
     }
 
     [Fact]

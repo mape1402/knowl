@@ -50,6 +50,75 @@ public sealed class RuntimeArtifactsPageModelTests
         Assert.Equal(2, model.TotalArtifacts);
     }
 
+    [Fact]
+    public async Task OnGetEventFilterSearchesByHashAndTrimsQuery()
+    {
+        var matching = CreateArtifact(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            ContractArtifactType.Event,
+            "Shipment Created",
+            topic: "shipment.created");
+        matching.ContentHash = "abc123";
+        var ignored = CreateArtifact(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            ContractArtifactType.Command,
+            "Shipment Create",
+            topic: "shipment.create");
+        ignored.ContentHash = "xyz789";
+        var model = new RuntimeArtifactsIndexModel(new InMemoryRuntimeContractCatalogService(matching, ignored))
+        {
+            Type = "event",
+            Query = " abc123 "
+        };
+
+        await model.OnGet(CancellationToken.None);
+
+        var artifact = Assert.Single(model.FilteredArtifacts);
+        Assert.Equal("Event", artifact.ArtifactType);
+        Assert.Equal("abc123", artifact.ContentHash);
+        Assert.Equal("Event", model.Type);
+        Assert.Equal("abc123", model.Query);
+    }
+
+    [Fact]
+    public async Task OnGetInvalidTypeClearsTypeAndSearchesByVersion()
+    {
+        var artifact = CreateArtifact(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            ContractArtifactType.Event,
+            "Billing Event",
+            topic: "billing.event",
+            versionNumber: "2.1.0");
+        var model = new RuntimeArtifactsIndexModel(new InMemoryRuntimeContractCatalogService(artifact))
+        {
+            Type = "Reply",
+            Query = "2.1.0"
+        };
+
+        await model.OnGet(CancellationToken.None);
+
+        Assert.Single(model.FilteredArtifacts);
+        Assert.Null(model.Type);
+    }
+
+    [Fact]
+    public async Task OnGetNormalizesLegacyCommandReplyName()
+    {
+        var definitionId = Guid.NewGuid();
+        var versionId = Guid.NewGuid();
+        var model = new RuntimeArtifactsIndexModel(new InMemoryRuntimeContractCatalogService(
+            CreateArtifact(definitionId, versionId, ContractArtifactType.CommandReply, "Customer Register Reply")));
+
+        await model.OnGet(CancellationToken.None);
+
+        var artifact = Assert.Single(model.FilteredArtifacts);
+        Assert.Equal("Command", artifact.ArtifactType);
+        Assert.Equal("Customer Register", artifact.Name);
+    }
+
     private static RuntimeContractArtifact CreateArtifact(
         Guid definitionId,
         Guid versionId,
