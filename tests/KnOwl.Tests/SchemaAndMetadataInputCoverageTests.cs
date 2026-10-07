@@ -24,7 +24,8 @@ public sealed class SchemaAndMetadataInputCoverageTests
         Assert.Equal(2, stringSchema.RootElement.GetProperty("minLength").GetInt32());
         Assert.Equal(12, stringSchema.RootElement.GetProperty("maxLength").GetInt32());
         Assert.Equal("^[A-Z]+$", stringSchema.RootElement.GetProperty("pattern").GetString());
-        Assert.Equal(["A", "B"], stringSchema.RootElement.GetProperty("enum").EnumerateArray().Select(x => x.GetString()).ToArray());
+        var stringAllowedValues = stringSchema.RootElement.GetProperty("enum").EnumerateArray().Select(x => x.GetString()).OfType<string>().ToArray();
+        Assert.Equal(["A", "B"], stringAllowedValues);
 
         var integerSchema = Read(SchemaTypeSchemaBuilder.Build(new TypeVersionInput
         {
@@ -337,7 +338,8 @@ public sealed class SchemaAndMetadataInputCoverageTests
         Assert.Equal(1, stringValidation.RootElement.GetProperty("minLength").GetInt32());
         Assert.Equal(20, stringValidation.RootElement.GetProperty("maxLength").GetInt32());
         Assert.Equal("^A", stringValidation.RootElement.GetProperty("pattern").GetString());
-        Assert.Equal(["alpha", "beta"], stringValidation.RootElement.GetProperty("allowedValues").EnumerateArray().Select(x => x.GetString()).ToArray());
+        var fieldAllowedValues = stringValidation.RootElement.GetProperty("allowedValues").EnumerateArray().Select(x => x.GetString()).OfType<string>().ToArray();
+        Assert.Equal(["alpha", "beta"], fieldAllowedValues);
 
         input.DataType = "number";
         input.Minimum = 1.2m;

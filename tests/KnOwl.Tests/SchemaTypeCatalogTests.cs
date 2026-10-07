@@ -30,6 +30,40 @@ public sealed class SchemaTypeCatalogTests
         Assert.Contains("TimeSpan", names);
     }
 
+    [Fact]
+    public async Task SelectableTypesIncludeCustomFallbacksAndBasicTypeChecks()
+    {
+        SchemaTypeDefinition customDefinition = new()
+        {
+            Id = Guid.NewGuid(),
+            Key = "customer-ref",
+            Name = "Customer Reference",
+            IsSystem = false,
+            IsActive = true
+        };
+        SchemaTypeVersion customVersion = new()
+        {
+            Id = Guid.NewGuid(),
+            SchemaTypeDefinitionId = customDefinition.Id,
+            SchemaTypeDefinition = customDefinition,
+            VersionNumber = "3.0.0",
+            DefinitionJson = "{",
+            IsActive = true
+        };
+        var schemaTypes = new FakeSchemaTypeInteractionService([customVersion]);
+
+        var json = await SchemaTypeCatalog.GetSelectableTypesJsonAsync(schemaTypes);
+        using var document = JsonDocument.Parse(json);
+        var custom = document.RootElement.EnumerateArray().Single(x => x.GetProperty("typeId").GetString() == customDefinition.Id.ToString());
+
+        Assert.True(SchemaTypeCatalog.IsBasicType("string"));
+        Assert.False(SchemaTypeCatalog.IsBasicType("CustomerReference"));
+        Assert.Equal("Customer Reference", custom.GetProperty("name").GetString());
+        Assert.Equal("3.0.0", custom.GetProperty("versionNumber").GetString());
+        Assert.Equal("string", custom.GetProperty("baseType").GetString());
+        Assert.Equal("{}", custom.GetProperty("jsonSchema").GetString());
+    }
+
     private static SchemaTypeVersion CreateSystemType(string name, string schemaJson)
     {
         SchemaTypeDefinition definition = new()

@@ -62,6 +62,26 @@ public sealed class RuntimeArtifactPullWorkerCoverageTests
         Assert.Equal(1, orchestrator.Calls);
     }
 
+    [Fact]
+    public async Task PullWorkerHonorsInitialDelayCancellation()
+    {
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+        var orchestrator = new RecordingPullOrchestrator();
+        var worker = CreateWorker(
+            orchestrator,
+            new KnOwlRuntimeArtifactPullOptions
+            {
+                Enabled = true,
+                InitialDelaySeconds = 1,
+                IntervalSeconds = 1
+            });
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => InvokeExecuteAsync(worker, cancellation.Token));
+
+        Assert.Equal(0, orchestrator.Calls);
+    }
+
     private static object CreateWorker(
         IControlPlaneArtifactPullOrchestrator orchestrator,
         KnOwlRuntimeArtifactPullOptions? options = null)

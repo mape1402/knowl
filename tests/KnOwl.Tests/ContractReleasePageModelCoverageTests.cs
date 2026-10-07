@@ -75,6 +75,19 @@ public sealed class ContractReleasePageModelCoverageTests
     }
 
     [Fact]
+    public void ReleaseViewArtifactTypeOrderCoversEveryBranch()
+    {
+        var method = typeof(ContractReleasesViewPage).GetMethod("ArtifactTypeOrder", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
+            ?? throw new InvalidOperationException("ArtifactTypeOrder was not found.");
+
+        Assert.Equal(0, method.Invoke(null, [new ContractReleaseItem { Artifact = CreateArtifact("Event", "event", ContractArtifactType.Event) }]));
+        Assert.Equal(1, method.Invoke(null, [new ContractReleaseItem { Artifact = CreateArtifact("Command", "command", ContractArtifactType.Command) }]));
+        Assert.Equal(2, method.Invoke(null, [new ContractReleaseItem { Artifact = CreateArtifact("Command Request", "command", ContractArtifactType.CommandRequest) }]));
+        Assert.Equal(3, method.Invoke(null, [new ContractReleaseItem { Artifact = CreateArtifact("Command Reply", "command", ContractArtifactType.CommandReply) }]));
+        Assert.Equal(4, method.Invoke(null, [new ContractReleaseItem { Artifact = CreateArtifact("Unknown", "unknown", (ContractArtifactType)999) }]));
+    }
+
+    [Fact]
     public async Task ReleaseIndexPostValidatesSelectionsAndCreatesRelease()
     {
         var artifact = CreateArtifact("Customer Created", "customer.created", ContractArtifactType.Event);

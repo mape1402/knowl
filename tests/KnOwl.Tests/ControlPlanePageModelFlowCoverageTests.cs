@@ -8,10 +8,13 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using CommandEditModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Commands.EditModel;
 using CommandIndexModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Commands.IndexModel;
+using CommandNewVersionModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Commands.NewVersionModel;
 using CommandVersionModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Commands.VersionModel;
 using CommandViewModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Commands.ViewModel;
 using EventEditModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Events.EditModel;
 using EventIndexModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Events.IndexModel;
+using EventNewModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Events.NewModel;
+using EventNewVersionModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Events.NewVersionModel;
 using EventVersionModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Events.VersionModel;
 using EventViewModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Events.ViewModel;
 using MetadataIndexModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.MetadataFields.IndexModel;
@@ -19,6 +22,7 @@ using MetadataVersionModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.MetadataFi
 using MetadataViewModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.MetadataFields.ViewModel;
 using RuntimeEnvironmentIndexModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.RuntimeEnvironments.IndexModel;
 using RuntimeEnvironmentInput = KnOwl.ControlPlane.WebUI.Pages.Contracts.RuntimeEnvironments.RuntimeEnvironmentInput;
+using TypeIndexModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Types.IndexModel;
 using TypeVersionModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Types.VersionModel;
 using TypeViewModel = KnOwl.ControlPlane.WebUI.Pages.Contracts.Types.ViewModel;
 
@@ -26,6 +30,44 @@ namespace KnOwl.Tests;
 
 public sealed class ControlPlanePageModelFlowCoverageTests
 {
+    [Fact]
+    public void EventNewRedirectsToEventIndex()
+    {
+        var model = new EventNewModel();
+
+        Assert.Equal("/Contracts/Events/Index", Assert.IsType<RedirectToPageResult>(model.OnGet()).PageName);
+        Assert.Equal("/Contracts/Events/Index", Assert.IsType<RedirectToPageResult>(model.OnPost()).PageName);
+    }
+
+    [Fact]
+    public async Task NewVersionPagesCoverMissingEntitiesAndVersionFallbacks()
+    {
+        var schemaTypes = new SchemaTypeServiceFake();
+        var metadataFields = new MetadataFieldServiceFake();
+        var eventWithoutVersions = new EventDefinition { Id = Guid.NewGuid(), Name = "Empty Event", Topic = "empty.event" };
+        var eventWithNonSemanticVersion = CreateEvent();
+        eventWithNonSemanticVersion.Versions.Clear();
+        eventWithNonSemanticVersion.Versions.Add(new EventVersion
+        {
+            EventDefinitionId = eventWithNonSemanticVersion.Id,
+            VersionNumber = "preview",
+            PayloadSchemaJson = "{}",
+            CreatedAtUtc = DateTime.UtcNow
+        });
+
+        var missingEvent = new EventNewVersionModel(new EventServiceFake(), schemaTypes, metadataFields);
+        var emptyEvent = new EventNewVersionModel(new EventServiceFake([eventWithoutVersions]), schemaTypes, metadataFields);
+        var nonSemanticEvent = new EventNewVersionModel(new EventServiceFake([eventWithNonSemanticVersion]), schemaTypes, metadataFields);
+        var missingCommand = new CommandNewVersionModel(new CommandServiceFake(), schemaTypes, metadataFields);
+
+        Assert.IsType<NotFoundResult>(await missingEvent.OnGetAsync(Guid.NewGuid(), CancellationToken.None));
+        Assert.IsType<PageResult>(await emptyEvent.OnGetAsync(eventWithoutVersions.Id, CancellationToken.None));
+        Assert.Equal("1.0.0", emptyEvent.Input.Version);
+        Assert.IsType<PageResult>(await nonSemanticEvent.OnGetAsync(eventWithNonSemanticVersion.Id, CancellationToken.None));
+        Assert.Equal("preview.1", nonSemanticEvent.Input.Version);
+        Assert.IsType<NotFoundResult>(await missingCommand.OnGetAsync(Guid.NewGuid(), CancellationToken.None));
+    }
+
     [Fact]
     public async Task EventViewCoversSelectionSearchJsonAndTransitionBranches()
     {
@@ -208,6 +250,34 @@ public sealed class ControlPlanePageModelFlowCoverageTests
             await commandIndex.OnPostDeleteAsync(command.Id, CancellationToken.None));
         Assert.Null(commandDelete.PageName);
         Assert.Equal(command.Id, commands.LastDeletedId);
+    }
+
+    [Fact]
+    public async Task TypeIndexOrdersSystemTypesAfterCustomTypes()
+    {
+        var custom = new SchemaTypeDefinition
+        {
+            Name = "Customer",
+            Key = "customer",
+            IsSystem = false,
+            IsActive = true,
+            Versions = { new SchemaTypeVersion { VersionNumber = "1.0.0", DefinitionJson = "{}" } }
+        };
+        var system = new SchemaTypeDefinition
+        {
+            Name = "Date",
+            Key = "date",
+            IsSystem = true,
+            IsActive = true
+        };
+        var model = new TypeIndexModel(new SchemaTypeServiceFake([system, custom]));
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        Assert.Collection(
+            model.Types,
+            item => Assert.Equal(custom.Id, item.Id),
+            item => Assert.Equal(system.Id, item.Id));
     }
 
     [Fact]

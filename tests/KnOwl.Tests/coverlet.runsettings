@@ -7,8 +7,7 @@
           <ExcludeByFile>
             **/obj/**/*.cs,
             **/*.cshtml,
-            **/samples/**/Program.cs,
-            **/samples/**/Configuration/*DbContextFactory.cs
+            **/samples/**/*.cs
           </ExcludeByFile>
         </Configuration>
       </DataCollector>

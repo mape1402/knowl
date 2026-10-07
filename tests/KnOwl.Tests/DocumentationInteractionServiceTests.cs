@@ -267,9 +267,10 @@ public sealed class DocumentationInteractionServiceTests
     public async Task SimplePdfRendererProducesEscapedPdfContent()
     {
         var renderer = new SimpleDocumentationPdfRenderer();
+        var longWord = new string('x', 100);
         await using var stream = await renderer.RenderPdf(
             "Intro (Guide)",
-            "<h1>Intro</h1><p>Long line with (parentheses), backslash \\ and enough repeated words to force wrapping at least once in the generated PDF output.</p>");
+            $"<h1>Intro</h1><p>Long line with (parentheses), backslash \\ and enough repeated words to force wrapping at least once in the generated PDF output. {longWord}</p>");
         using var reader = new StreamReader(stream, Encoding.ASCII);
         var pdf = await reader.ReadToEndAsync();
 
