@@ -3,7 +3,7 @@
 [![Build](https://github.com/mape1402/knowl/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/mape1402/knowl/actions/workflows/build-and-release.yml)
 [![Package](https://img.shields.io/nuget/v/KnOwl.Contracts.svg?label=package)](https://www.nuget.org/packages/KnOwl.Contracts)
 [![Downloads](https://img.shields.io/nuget/dt/KnOwl.Contracts.svg?label=downloads)](https://www.nuget.org/packages/KnOwl.Contracts)
-[![Coverage](https://img.shields.io/badge/coverage-coverlet-blue.svg)](tests/KnOwl.Tests/KnOwl.Tests.csproj)
+[![Coverage](https://img.shields.io/badge/coverage-99.06%25-brightgreen.svg)](tests/KnOwl.Tests/KnOwl.Tests.csproj)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/mape1402/knowl)
 
 KnOwl is a set of reusable .NET libraries for designing, versioning, promoting, distributing, and consuming async contract metadata. It gives teams a Control Plane where contracts are authored and released, plus a Runtime surface where deployed contracts can be consumed by running services.
@@ -446,6 +446,8 @@ dotnet build KnOwl.slnx --no-restore --configuration Release
 dotnet test KnOwl.slnx --no-build --configuration Release
 ```
 
+The test suite is intentionally granular. It includes focused unit coverage for public contract shapes, API mappers, token providers, page models, security, storage repositories, distribution flows, Documentation rendering, and Runtime behavior. The current release validates 3,164 xUnit cases on both `net9.0` and `net10.0` with 99.06% line coverage.
+
 Pack the libraries:
 
 ```powershell
@@ -464,4 +466,4 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-knowl-distributi
 
 The release workflow builds, tests, packs, creates the GitHub release, and publishes NuGet packages. Production releases are driven by `.release` and `CHANGELOG.md`.
 
-Current release: `2.2.3`
+Current release: `2.2.4`

@@ -1,5 +1,12 @@
 # Changelog
 
+## [v2.2.4]
+
+- Expands and granularizes the unit test suite with focused public contract shape coverage for mutable properties, constructor mappings, `Required`, and `MaxLength` validation.
+- Splits broad API mapper tests into focused mapper cases for Control Plane, Runtime, and Documentation response shapes.
+- Splits access token provider coverage into explicit cache-hit, token-fetch, cache-reuse, missing-secret, and expired-token scenarios.
+- Verifies 3,164 xUnit cases on both `net9.0` and `net10.0` with 99.06% line coverage.
+
 ## [v2.2.3]
 
 - Adds Mermaid diagram rendering to Documentation Markdown pages, including theme-aware rendering and a local vendored Mermaid asset.
