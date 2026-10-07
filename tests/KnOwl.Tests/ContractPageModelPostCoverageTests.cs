@@ -547,72 +547,135 @@ public sealed class ContractPageModelPostCoverageTests
     }
 
     [Fact]
-    public async Task TypeEditAndIndexCoverSuccessValidationDeactivateAndSearch()
+    public async Task TypeEditReturnsNotFoundForMissingType()
     {
-        var schemaType = new SchemaTypeDefinition
-        {
-            Id = Guid.NewGuid(),
-            Key = "customer",
-            Name = "Customer",
-            Description = "Customer type",
-            IsActive = true,
-            Versions =
-            {
-                new SchemaTypeVersion
-                {
-                    VersionNumber = "1.0.0",
-                    DefinitionJson = """{"description":"needle"}""",
-                    Comment = "searchable",
-                    IsActive = true
-                }
-            }
-        };
-        var schemaTypes = new SchemaTypeServiceFake(existingKeys: ["Existing"]);
-        schemaTypes.Definitions.Add(schemaType);
+        var (_, schemaTypes) = CreateEditableSchemaTypeFixture();
 
-        var edit = new TypeEditModel(schemaTypes);
-        Assert.IsType<NotFoundResult>(await edit.OnGetAsync(Guid.NewGuid(), CancellationToken.None));
-        Assert.IsType<PageResult>(await edit.OnGetAsync(schemaType.Id, CancellationToken.None));
-        Assert.Equal("Customer", edit.Input.Name);
+        var result = await new TypeEditModel(schemaTypes).OnGetAsync(Guid.NewGuid(), CancellationToken.None);
 
-        var invalid = new TypeEditModel(schemaTypes) { Id = schemaType.Id };
-        invalid.ModelState.AddModelError("Input.Name", "bad");
-        Assert.IsType<PageResult>(await invalid.OnPostAsync(CancellationToken.None));
+        Assert.IsType<NotFoundResult>(result);
+    }
 
-        Assert.IsType<NotFoundResult>(await new TypeEditModel(schemaTypes) { Id = Guid.NewGuid() }.OnPostAsync(CancellationToken.None));
+    [Fact]
+    public async Task TypeEditLoadsExistingType()
+    {
+        var (schemaType, schemaTypes) = CreateEditableSchemaTypeFixture();
+        var model = new TypeEditModel(schemaTypes);
 
-        var duplicate = new TypeEditModel(schemaTypes)
+        var result = await model.OnGetAsync(schemaType.Id, CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal(schemaType.Id, model.Id);
+        Assert.Equal("Customer", model.Input.Name);
+        Assert.Equal("Customer type", model.Input.Description);
+        Assert.True(model.Input.IsActive);
+    }
+
+    [Fact]
+    public async Task TypeEditInvalidPostReturnsPage()
+    {
+        var (schemaType, schemaTypes) = CreateEditableSchemaTypeFixture();
+        var model = new TypeEditModel(schemaTypes) { Id = schemaType.Id };
+        model.ModelState.AddModelError("Input.Name", "bad");
+
+        var result = await model.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+    }
+
+    [Fact]
+    public async Task TypeEditPostReturnsNotFoundForMissingType()
+    {
+        var (_, schemaTypes) = CreateEditableSchemaTypeFixture();
+
+        var result = await new TypeEditModel(schemaTypes) { Id = Guid.NewGuid() }.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task TypeEditRejectsDuplicateKey()
+    {
+        var (schemaType, schemaTypes) = CreateEditableSchemaTypeFixture();
+        var model = new TypeEditModel(schemaTypes)
         {
             Id = schemaType.Id,
             Input = new TypeEditModel.TypeInput { Name = "Existing", Description = "Duplicate", IsActive = true }
         };
-        Assert.IsType<PageResult>(await duplicate.OnPostAsync(CancellationToken.None));
-        Assert.False(duplicate.ModelState.IsValid);
 
-        var success = new TypeEditModel(schemaTypes)
+        var result = await model.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.False(model.ModelState.IsValid);
+    }
+
+    [Fact]
+    public async Task TypeEditPostUpdatesTrimmedValues()
+    {
+        var (schemaType, schemaTypes) = CreateEditableSchemaTypeFixture();
+        var model = new TypeEditModel(schemaTypes)
         {
             Id = schemaType.Id,
             Input = new TypeEditModel.TypeInput { Name = "CustomerUpdated", Description = " Updated ", IsActive = false }
         };
-        var redirect = Assert.IsType<RedirectToPageResult>(await success.OnPostAsync(CancellationToken.None));
+
+        var result = await model.OnPostAsync(CancellationToken.None);
+
+        var redirect = Assert.IsType<RedirectToPageResult>(result);
         Assert.Equal("/Contracts/Types/View", redirect.PageName);
         Assert.Equal("CustomerUpdated", schemaTypes.LastUpdatedKey);
         Assert.Equal("Updated", schemaTypes.LastUpdatedDescription);
         Assert.False(schemaTypes.LastUpdatedIsActive);
+    }
 
+    [Fact]
+    public async Task TypeEditRejectsSystemTypes()
+    {
+        var (_, schemaTypes) = CreateEditableSchemaTypeFixture();
         var systemType = new SchemaTypeDefinition { Id = Guid.NewGuid(), Key = "sys", Name = "System", IsSystem = true };
         schemaTypes.Definitions.Add(systemType);
-        Assert.IsType<NotFoundResult>(await new TypeEditModel(schemaTypes).OnGetAsync(systemType.Id, CancellationToken.None));
 
-        var index = new TypeIndexModel(schemaTypes) { Search = "needle" };
-        await index.OnGetAsync(CancellationToken.None);
-        Assert.Single(index.Types);
-        Assert.Equal(schemaTypes.Definitions.Count, index.TotalTypes);
+        var result = await new TypeEditModel(schemaTypes).OnGetAsync(systemType.Id, CancellationToken.None);
 
-        Assert.IsType<RedirectToPageResult>(await index.OnPostDeactivateAsync(schemaType.Id, CancellationToken.None));
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task TypeIndexSearchFiltersByDefinitionJson()
+    {
+        var (_, schemaTypes) = CreateEditableSchemaTypeFixture();
+        var model = new TypeIndexModel(schemaTypes) { Search = " needle " };
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal("needle", model.Search);
+        Assert.Single(model.Types);
+        Assert.Equal(schemaTypes.Definitions.Count, model.TotalTypes);
+    }
+
+    [Fact]
+    public async Task TypeIndexDeactivateUpdatesSelectedType()
+    {
+        var (schemaType, schemaTypes) = CreateEditableSchemaTypeFixture();
+        var model = new TypeIndexModel(schemaTypes);
+
+        var result = await model.OnPostDeactivateAsync(schemaType.Id, CancellationToken.None);
+
+        Assert.IsType<RedirectToPageResult>(result);
         Assert.Equal(schemaType.Key, schemaTypes.LastUpdatedKey);
         Assert.False(schemaTypes.LastUpdatedIsActive);
-        Assert.IsType<RedirectToPageResult>(await index.OnPostDeactivateAsync(Guid.NewGuid(), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task TypeIndexDeactivateIgnoresMissingType()
+    {
+        var (_, schemaTypes) = CreateEditableSchemaTypeFixture();
+        var model = new TypeIndexModel(schemaTypes);
+
+        var result = await model.OnPostDeactivateAsync(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.IsType<RedirectToPageResult>(result);
+        Assert.Null(schemaTypes.LastUpdatedKey);
     }
 
     private static (CommandDefinition Command, CommandServiceFake Commands, SchemaTypeServiceFake SchemaTypes, MetadataFieldServiceFake Metadata)
@@ -662,6 +725,31 @@ public sealed class ContractPageModelPostCoverageTests
         var schemaTypes = new SchemaTypeServiceFake(activeVersions: [arrayItem]);
         schemaTypes.Definitions.Add(schemaType);
         return (schemaType, arrayItem, schemaTypes);
+    }
+
+    private static (SchemaTypeDefinition SchemaType, SchemaTypeServiceFake SchemaTypes) CreateEditableSchemaTypeFixture()
+    {
+        var schemaType = new SchemaTypeDefinition
+        {
+            Id = Guid.NewGuid(),
+            Key = "customer",
+            Name = "Customer",
+            Description = "Customer type",
+            IsActive = true,
+            Versions =
+            {
+                new SchemaTypeVersion
+                {
+                    VersionNumber = "1.0.0",
+                    DefinitionJson = """{"description":"needle"}""",
+                    Comment = "searchable",
+                    IsActive = true
+                }
+            }
+        };
+        var schemaTypes = new SchemaTypeServiceFake(existingKeys: ["Existing"]);
+        schemaTypes.Definitions.Add(schemaType);
+        return (schemaType, schemaTypes);
     }
 
     private static CommandNewVersionModel CreateCommandVersionModel(

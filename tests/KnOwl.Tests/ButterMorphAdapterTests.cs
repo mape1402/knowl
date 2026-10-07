@@ -858,44 +858,89 @@ public sealed class ButterMorphAdapterTests
     }
 
     [Fact]
-    public async Task PayloadSchemaHostValidatesNewEventAndCommandRequiredFields()
+    public async Task PayloadSchemaHostRejectsNewEventWithoutName()
+    {
+        var result = await CreatePayloadSchemaHost().Save(CreatePayloadSave(KnOwlButterMorphContext.EventNew(), "1.0.0", name: string.Empty));
+
+        Assert.False(result.Succeeded);
+    }
+
+    [Fact]
+    public async Task PayloadSchemaHostRejectsNewEventWithoutVersion()
+    {
+        var result = await CreatePayloadSchemaHost().Save(CreatePayloadSave(KnOwlButterMorphContext.EventNew(), string.Empty));
+
+        Assert.False(result.Succeeded);
+    }
+
+    [Fact]
+    public async Task PayloadSchemaHostRejectsNewEventWithoutTopic()
+    {
+        var result = await CreatePayloadSchemaHost().Save(CreatePayloadSave(KnOwlButterMorphContext.EventNew(), "1.0.0", key: "   "));
+
+        Assert.False(result.Succeeded);
+    }
+
+    [Fact]
+    public async Task PayloadSchemaHostRejectsNewEventWithOversizedTopic()
+    {
+        var result = await CreatePayloadSchemaHost().Save(CreatePayloadSave(KnOwlButterMorphContext.EventNew(), "1.0.0", key: new string('a', 71)));
+
+        Assert.False(result.Succeeded);
+    }
+
+    [Fact]
+    public async Task PayloadSchemaHostCreatesNewEventWithTopicMetadata()
     {
         var events = new EventInteractionStub();
-        var commands = new CommandInteractionStub();
-        var host = new KnOwlPayloadSchemaDesignerHost(
-            events,
-            commands,
-            new SchemaTypeInteractionStub(),
-            new MetadataInteractionStub(),
-            new KnOwlButterMorphDraftStore());
+        var host = CreatePayloadSchemaHost(events: events);
 
-        var eventMissingName = await host.Save(CreatePayloadSave(KnOwlButterMorphContext.EventNew(), "1.0.0", name: string.Empty));
-        var eventMissingVersion = await host.Save(CreatePayloadSave(KnOwlButterMorphContext.EventNew(), string.Empty));
-        var eventMissingTopic = await host.Save(CreatePayloadSave(KnOwlButterMorphContext.EventNew(), "1.0.0", key: "   "));
-        var eventLongTopic = await host.Save(CreatePayloadSave(KnOwlButterMorphContext.EventNew(), "1.0.0", key: new string('a', 71)));
-        var eventSaved = await host.Save(CreatePayloadSave(KnOwlButterMorphContext.EventNew(), "1.0.0", topicMetadata: "customer.created"));
+        var result = await host.Save(CreatePayloadSave(KnOwlButterMorphContext.EventNew(), "1.0.0", topicMetadata: "customer.created"));
 
-        var commandMissingName = await host.Save(CreatePayloadSave(KnOwlButterMorphContext.CommandNew(), "1.0.0", name: string.Empty));
-        var commandMissingVersion = await host.Save(CreatePayloadSave(KnOwlButterMorphContext.CommandNew(), string.Empty));
-        var commandLongTopic = await host.Save(CreatePayloadSave(KnOwlButterMorphContext.CommandNew(), "1.0.0", key: new string('b', 71)));
-        var commandSaved = await host.Save(CreatePayloadSave(KnOwlButterMorphContext.CommandNew(), "1.0.0", topicMetadataObjectValue: "customer.create"));
-
-        Assert.False(eventMissingName.Succeeded);
-        Assert.False(eventMissingVersion.Succeeded);
-        Assert.False(eventMissingTopic.Succeeded);
-        Assert.False(eventLongTopic.Succeeded);
-        Assert.True(eventSaved.Succeeded);
+        Assert.True(result.Succeeded);
         Assert.Single(events.Created);
-        Assert.False(commandMissingName.Succeeded);
-        Assert.False(commandMissingVersion.Succeeded);
-        Assert.False(commandLongTopic.Succeeded);
-        Assert.True(commandSaved.Succeeded);
+        Assert.Equal("customer.created", events.Created.Single().Topic);
+    }
+
+    [Fact]
+    public async Task PayloadSchemaHostRejectsNewCommandWithoutName()
+    {
+        var result = await CreatePayloadSchemaHost().Save(CreatePayloadSave(KnOwlButterMorphContext.CommandNew(), "1.0.0", name: string.Empty));
+
+        Assert.False(result.Succeeded);
+    }
+
+    [Fact]
+    public async Task PayloadSchemaHostRejectsNewCommandWithoutVersion()
+    {
+        var result = await CreatePayloadSchemaHost().Save(CreatePayloadSave(KnOwlButterMorphContext.CommandNew(), string.Empty));
+
+        Assert.False(result.Succeeded);
+    }
+
+    [Fact]
+    public async Task PayloadSchemaHostRejectsNewCommandWithOversizedTopic()
+    {
+        var result = await CreatePayloadSchemaHost().Save(CreatePayloadSave(KnOwlButterMorphContext.CommandNew(), "1.0.0", key: new string('b', 71)));
+
+        Assert.False(result.Succeeded);
+    }
+
+    [Fact]
+    public async Task PayloadSchemaHostCreatesNewCommandWithTopicMetadataObject()
+    {
+        var commands = new CommandInteractionStub();
+        var host = CreatePayloadSchemaHost(commands: commands);
+
+        var result = await host.Save(CreatePayloadSave(KnOwlButterMorphContext.CommandNew(), "1.0.0", topicMetadataObjectValue: "customer.create"));
+
+        Assert.True(result.Succeeded);
         Assert.Single(commands.Created);
         Assert.Equal("customer.create", commands.Created.Single().Topic);
     }
 
     [Fact]
-    public void MapperHandlesFallbackAndLegacyJsonBranches()
+    public void MapperFallsBackWhenSchemaDefinitionJsonIsInvalid()
     {
         var schemaEntity = new KnOwlSchemaTypeDefinition
         {
@@ -910,6 +955,14 @@ public sealed class ButterMorphAdapterTests
             Comment = "Legacy",
             DefinitionJson = "{not-json"
         });
+
+        Assert.Equal("legacy", schemaFallback.Key);
+        Assert.Equal("{}", schemaFallback.JsonSchema);
+    }
+
+    [Fact]
+    public void MapperCreatesMetadataFallbackWithoutVersion()
+    {
         var metadataEntity = new ContractFieldMetadataDefinition
         {
             Key = "metadata",
@@ -917,13 +970,44 @@ public sealed class ButterMorphAdapterTests
             Description = "Metadata",
             IsActive = true
         };
+
         var metadataFallback = KnOwlButterMorphDefinitionMapper.ToDefinition(metadataEntity);
+
+        Assert.Equal("metadata", metadataFallback.Key);
+        Assert.Equal("1.0.0", metadataFallback.Version);
+    }
+
+    [Fact]
+    public void MapperCreatesMetadataFallbackWhenVersionJsonIsInvalid()
+    {
+        var metadataEntity = new ContractFieldMetadataDefinition
+        {
+            Key = "metadata",
+            Name = "Metadata",
+            Description = "Metadata",
+            IsActive = true
+        };
+
         var metadataInvalid = KnOwlButterMorphDefinitionMapper.ToDefinition(metadataEntity, new ContractFieldMetadataVersion
         {
             VersionNumber = "2.0.0",
             DefinitionJson = "{not-json",
             IsActive = true
         });
+
+        Assert.Equal("metadata", metadataInvalid.Key);
+    }
+
+    [Fact]
+    public void MapperAppliesDefaultScopeFallbacks()
+    {
+        Assert.Equal(["events", "commands"], KnOwlButterMorphDefinitionMapper.ToKnOwlScopes([]));
+        Assert.Equal(["Schema"], KnOwlButterMorphDefinitionMapper.ToButterMorphScopes("[]"));
+    }
+
+    [Fact]
+    public void MapperSerializesNestedCustomFieldDefinitions()
+    {
         var customJson = KnOwlButterMorphDefinitionMapper.SerializeCustomFieldDefinition(new CustomFieldDefinition
         {
             Key = "node",
@@ -935,13 +1019,6 @@ public sealed class ButterMorphAdapterTests
             ArrayItemDefinition = KnOwlButterMorphDefinitionMapper.ParseElement("""{"type":"string"}""")
         });
 
-        Assert.Equal("legacy", schemaFallback.Key);
-        Assert.Equal("{}", schemaFallback.JsonSchema);
-        Assert.Equal("metadata", metadataFallback.Key);
-        Assert.Equal("1.0.0", metadataFallback.Version);
-        Assert.Equal("metadata", metadataInvalid.Key);
-        Assert.Equal(["events", "commands"], KnOwlButterMorphDefinitionMapper.ToKnOwlScopes([]));
-        Assert.Equal(["Schema"], KnOwlButterMorphDefinitionMapper.ToButterMorphScopes("[]"));
         Assert.Contains("\"childrenDefinition\":[", customJson, StringComparison.Ordinal);
         Assert.Contains("\"arrayItemDefinition\":{", customJson, StringComparison.Ordinal);
     }
@@ -1316,7 +1393,7 @@ public sealed class ButterMorphAdapterTests
     }
 
     [Fact]
-    public void MapperCoversNullFallbackAndNestedJsonNormalizationBranches()
+    public void MapperFallsBackWhenSchemaDefinitionJsonIsNull()
     {
         var schemaEntity = new KnOwlSchemaTypeDefinition
         {
@@ -1329,6 +1406,14 @@ public sealed class ButterMorphAdapterTests
             VersionNumber = "3.0.0",
             DefinitionJson = "null"
         });
+
+        Assert.Equal("fallback", nullSchema.Key);
+        Assert.Equal("3.0.0", nullSchema.Version);
+    }
+
+    [Fact]
+    public void MapperFallsBackWhenMetadataDefinitionJsonIsNull()
+    {
         var metadataEntity = new ContractFieldMetadataDefinition
         {
             Key = "metadata",
@@ -1340,21 +1425,37 @@ public sealed class ButterMorphAdapterTests
             DefinitionJson = "null",
             VersionNumber = "2.0.0"
         });
+
+        Assert.Equal("metadata", nullMetadata.Key);
+        Assert.False(nullMetadata.IsActive);
+    }
+
+    [Fact]
+    public void MapperNormalizesEmptyAndArrayCustomFieldJson()
+    {
         var emptyNormalized = InvokePrivateString("NormalizeCustomFieldDefinitionJson", string.Empty);
         var arrayNormalized = InvokePrivateString("NormalizeCustomFieldDefinitionJson", "[]");
+
+        Assert.Equal("{}", emptyNormalized);
+        Assert.Equal("[]", arrayNormalized);
+    }
+
+    [Fact]
+    public void MapperKeepsInvalidNestedCustomFieldJsonAsText()
+    {
         var nestedNormalized = InvokePrivateString(
             "NormalizeCustomFieldDefinitionJson",
             """{"validation":"","childrenDefinition":"1","arrayItemDefinition":"{bad}","dataType":"string"}""");
+
+        Assert.Contains("\"validation\":\"\"", nestedNormalized, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MapperParsesOnlyObjectDictionaries()
+    {
         var emptyDictionary = InvokePrivateDictionary("ParseDictionary", "[]");
         var parsedDictionary = InvokePrivateDictionary("ParseDictionary", """{"minimum":1}""");
 
-        Assert.Equal("fallback", nullSchema.Key);
-        Assert.Equal("3.0.0", nullSchema.Version);
-        Assert.Equal("metadata", nullMetadata.Key);
-        Assert.False(nullMetadata.IsActive);
-        Assert.Equal("{}", emptyNormalized);
-        Assert.Equal("[]", arrayNormalized);
-        Assert.Contains("\"validation\":\"\"", nestedNormalized, StringComparison.Ordinal);
         Assert.Empty(emptyDictionary);
         Assert.Single(parsedDictionary);
     }
@@ -1432,6 +1533,19 @@ public sealed class ButterMorphAdapterTests
             Definition = definition
         };
     }
+
+    private static KnOwlPayloadSchemaDesignerHost CreatePayloadSchemaHost(
+        EventInteractionStub? events = null,
+        CommandInteractionStub? commands = null,
+        SchemaTypeInteractionStub? schemaTypes = null,
+        MetadataInteractionStub? metadata = null,
+        KnOwlButterMorphDraftStore? store = null)
+        => new(
+            events ?? new EventInteractionStub(),
+            commands ?? new CommandInteractionStub(),
+            schemaTypes ?? new SchemaTypeInteractionStub(),
+            metadata ?? new MetadataInteractionStub(),
+            store ?? new KnOwlButterMorphDraftStore());
 
     private static string InvokePrivateString(string methodName, string value)
         => (string)typeof(KnOwlButterMorphDefinitionMapper)

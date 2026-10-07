@@ -88,27 +88,36 @@ public sealed class ContractReleasePageModelCoverageTests
     }
 
     [Fact]
-    public async Task ReleaseIndexPostValidatesSelectionsAndCreatesRelease()
+    public async Task ReleaseIndexPostRequiresArtifactSelection()
     {
-        var artifact = CreateArtifact("Customer Created", "customer.created", ContractArtifactType.Event);
-        var runtimeNode = CreateRuntimeNode("Runtime", "runtime", "Development");
-        var releases = new ReleaseRepository([]);
-        var artifacts = new ArtifactRepository([artifact]);
-        var runtimeNodes = new RuntimeNodeRepository([runtimeNode]);
-        var execution = new RecordingReleaseExecutionService();
-        var model = CreateIndexModel(releases, artifacts, runtimeNodes, execution);
-
+        var model = CreateReleaseIndexPostModel(out _, out _, out _);
         model.Input = new ReleaseInput();
-        Assert.IsType<PageResult>(await model.OnPostAsync(CancellationToken.None));
+
+        var result = await model.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
         Assert.True(model.ShowReleaseModal);
         Assert.Equal(1, model.InitialReleaseStep);
+    }
 
+    [Fact]
+    public async Task ReleaseIndexPostRequiresRuntimeSelectionAfterArtifacts()
+    {
+        var model = CreateReleaseIndexPostModel(out var artifact, out _, out _);
         model.ModelState.Clear();
         model.Input = new ReleaseInput { ArtifactIds = [artifact.Id] };
-        Assert.IsType<PageResult>(await model.OnPostAsync(CancellationToken.None));
+
+        var result = await model.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
         Assert.True(model.ShowReleaseModal);
         Assert.Equal(2, model.InitialReleaseStep);
+    }
 
+    [Fact]
+    public async Task ReleaseIndexPostCreatesReleaseWithDistinctSelectionsAndDefaultName()
+    {
+        var model = CreateReleaseIndexPostModel(out var artifact, out var runtimeNode, out var execution);
         model.ModelState.Clear();
         model.Input = new ReleaseInput
         {
@@ -131,62 +140,76 @@ public sealed class ContractReleasePageModelCoverageTests
     }
 
     [Fact]
-    public async Task ReleaseViewLoadsSearchableArtifactGroupsAndPushActions()
+    public async Task ReleaseViewReturnsNotFoundForMissingReleaseId()
     {
-        var eventArtifact = CreateArtifact("Customer Created", "customer.created", ContractArtifactType.Event);
-        var commandArtifact = CreateArtifact("Register Customer Reply", "customer.register", ContractArtifactType.CommandReply);
-        var release = CreateRelease(eventArtifact, commandArtifact, ContractReleaseTargetStatus.PushScheduled);
-        release.Targets.Single(x => x.ArtifactId == commandArtifact.Id).Attempts.Add(new ContractReleaseAttempt
-        {
-            Id = Guid.NewGuid(),
-            ReleaseTargetId = release.Targets.Single(x => x.ArtifactId == commandArtifact.Id).Id,
-            Action = "Push",
-            InitiatedBy = "test",
-            StartedAtUtc = DateTime.UtcNow,
-            FinishedAtUtc = DateTime.UtcNow,
-            Succeeded = false,
-            ErrorMessage = "push-error"
-        });
-        var releases = new ReleaseRepository([release]);
-        var delivery = new RecordingArtifactDeliveryInteractionService();
-        var execution = new RecordingReleaseExecutionService();
-        var model = CreateViewModel(releases, delivery, execution);
+        var fixture = CreateReleaseViewActionFixture();
+        var model = CreateViewModel(fixture.Releases, fixture.Delivery, fixture.Execution);
 
         Assert.IsType<NotFoundResult>(await model.OnGetAsync(null, CancellationToken.None));
         Assert.IsType<NotFoundResult>(await model.OnGetAsync(Guid.NewGuid(), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ReleaseViewSearchesTargetsByAttemptError()
+    {
+        var fixture = CreateReleaseViewActionFixture();
+        var model = CreateViewModel(fixture.Releases, fixture.Delivery, fixture.Execution);
 
         model.Search = "push-error";
-        Assert.IsType<PageResult>(await model.OnGetAsync(release.Id, CancellationToken.None));
+        Assert.IsType<PageResult>(await model.OnGetAsync(fixture.Release.Id, CancellationToken.None));
 
         var group = Assert.Single(model.ArtifactGroups);
         Assert.Equal("Register Customer", group.ContractName);
         Assert.Equal("Command", group.ContractKind);
         Assert.Single(group.Targets);
+    }
 
-        var targetId = group.Targets.Single().Id;
-        delivery.PushResult = new RuntimeArtifactDeliveryResult
+    [Fact]
+    public async Task ReleaseViewPushTargetReportsSuccess()
+    {
+        var fixture = CreateReleaseViewActionFixture();
+        var model = CreateViewModel(fixture.Releases, fixture.Delivery, fixture.Execution);
+        fixture.Delivery.PushResult = new RuntimeArtifactDeliveryResult
         {
-            ReleaseTargetId = targetId,
+            ReleaseTargetId = fixture.Target.Id,
             Succeeded = true,
             Message = "Sent"
         };
-        var pushRedirect = Assert.IsType<RedirectToPageResult>(await model.OnPostPushTargetAsync(release.Id, targetId, CancellationToken.None));
-        Assert.Equal(release.Id, pushRedirect.RouteValues!["id"]);
-        Assert.Equal("Sent", model.StatusMessage);
 
-        delivery.PushResult = new RuntimeArtifactDeliveryResult
+        var pushRedirect = Assert.IsType<RedirectToPageResult>(await model.OnPostPushTargetAsync(fixture.Release.Id, fixture.Target.Id, CancellationToken.None));
+
+        Assert.Equal(fixture.Release.Id, pushRedirect.RouteValues!["id"]);
+        Assert.Equal("Sent", model.StatusMessage);
+    }
+
+    [Fact]
+    public async Task ReleaseViewPushTargetReportsFailure()
+    {
+        var fixture = CreateReleaseViewActionFixture();
+        var model = CreateViewModel(fixture.Releases, fixture.Delivery, fixture.Execution);
+        fixture.Delivery.PushResult = new RuntimeArtifactDeliveryResult
         {
-            ReleaseTargetId = targetId,
+            ReleaseTargetId = fixture.Target.Id,
             Succeeded = false,
             Message = "Runtime rejected"
         };
-        await model.OnPostPushTargetAsync(release.Id, targetId, CancellationToken.None);
-        Assert.Equal("Push failed: Runtime rejected", model.StatusMessage);
 
-        var allRedirect = Assert.IsType<RedirectToPageResult>(await model.OnPostPushAllAsync(release.Id, CancellationToken.None));
-        Assert.Equal(release.Id, allRedirect.RouteValues!["id"]);
+        await model.OnPostPushTargetAsync(fixture.Release.Id, fixture.Target.Id, CancellationToken.None);
+
+        Assert.Equal("Push failed: Runtime rejected", model.StatusMessage);
+    }
+
+    [Fact]
+    public async Task ReleaseViewPushAllExecutesRelease()
+    {
+        var fixture = CreateReleaseViewActionFixture();
+        var model = CreateViewModel(fixture.Releases, fixture.Delivery, fixture.Execution);
+
+        var allRedirect = Assert.IsType<RedirectToPageResult>(await model.OnPostPushAllAsync(fixture.Release.Id, CancellationToken.None));
+
+        Assert.Equal(fixture.Release.Id, allRedirect.RouteValues!["id"]);
         Assert.Contains("Distribution completed", model.StatusMessage);
-        Assert.Equal(release.Id, execution.ExecutedReleaseId);
+        Assert.Equal(fixture.Release.Id, fixture.Execution.ExecutedReleaseId);
     }
 
     [Fact]
@@ -274,6 +297,47 @@ public sealed class ContractReleasePageModelCoverageTests
         var model = new ContractReleasesViewPage(releases, delivery, execution);
         AttachPageContext(model);
         return model;
+    }
+
+    private static ContractReleasesIndexPage CreateReleaseIndexPostModel(
+        out ContractArtifact artifact,
+        out RuntimeNode runtimeNode,
+        out RecordingReleaseExecutionService execution)
+    {
+        artifact = CreateArtifact("Customer Created", "customer.created", ContractArtifactType.Event);
+        runtimeNode = CreateRuntimeNode("Runtime", "runtime", "Development");
+        execution = new RecordingReleaseExecutionService();
+        return CreateIndexModel(
+            new ReleaseRepository([]),
+            new ArtifactRepository([artifact]),
+            new RuntimeNodeRepository([runtimeNode]),
+            execution);
+    }
+
+    private static ReleaseViewActionFixture CreateReleaseViewActionFixture()
+    {
+        var eventArtifact = CreateArtifact("Customer Created", "customer.created", ContractArtifactType.Event);
+        var commandArtifact = CreateArtifact("Register Customer Reply", "customer.register", ContractArtifactType.CommandReply);
+        var release = CreateRelease(eventArtifact, commandArtifact, ContractReleaseTargetStatus.PushScheduled);
+        var target = release.Targets.Single(x => x.ArtifactId == commandArtifact.Id);
+        target.Attempts.Add(new ContractReleaseAttempt
+        {
+            Id = Guid.NewGuid(),
+            ReleaseTargetId = target.Id,
+            Action = "Push",
+            InitiatedBy = "test",
+            StartedAtUtc = DateTime.UtcNow,
+            FinishedAtUtc = DateTime.UtcNow,
+            Succeeded = false,
+            ErrorMessage = "push-error"
+        });
+
+        return new ReleaseViewActionFixture(
+            release,
+            target,
+            new ReleaseRepository([release]),
+            new RecordingArtifactDeliveryInteractionService(),
+            new RecordingReleaseExecutionService());
     }
 
     private static void AttachPageContext(PageModel model)
@@ -508,4 +572,11 @@ public sealed class ContractReleasePageModelCoverageTests
         public Task<RuntimeArtifactDeliveryResult> AcknowledgePull(Guid runtimeNodeId, Guid releaseTargetId, string runtimeArtifactId, string runtimeArtifactStatus = "Ready", CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
     }
+
+    private sealed record ReleaseViewActionFixture(
+        ContractRelease Release,
+        ContractReleaseTarget Target,
+        ReleaseRepository Releases,
+        RecordingArtifactDeliveryInteractionService Delivery,
+        RecordingReleaseExecutionService Execution);
 }
