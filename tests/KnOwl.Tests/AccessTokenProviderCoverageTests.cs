@@ -14,7 +14,7 @@ namespace KnOwl.Tests;
 public sealed class AccessTokenProviderCoverageTests
 {
     [Fact]
-    public async Task RuntimeAccessTokenProviderUsesCachedTokenWhenStillFresh()
+    public async Task RuntimeAccessTokenProviderAttachesCachedTokenWhenStillFresh()
     {
         var node = CreateRuntimeNode();
         var cache = new DictionaryDistributedCache();
@@ -45,7 +45,7 @@ public sealed class AccessTokenProviderCoverageTests
     }
 
     [Fact]
-    public async Task RuntimeAccessTokenProviderRequestsAndCachesNewToken()
+    public async Task RuntimeAccessTokenProviderRequestsNewTokenFromRuntimeEndpoint()
     {
         var node = CreateRuntimeNode();
         var handler = new CountingHandler(async request =>
@@ -79,16 +79,41 @@ public sealed class AccessTokenProviderCoverageTests
 
         Assert.Equal("fresh-runtime-token", request.Headers.Authorization?.Parameter);
         Assert.Equal(1, handler.CallCount);
+    }
+
+    [Fact]
+    public async Task RuntimeAccessTokenProviderReusesFreshTokenFromCacheAfterFetch()
+    {
+        var node = CreateRuntimeNode();
+        var handler = new CountingHandler(_ => Task.FromResult(JsonResponse(new ConnectionTokenResponse
+        {
+            AccessToken = "fresh-runtime-token",
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(10),
+            ExpiresIn = 600,
+            KeyId = "key-runtime",
+            Scope = "connection:validate"
+        })));
+
+        var provider = new RuntimeAccessTokenProvider(
+            new HttpClient(handler),
+            new StaticControlPlaneSecretProtector("runtime-secret"),
+            new DefaultConnectionScopeFormatter(),
+            new ConnectionTokenCacheKeyBuilder(),
+            new DictionaryDistributedCache());
+
+        using var first = new HttpRequestMessage(HttpMethod.Get, "https://runtime.example.test/ping");
+        await provider.AttachToken(first, node, [ArtifactDeliveryScope.ConnectionValidate]);
 
         using var second = new HttpRequestMessage(HttpMethod.Get, "https://runtime.example.test/ping");
         await provider.AttachToken(second, node, [ArtifactDeliveryScope.ConnectionValidate]);
 
+        Assert.Equal("fresh-runtime-token", first.Headers.Authorization?.Parameter);
         Assert.Equal("fresh-runtime-token", second.Headers.Authorization?.Parameter);
         Assert.Equal(1, handler.CallCount);
     }
 
     [Fact]
-    public async Task RuntimeAccessTokenProviderReportsMissingAndExpiredTokens()
+    public async Task RuntimeAccessTokenProviderRejectsMissingOutboundSecret()
     {
         var missing = CreateRuntimeNode();
         missing.ProtectedOutboundSecret = string.Empty;
@@ -101,7 +126,11 @@ public sealed class AccessTokenProviderCoverageTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             provider.AttachToken(new HttpRequestMessage(HttpMethod.Get, "https://runtime.example.test"), missing, [ArtifactDeliveryScope.ArtifactPush]));
+    }
 
+    [Fact]
+    public async Task RuntimeAccessTokenProviderRejectsExpiredTokenResponse()
+    {
         var expiredProvider = new RuntimeAccessTokenProvider(
             new HttpClient(new CountingHandler(_ => Task.FromResult(JsonResponse(new ConnectionTokenResponse
             {
@@ -120,7 +149,7 @@ public sealed class AccessTokenProviderCoverageTests
     }
 
     [Fact]
-    public async Task ControlPlaneAccessTokenProviderUsesCacheAndFetchesWhenNeeded()
+    public async Task ControlPlaneAccessTokenProviderAttachesCachedTokenWithoutHttpCall()
     {
         var source = CreateControlPlaneSource();
         var cache = new DictionaryDistributedCache();
@@ -136,12 +165,32 @@ public sealed class AccessTokenProviderCoverageTests
                 Scope = "release:read"
             }, JsonOptions()));
 
+        var handler = new CountingHandler(_ => throw new InvalidOperationException("HTTP should not be called."));
+        var provider = new ControlPlaneAccessTokenProvider(
+            new HttpClient(handler),
+            new StaticRuntimeSecretProtector("control-plane-secret"),
+            formatter,
+            keyBuilder,
+            cache);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "https://control-plane.example.test/pending");
+        await provider.AttachToken(request, source, [ArtifactDeliveryScope.ReleaseRead]);
+
+        Assert.Equal("cached-control-plane-token", request.Headers.Authorization?.Parameter);
+        Assert.Equal(0, handler.CallCount);
+    }
+
+    [Fact]
+    public async Task ControlPlaneAccessTokenProviderRequestsNewTokenFromControlPlaneEndpoint()
+    {
+        var source = CreateControlPlaneSource();
         var handler = new CountingHandler(async request =>
         {
             Assert.Equal("https://control-plane.example.test/distribution/connect/token", request.RequestUri!.ToString());
             var body = await request.Content!.ReadAsStringAsync();
             Assert.Contains("\"clientId\":\"control-plane-client\"", body, StringComparison.Ordinal);
             Assert.Contains("\"clientSecret\":\"control-plane-secret\"", body, StringComparison.Ordinal);
+            Assert.Contains("\"scope\":\"artifact:read\"", body, StringComparison.Ordinal);
 
             return JsonResponse(new ConnectionTokenResponse
             {
@@ -156,23 +205,50 @@ public sealed class AccessTokenProviderCoverageTests
         var provider = new ControlPlaneAccessTokenProvider(
             new HttpClient(handler),
             new StaticRuntimeSecretProtector("control-plane-secret"),
-            formatter,
-            keyBuilder,
-            cache);
-
-        using var cachedRequest = new HttpRequestMessage(HttpMethod.Get, "https://control-plane.example.test/pending");
-        await provider.AttachToken(cachedRequest, source, [ArtifactDeliveryScope.ReleaseRead]);
-        Assert.Equal("cached-control-plane-token", cachedRequest.Headers.Authorization?.Parameter);
-        Assert.Equal(0, handler.CallCount);
+            new DefaultConnectionScopeFormatter(),
+            new ConnectionTokenCacheKeyBuilder(),
+            new DictionaryDistributedCache());
 
         using var freshRequest = new HttpRequestMessage(HttpMethod.Get, "https://control-plane.example.test/artifacts");
         await provider.AttachToken(freshRequest, source, [ArtifactDeliveryScope.ArtifactRead]);
+
         Assert.Equal("fresh-control-plane-token", freshRequest.Headers.Authorization?.Parameter);
         Assert.Equal(1, handler.CallCount);
     }
 
     [Fact]
-    public async Task ControlPlaneAccessTokenProviderReportsMissingAndExpiredTokens()
+    public async Task ControlPlaneAccessTokenProviderReusesFreshTokenFromCacheAfterFetch()
+    {
+        var source = CreateControlPlaneSource();
+        var handler = new CountingHandler(_ => Task.FromResult(JsonResponse(new ConnectionTokenResponse
+        {
+            AccessToken = "fresh-control-plane-token",
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(10),
+            ExpiresIn = 600,
+            KeyId = "key-cp",
+            Scope = "artifact:read"
+        })));
+
+        var provider = new ControlPlaneAccessTokenProvider(
+            new HttpClient(handler),
+            new StaticRuntimeSecretProtector("control-plane-secret"),
+            new DefaultConnectionScopeFormatter(),
+            new ConnectionTokenCacheKeyBuilder(),
+            new DictionaryDistributedCache());
+
+        using var first = new HttpRequestMessage(HttpMethod.Get, "https://control-plane.example.test/artifacts");
+        await provider.AttachToken(first, source, [ArtifactDeliveryScope.ArtifactRead]);
+
+        using var second = new HttpRequestMessage(HttpMethod.Get, "https://control-plane.example.test/artifacts");
+        await provider.AttachToken(second, source, [ArtifactDeliveryScope.ArtifactRead]);
+
+        Assert.Equal("fresh-control-plane-token", first.Headers.Authorization?.Parameter);
+        Assert.Equal("fresh-control-plane-token", second.Headers.Authorization?.Parameter);
+        Assert.Equal(1, handler.CallCount);
+    }
+
+    [Fact]
+    public async Task ControlPlaneAccessTokenProviderRejectsMissingClientId()
     {
         var source = CreateControlPlaneSource();
         source.ClientId = string.Empty;
@@ -185,7 +261,11 @@ public sealed class AccessTokenProviderCoverageTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             provider.AttachToken(new HttpRequestMessage(HttpMethod.Get, "https://control-plane.example.test"), source, [ArtifactDeliveryScope.ArtifactRead]));
+    }
 
+    [Fact]
+    public async Task ControlPlaneAccessTokenProviderRejectsExpiredTokenResponse()
+    {
         var expiredProvider = new ControlPlaneAccessTokenProvider(
             new HttpClient(new CountingHandler(_ => Task.FromResult(JsonResponse(new ConnectionTokenResponse
             {
