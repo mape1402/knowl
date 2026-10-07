@@ -40,11 +40,29 @@ public sealed class ControlPlanePageModelFlowCoverageTests
     }
 
     [Fact]
-    public async Task NewVersionPagesCoverMissingEntitiesAndVersionFallbacks()
+    public async Task EventNewVersionReturnsNotFoundForMissingEvent()
     {
-        var schemaTypes = new SchemaTypeServiceFake();
-        var metadataFields = new MetadataFieldServiceFake();
+        var model = new EventNewVersionModel(new EventServiceFake(), new SchemaTypeServiceFake(), new MetadataFieldServiceFake());
+
+        Assert.IsType<NotFoundResult>(await model.OnGetAsync(Guid.NewGuid(), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task EventNewVersionStartsAtOneWhenEventHasNoVersions()
+    {
         var eventWithoutVersions = new EventDefinition { Id = Guid.NewGuid(), Name = "Empty Event", Topic = "empty.event" };
+        var model = new EventNewVersionModel(
+            new EventServiceFake([eventWithoutVersions]),
+            new SchemaTypeServiceFake(),
+            new MetadataFieldServiceFake());
+
+        Assert.IsType<PageResult>(await model.OnGetAsync(eventWithoutVersions.Id, CancellationToken.None));
+        Assert.Equal("1.0.0", model.Input.Version);
+    }
+
+    [Fact]
+    public async Task EventNewVersionAppendsPatchForNonSemanticVersion()
+    {
         var eventWithNonSemanticVersion = CreateEvent();
         eventWithNonSemanticVersion.Versions.Clear();
         eventWithNonSemanticVersion.Versions.Add(new EventVersion
@@ -54,151 +72,269 @@ public sealed class ControlPlanePageModelFlowCoverageTests
             PayloadSchemaJson = "{}",
             CreatedAtUtc = DateTime.UtcNow
         });
+        var model = new EventNewVersionModel(
+            new EventServiceFake([eventWithNonSemanticVersion]),
+            new SchemaTypeServiceFake(),
+            new MetadataFieldServiceFake());
 
-        var missingEvent = new EventNewVersionModel(new EventServiceFake(), schemaTypes, metadataFields);
-        var emptyEvent = new EventNewVersionModel(new EventServiceFake([eventWithoutVersions]), schemaTypes, metadataFields);
-        var nonSemanticEvent = new EventNewVersionModel(new EventServiceFake([eventWithNonSemanticVersion]), schemaTypes, metadataFields);
-        var missingCommand = new CommandNewVersionModel(new CommandServiceFake(), schemaTypes, metadataFields);
-
-        Assert.IsType<NotFoundResult>(await missingEvent.OnGetAsync(Guid.NewGuid(), CancellationToken.None));
-        Assert.IsType<PageResult>(await emptyEvent.OnGetAsync(eventWithoutVersions.Id, CancellationToken.None));
-        Assert.Equal("1.0.0", emptyEvent.Input.Version);
-        Assert.IsType<PageResult>(await nonSemanticEvent.OnGetAsync(eventWithNonSemanticVersion.Id, CancellationToken.None));
-        Assert.Equal("preview.1", nonSemanticEvent.Input.Version);
-        Assert.IsType<NotFoundResult>(await missingCommand.OnGetAsync(Guid.NewGuid(), CancellationToken.None));
+        Assert.IsType<PageResult>(await model.OnGetAsync(eventWithNonSemanticVersion.Id, CancellationToken.None));
+        Assert.Equal("preview.1", model.Input.Version);
     }
 
     [Fact]
-    public async Task EventViewCoversSelectionSearchJsonAndTransitionBranches()
+    public async Task CommandNewVersionReturnsNotFoundForMissingCommand()
     {
-        var eventDefinition = CreateEvent();
+        var model = new CommandNewVersionModel(new CommandServiceFake(), new SchemaTypeServiceFake(), new MetadataFieldServiceFake());
+
+        Assert.IsType<NotFoundResult>(await model.OnGetAsync(Guid.NewGuid(), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task EventViewReturnsNotFoundWhenIdIsMissingOrEventDoesNotExist()
+    {
         var promotion = new PromotionServiceFake();
         var artifactBuilder = new ArtifactBuilderFake();
-        var model = new EventViewModel(new EventServiceFake([eventDefinition]), promotion, artifactBuilder)
+        var model = new EventViewModel(new EventServiceFake(), promotion, artifactBuilder);
+
+        Assert.IsType<NotFoundResult>(await model.OnGetAsync(null, null, CancellationToken.None));
+        Assert.IsType<NotFoundResult>(await model.OnGetAsync(Guid.NewGuid(), null, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task EventViewSelectsVersionFiltersSearchAndFormatsPayload()
+    {
+        var eventDefinition = CreateEvent();
+        var model = new EventViewModel(new EventServiceFake([eventDefinition]), new PromotionServiceFake(), new ArtifactBuilderFake())
         {
             Search = " draft "
         };
 
-        Assert.IsType<NotFoundResult>(await model.OnGetAsync(null, null, CancellationToken.None));
-        Assert.IsType<NotFoundResult>(await new EventViewModel(new EventServiceFake(), promotion, artifactBuilder).OnGetAsync(Guid.NewGuid(), null, CancellationToken.None));
+        Assert.IsType<PageResult>(await model.OnGetAsync(eventDefinition.Id, "1.0.0", CancellationToken.None));
 
-        var result = await model.OnGetAsync(eventDefinition.Id, "1.0.0", CancellationToken.None);
-        var selected = Assert.IsType<PageResult>(result);
-
-        Assert.NotNull(selected);
         Assert.Equal("1.0.0", model.SelectedVersion?.VersionNumber);
         Assert.Single(model.Versions);
         Assert.Contains(Environment.NewLine, model.FormattedPayloadSchemaJson);
         Assert.Contains(ContractVersionStatus.InReview, model.AllowedTargets);
         Assert.Equal("{}", EventViewModel.FormatJson(""));
         Assert.Equal("{", EventViewModel.FormatJson("{"));
+    }
+
+    [Fact]
+    public async Task EventViewTransitionToReviewDoesNotBuildArtifact()
+    {
+        var eventDefinition = CreateEvent();
+        var promotion = new PromotionServiceFake();
+        var artifactBuilder = new ArtifactBuilderFake();
+        var model = new EventViewModel(new EventServiceFake([eventDefinition]), promotion, artifactBuilder);
 
         var redirect = Assert.IsType<RedirectToPageResult>(
             await model.OnPostTransitionAsync(eventDefinition.Id, eventDefinition.Versions.First().Id, ContractVersionStatus.InReview, CancellationToken.None));
+
         Assert.Equal(eventDefinition.Id, redirect.RouteValues?["id"]);
         Assert.Contains("InReview", model.StatusMessage);
         Assert.Equal(ContractVersionStatus.InReview, promotion.LastEventTarget);
         Assert.False(artifactBuilder.EventArtifactWasBuilt);
+    }
+
+    [Fact]
+    public async Task EventViewTransitionToDeployedBuildsArtifact()
+    {
+        var eventDefinition = CreateEvent();
+        var artifactBuilder = new ArtifactBuilderFake();
+        var model = new EventViewModel(new EventServiceFake([eventDefinition]), new PromotionServiceFake(), artifactBuilder);
 
         await model.OnPostTransitionAsync(eventDefinition.Id, eventDefinition.Versions.First().Id, ContractVersionStatus.Deployed, CancellationToken.None);
+
         Assert.True(artifactBuilder.EventArtifactWasBuilt);
         Assert.Contains("events.customer.created@1.0.0", model.StatusMessage);
+    }
 
-        promotion.Exception = new InvalidOperationException("invalid transition");
+    [Fact]
+    public async Task EventViewTransitionReportsPromotionFailure()
+    {
+        var eventDefinition = CreateEvent();
+        var promotion = new PromotionServiceFake { Exception = new InvalidOperationException("invalid transition") };
+        var model = new EventViewModel(new EventServiceFake([eventDefinition]), promotion, new ArtifactBuilderFake());
+
         await model.OnPostTransitionAsync(eventDefinition.Id, eventDefinition.Versions.First().Id, ContractVersionStatus.Archived, CancellationToken.None);
+
         Assert.Equal("invalid transition", model.StatusMessage);
     }
 
     [Fact]
-    public async Task EventVersionCoversLoadAndTransitionBranches()
+    public async Task EventVersionReturnsNotFoundForMissingEventOrVersion()
     {
         var eventDefinition = CreateEvent();
         var version = eventDefinition.Versions.First();
-        var promotion = new PromotionServiceFake();
-        var artifactBuilder = new ArtifactBuilderFake();
-        var model = new EventVersionModel(new EventServiceFake([eventDefinition]), promotion, artifactBuilder);
+        var model = new EventVersionModel(new EventServiceFake([eventDefinition]), new PromotionServiceFake(), new ArtifactBuilderFake());
 
         Assert.IsType<NotFoundResult>(await model.OnGetAsync(Guid.NewGuid(), version.Id, CancellationToken.None));
         Assert.IsType<NotFoundResult>(await model.OnGetAsync(eventDefinition.Id, Guid.NewGuid(), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task EventVersionLoadsSelectedVersionAndFormatsPayload()
+    {
+        var eventDefinition = CreateEvent();
+        var version = eventDefinition.Versions.First();
+        var model = new EventVersionModel(new EventServiceFake([eventDefinition]), new PromotionServiceFake(), new ArtifactBuilderFake());
 
         Assert.IsType<PageResult>(await model.OnGetAsync(eventDefinition.Id, version.Id, CancellationToken.None));
+
         Assert.Equal(version.Id, model.Version?.Id);
         Assert.Contains(Environment.NewLine, model.FormattedPayloadSchemaJson);
         Assert.Equal("{}", EventVersionModel.FormatJson(null));
         Assert.Equal("{", EventVersionModel.FormatJson("{"));
+    }
+
+    [Fact]
+    public async Task EventVersionTransitionBuildsArtifactForDeployedStatus()
+    {
+        var eventDefinition = CreateEvent();
+        var version = eventDefinition.Versions.First();
+        var artifactBuilder = new ArtifactBuilderFake();
+        var model = new EventVersionModel(new EventServiceFake([eventDefinition]), new PromotionServiceFake(), artifactBuilder);
 
         var redirect = Assert.IsType<RedirectToPageResult>(
             await model.OnPostTransitionAsync(eventDefinition.Id, version.Id, ContractVersionStatus.Deployed, CancellationToken.None));
+
         Assert.Equal(eventDefinition.Id, redirect.RouteValues?["id"]);
         Assert.Equal(version.Id, redirect.RouteValues?["versionId"]);
         Assert.True(artifactBuilder.EventArtifactWasBuilt);
         Assert.Contains("Artifact generated", model.StatusMessage);
+    }
 
-        promotion.Exception = new KeyNotFoundException("missing version");
+    [Fact]
+    public async Task EventVersionTransitionReportsPromotionFailure()
+    {
+        var eventDefinition = CreateEvent();
+        var version = eventDefinition.Versions.First();
+        var promotion = new PromotionServiceFake { Exception = new KeyNotFoundException("missing version") };
+        var model = new EventVersionModel(new EventServiceFake([eventDefinition]), promotion, new ArtifactBuilderFake());
+
         await model.OnPostTransitionAsync(eventDefinition.Id, version.Id, ContractVersionStatus.Archived, CancellationToken.None);
+
         Assert.Equal("missing version", model.StatusMessage);
     }
 
     [Fact]
-    public async Task CommandViewFormatsFiltersAndTransitionsVersions()
+    public async Task CommandViewReturnsNotFoundWhenIdIsMissingOrCommandDoesNotExist()
+    {
+        var model = new CommandViewModel(new CommandServiceFake(), new PromotionServiceFake(), new ArtifactBuilderFake());
+
+        Assert.IsType<NotFoundResult>(await model.OnGetAsync(null, null, CancellationToken.None));
+        Assert.IsType<NotFoundResult>(await model.OnGetAsync(Guid.NewGuid(), null, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CommandViewSelectsVersionFiltersSearchAndFormatsSchemas()
     {
         var command = CreateCommand();
-        var promotion = new PromotionServiceFake();
-        var artifactBuilder = new ArtifactBuilderFake();
-        var commands = new CommandServiceFake([command]);
-        var view = new CommandViewModel(commands, promotion, artifactBuilder)
+        var view = new CommandViewModel(new CommandServiceFake([command]), new PromotionServiceFake(), new ArtifactBuilderFake())
         {
             Search = " request and reply "
         };
 
-        Assert.IsType<NotFoundResult>(await view.OnGetAsync(null, null, CancellationToken.None));
-        Assert.IsType<NotFoundResult>(await new CommandViewModel(new CommandServiceFake(), promotion, artifactBuilder).OnGetAsync(Guid.NewGuid(), null, CancellationToken.None));
-
         Assert.IsType<PageResult>(await view.OnGetAsync(command.Id, "1.0.0", CancellationToken.None));
+
         Assert.Single(view.Versions);
         Assert.Contains(Environment.NewLine, view.FormattedPayloadSchemaJson);
         Assert.Contains(Environment.NewLine, view.FormattedReplyPayloadSchemaJson);
         Assert.Equal("{}", CommandViewModel.FormatJson(null));
         Assert.Equal("{", CommandViewModel.FormatJson("{"));
+    }
+
+    [Fact]
+    public async Task CommandViewTransitionToDeployedBuildsArtifact()
+    {
+        var command = CreateCommand();
+        var artifactBuilder = new ArtifactBuilderFake();
+        var view = new CommandViewModel(new CommandServiceFake([command]), new PromotionServiceFake(), artifactBuilder);
 
         await view.OnPostTransitionAsync(command.Id, command.Versions.First().Id, ContractVersionStatus.Deployed, CancellationToken.None);
+
         Assert.True(artifactBuilder.CommandArtifactWasBuilt);
         Assert.Contains("commands.customer.register@1.0.0", view.StatusMessage);
+    }
 
-        promotion.Exception = new InvalidOperationException("blocked");
+    [Fact]
+    public async Task CommandViewTransitionReportsPromotionFailure()
+    {
+        var command = CreateCommand();
+        var promotion = new PromotionServiceFake { Exception = new InvalidOperationException("blocked") };
+        var view = new CommandViewModel(new CommandServiceFake([command]), promotion, new ArtifactBuilderFake());
+
         await view.OnPostTransitionAsync(command.Id, command.Versions.First().Id, ContractVersionStatus.Archived, CancellationToken.None);
+
         Assert.Equal("blocked", view.StatusMessage);
     }
 
     [Fact]
-    public async Task CommandVersionLoadsFormatsAndTransitionsVersion()
+    public async Task CommandVersionReturnsNotFoundForMissingCommandOrVersion()
     {
         var command = CreateCommand();
-        var commands = new CommandServiceFake([command]);
         var version = command.Versions.First();
-        var versionModel = new CommandVersionModel(commands, new PromotionServiceFake(), new ArtifactBuilderFake());
+        var versionModel = new CommandVersionModel(new CommandServiceFake([command]), new PromotionServiceFake(), new ArtifactBuilderFake());
+
         Assert.IsType<NotFoundResult>(await versionModel.OnGetAsync(Guid.NewGuid(), version.Id, CancellationToken.None));
         Assert.IsType<NotFoundResult>(await versionModel.OnGetAsync(command.Id, Guid.NewGuid(), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CommandVersionLoadsSelectedVersionAndFormatsSchemas()
+    {
+        var command = CreateCommand();
+        var version = command.Versions.First();
+        var versionModel = new CommandVersionModel(new CommandServiceFake([command]), new PromotionServiceFake(), new ArtifactBuilderFake());
+
         Assert.IsType<PageResult>(await versionModel.OnGetAsync(command.Id, version.Id, CancellationToken.None));
+
         Assert.Equal(version.Id, versionModel.Version?.Id);
         Assert.Equal("{}", CommandVersionModel.FormatJson(""));
         Assert.Equal("{", CommandVersionModel.FormatJson("{"));
+    }
 
-        var versionPromotion = new PromotionServiceFake();
-        var versionArtifactBuilder = new ArtifactBuilderFake();
-        versionModel = new CommandVersionModel(commands, versionPromotion, versionArtifactBuilder);
+    [Fact]
+    public async Task CommandVersionTransitionToReviewDoesNotBuildArtifact()
+    {
+        var command = CreateCommand();
+        var version = command.Versions.First();
+        var artifactBuilder = new ArtifactBuilderFake();
+        var versionModel = new CommandVersionModel(new CommandServiceFake([command]), new PromotionServiceFake(), artifactBuilder);
+
         var versionRedirect = Assert.IsType<RedirectToPageResult>(
             await versionModel.OnPostTransitionAsync(command.Id, version.Id, ContractVersionStatus.InReview, CancellationToken.None));
+
         Assert.Equal(command.Id, versionRedirect.RouteValues?["id"]);
         Assert.Equal(version.Id, versionRedirect.RouteValues?["versionId"]);
         Assert.Contains("InReview", versionModel.StatusMessage);
+        Assert.False(artifactBuilder.CommandArtifactWasBuilt);
+    }
+
+    [Fact]
+    public async Task CommandVersionTransitionToDeployedBuildsArtifact()
+    {
+        var command = CreateCommand();
+        var version = command.Versions.First();
+        var artifactBuilder = new ArtifactBuilderFake();
+        var versionModel = new CommandVersionModel(new CommandServiceFake([command]), new PromotionServiceFake(), artifactBuilder);
 
         await versionModel.OnPostTransitionAsync(command.Id, version.Id, ContractVersionStatus.Deployed, CancellationToken.None);
-        Assert.True(versionArtifactBuilder.CommandArtifactWasBuilt);
-        Assert.Contains("Artifact generated", versionModel.StatusMessage);
 
-        versionPromotion.Exception = new KeyNotFoundException("missing command version");
+        Assert.True(artifactBuilder.CommandArtifactWasBuilt);
+        Assert.Contains("Artifact generated", versionModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task CommandVersionTransitionReportsPromotionFailure()
+    {
+        var command = CreateCommand();
+        var version = command.Versions.First();
+        var promotion = new PromotionServiceFake { Exception = new KeyNotFoundException("missing command version") };
+        var versionModel = new CommandVersionModel(new CommandServiceFake([command]), promotion, new ArtifactBuilderFake());
+
         await versionModel.OnPostTransitionAsync(command.Id, version.Id, ContractVersionStatus.Archived, CancellationToken.None);
+
         Assert.Equal("missing command version", versionModel.StatusMessage);
     }
 
@@ -467,7 +603,7 @@ public sealed class ControlPlanePageModelFlowCoverageTests
     }
 
     [Fact]
-    public async Task RuntimeEnvironmentIndexCoversSearchCreateUpdateAndValidationBranches()
+    public async Task RuntimeEnvironmentIndexSearchFiltersAndKeepsTotalCount()
     {
         var existing = new RuntimeEnvironment
         {
@@ -476,21 +612,32 @@ public sealed class ControlPlanePageModelFlowCoverageTests
             Description = "Primary",
             IsEnabled = true
         };
-        var repository = new RuntimeEnvironmentRepositoryFake([existing]);
-        var model = new RuntimeEnvironmentIndexModel(repository)
+        var model = new RuntimeEnvironmentIndexModel(new RuntimeEnvironmentRepositoryFake([existing]))
         {
             Search = " disabled "
         };
 
         await model.OnGetAsync(CancellationToken.None);
+
         Assert.Empty(model.Environments);
         Assert.Equal(1, model.TotalEnvironments);
+    }
 
+    [Fact]
+    public async Task RuntimeEnvironmentIndexInvalidPostKeepsModalOpen()
+    {
+        var model = new RuntimeEnvironmentIndexModel(new RuntimeEnvironmentRepositoryFake([]));
         model.ModelState.AddModelError("Input.Name", "bad");
+
         Assert.IsType<PageResult>(await model.OnPostAsync(CancellationToken.None));
         Assert.True(model.ShowEnvironmentModal);
+    }
 
-        var create = new RuntimeEnvironmentIndexModel(repository)
+    [Fact]
+    public async Task RuntimeEnvironmentIndexCreatesTrimmedEnvironment()
+    {
+        var repository = new RuntimeEnvironmentRepositoryFake([]);
+        var model = new RuntimeEnvironmentIndexModel(repository)
         {
             Input = new RuntimeEnvironmentInput
             {
@@ -500,13 +647,25 @@ public sealed class ControlPlanePageModelFlowCoverageTests
                 IsEnabled = false
             }
         };
-        Assert.IsType<RedirectToPageResult>(await create.OnPostAsync(CancellationToken.None));
+
+        Assert.IsType<RedirectToPageResult>(await model.OnPostAsync(CancellationToken.None));
         Assert.Equal("QA", repository.Environments.Last().Name);
         Assert.Equal("qa", repository.Environments.Last().Code);
         Assert.Null(repository.Environments.Last().Description);
         Assert.False(repository.Environments.Last().IsEnabled);
+    }
 
-        var update = new RuntimeEnvironmentIndexModel(repository)
+    [Fact]
+    public async Task RuntimeEnvironmentIndexUpdatesExistingEnvironment()
+    {
+        var existing = new RuntimeEnvironment
+        {
+            Name = "Production",
+            Code = "prod",
+            Description = "Primary",
+            IsEnabled = true
+        };
+        var model = new RuntimeEnvironmentIndexModel(new RuntimeEnvironmentRepositoryFake([existing]))
         {
             Input = new RuntimeEnvironmentInput
             {
@@ -517,23 +676,77 @@ public sealed class ControlPlanePageModelFlowCoverageTests
                 IsEnabled = false
             }
         };
-        Assert.IsType<RedirectToPageResult>(await update.OnPostAsync(CancellationToken.None));
+
+        Assert.IsType<RedirectToPageResult>(await model.OnPostAsync(CancellationToken.None));
         Assert.Equal("Production Updated", existing.Name);
         Assert.Equal("prod2", existing.Code);
         Assert.Equal("Updated", existing.Description);
         Assert.False(existing.IsEnabled);
-
-        var missing = new RuntimeEnvironmentIndexModel(repository)
-        {
-            Input = new RuntimeEnvironmentInput { Id = Guid.NewGuid(), Name = "Missing", Code = "missing" }
-        };
-        Assert.IsType<NotFoundResult>(await missing.OnPostAsync(CancellationToken.None));
     }
 
     [Fact]
-    public async Task MetadataFieldIndexCoversSearchInactiveVersionsAndDeactivateBranches()
+    public async Task RuntimeEnvironmentIndexReturnsNotFoundForMissingUpdate()
     {
-        var active = new ContractFieldMetadataDefinition
+        var model = new RuntimeEnvironmentIndexModel(new RuntimeEnvironmentRepositoryFake([]))
+        {
+            Input = new RuntimeEnvironmentInput { Id = Guid.NewGuid(), Name = "Missing", Code = "missing" }
+        };
+
+        Assert.IsType<NotFoundResult>(await model.OnPostAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task MetadataFieldIndexSearchesRequiredActiveFields()
+    {
+        var active = CreateActiveMetadataField();
+        var withoutActiveVersion = CreateDormantMetadataField();
+        var model = new MetadataIndexModel(new MetadataFieldServiceFake([active, withoutActiveVersion]))
+        {
+            Search = " required "
+        };
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        var item = Assert.Single(model.Fields);
+        Assert.Equal("Trace Id", item.Name);
+        Assert.Equal("string", item.DataType);
+        Assert.True(item.IsRequired);
+        Assert.Equal(2, model.TotalFields);
+    }
+
+    [Fact]
+    public async Task MetadataFieldIndexDeactivateUpdatesSelectedDefinition()
+    {
+        var active = CreateActiveMetadataField();
+        var metadata = new MetadataFieldServiceFake([active]);
+        var model = new MetadataIndexModel(metadata);
+
+        Assert.IsType<RedirectToPageResult>(await model.OnPostDeactivateAsync(active.Id, CancellationToken.None));
+        Assert.Equal(active.Id, metadata.LastUpdatedId);
+        Assert.False(metadata.LastUpdatedIsActive);
+    }
+
+    [Fact]
+    public async Task MetadataFieldIndexDeactivateIgnoresMissingDefinition()
+    {
+        var model = new MetadataIndexModel(new MetadataFieldServiceFake([]));
+
+        Assert.IsType<RedirectToPageResult>(await model.OnPostDeactivateAsync(Guid.NewGuid(), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task MetadataFieldIndexShowsInactiveDefinitionWithoutActiveVersion()
+    {
+        var withoutActiveVersion = CreateDormantMetadataField();
+        var model = new MetadataIndexModel(new MetadataFieldServiceFake([withoutActiveVersion]));
+
+        await model.OnGetAsync(CancellationToken.None);
+
+        Assert.Contains(model.Fields, x => x.Key == "dormant" && x.Version == string.Empty && x.DataType == string.Empty);
+    }
+
+    private static ContractFieldMetadataDefinition CreateActiveMetadataField()
+        => new()
         {
             Name = "Trace Id",
             Key = "trace-id",
@@ -549,7 +762,9 @@ public sealed class ControlPlanePageModelFlowCoverageTests
                 }
             }
         };
-        var withoutActiveVersion = new ContractFieldMetadataDefinition
+
+    private static ContractFieldMetadataDefinition CreateDormantMetadataField()
+        => new()
         {
             Name = "Dormant",
             Key = "dormant",
@@ -564,30 +779,6 @@ public sealed class ControlPlanePageModelFlowCoverageTests
                 }
             }
         };
-        var metadata = new MetadataFieldServiceFake([active, withoutActiveVersion]);
-        var model = new MetadataIndexModel(metadata)
-        {
-            Search = " required "
-        };
-
-        await model.OnGetAsync(CancellationToken.None);
-
-        var item = Assert.Single(model.Fields);
-        Assert.Equal("Trace Id", item.Name);
-        Assert.Equal("string", item.DataType);
-        Assert.True(item.IsRequired);
-        Assert.Equal(2, model.TotalFields);
-
-        Assert.IsType<RedirectToPageResult>(await model.OnPostDeactivateAsync(active.Id, CancellationToken.None));
-        Assert.Equal(active.Id, metadata.LastUpdatedId);
-        Assert.False(metadata.LastUpdatedIsActive);
-
-        Assert.IsType<RedirectToPageResult>(await model.OnPostDeactivateAsync(Guid.NewGuid(), CancellationToken.None));
-
-        var allModel = new MetadataIndexModel(metadata);
-        await allModel.OnGetAsync(CancellationToken.None);
-        Assert.Contains(allModel.Fields, x => x.Key == "dormant" && x.Version == string.Empty && x.DataType == string.Empty);
-    }
 
     private static EventDefinition CreateEvent()
     {

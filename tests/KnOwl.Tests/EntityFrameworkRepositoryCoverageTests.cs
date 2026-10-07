@@ -26,68 +26,111 @@ namespace KnOwl.Tests;
 public sealed class EntityFrameworkRepositoryCoverageTests
 {
     [Fact]
-    public async Task ControlPlaneDesignRepositoriesPersistHydrateAndUpdateVersionState()
+    public async Task EventRepositoryPersistsVersionLifecycleAndSoftDelete()
     {
         await using var db = CreateControlPlaneContext();
-        var eventRepository = new EventRepository(db);
-        var commandRepository = new CommandRepository(db);
-        var schemaRepository = new SchemaTypeRepository(db);
-        var metadataRepository = new ContractFieldMetadataRepository(db);
+        var repository = new EventRepository(db);
         var now = DateTime.UtcNow;
+        var definition = new EventDefinition { Name = "Customer Created", Topic = "customer.created", Description = "Created" };
 
-        var eventDefinition = new EventDefinition { Name = "Customer Created", Topic = "customer.created", Description = "Created" };
-        await eventRepository.Create(eventDefinition);
-        var newEventVersion = new EventVersion { VersionNumber = "1.0.0", PayloadSchemaJson = "{}", Status = ContractVersionStatus.Draft };
-        await eventRepository.AddVersion(eventDefinition.Id, newEventVersion);
+        await repository.Create(definition);
+        await repository.AddVersion(definition.Id, new EventVersion { VersionNumber = "1.0.0", PayloadSchemaJson = "{}", Status = ContractVersionStatus.Draft });
         db.ChangeTracker.Clear();
-        await eventRepository.UpdateDefinition(eventDefinition.Id, "Customer Updated", "customer.updated", null, now);
-        var eventVersion = Assert.Single((await eventRepository.GetById(eventDefinition.Id, includeVersions: true))!.Versions);
+        await repository.UpdateDefinition(definition.Id, "Customer Updated", "customer.updated", null, now);
+        var version = Assert.Single((await repository.GetById(definition.Id, includeVersions: true))!.Versions);
         db.ChangeTracker.Clear();
-        await eventRepository.UpdateDraftVersion(eventVersion.Id, """{"type":"object"}""", "Draft", now);
-        await eventRepository.UpdateVersionStatus(eventVersion.Id, ContractVersionStatus.InReview, now);
-        await eventRepository.UpdateVersionStatus(eventVersion.Id, ContractVersionStatus.Approved, now);
-        await eventRepository.UpdateVersionStatus(eventVersion.Id, ContractVersionStatus.Deployed, now);
-        await eventRepository.UpdateVersionStatus(eventVersion.Id, ContractVersionStatus.Deprecated, now);
-        await eventRepository.UpdateVersionStatus(eventVersion.Id, ContractVersionStatus.Archived, now);
-        await eventRepository.Delete(eventDefinition.Id);
+        await repository.UpdateDraftVersion(version.Id, """{"type":"object"}""", "Draft", now);
+        await repository.UpdateVersionStatus(version.Id, ContractVersionStatus.InReview, now);
+        await repository.UpdateVersionStatus(version.Id, ContractVersionStatus.Approved, now);
+        await repository.UpdateVersionStatus(version.Id, ContractVersionStatus.Deployed, now);
+        await repository.UpdateVersionStatus(version.Id, ContractVersionStatus.Deprecated, now);
+        await repository.UpdateVersionStatus(version.Id, ContractVersionStatus.Archived, now);
+        await repository.Delete(definition.Id);
 
+        Assert.NotEmpty(await repository.GetAllWithVersions());
+        Assert.NotNull(await repository.GetVersionById(version.Id));
+        Assert.True(await repository.VersionExists(definition.Id, "1.0.0"));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => repository.UpdateDefinition(Guid.NewGuid(), "x", "x", null, now));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => repository.UpdateVersionStatus(Guid.NewGuid(), ContractVersionStatus.InReview, now));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => repository.UpdateDraftVersion(Guid.NewGuid(), "{}", "Missing", now));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => repository.UpdateDraftVersion(version.Id, "{}", "Not draft", now));
+        Assert.Null(await repository.GetById(Guid.NewGuid(), includeVersions: true));
+    }
+
+    [Fact]
+    public async Task CommandRepositoryPersistsVersionLifecycleAndSoftDelete()
+    {
+        await using var db = CreateControlPlaneContext();
+        var repository = new CommandRepository(db);
+        var now = DateTime.UtcNow;
         var command = new CommandDefinition { Name = "Create Customer", Topic = "customer.create", Description = "Create" };
-        await commandRepository.Create(command);
-        var newCommandVersion = new CommandVersion { VersionNumber = "1.0.0", PayloadSchemaJson = "{}", Status = ContractVersionStatus.Draft };
-        await commandRepository.AddVersion(command.Id, newCommandVersion);
-        db.ChangeTracker.Clear();
-        await commandRepository.UpdateDefinition(command.Id, "Create Customer V2", "customer.create.v2", "Updated", now);
-        var commandVersion = Assert.Single((await commandRepository.GetById(command.Id, includeVersions: true))!.Versions);
-        db.ChangeTracker.Clear();
-        await commandRepository.UpdateDraftVersion(commandVersion.Id, """{"request":true}""", """{"reply":true}""", "Draft", now);
-        await commandRepository.UpdateVersionStatus(commandVersion.Id, ContractVersionStatus.InReview, now);
-        await commandRepository.UpdateVersionStatus(commandVersion.Id, ContractVersionStatus.Approved, now);
-        await commandRepository.UpdateVersionStatus(commandVersion.Id, ContractVersionStatus.Deployed, now);
-        await commandRepository.UpdateVersionStatus(commandVersion.Id, ContractVersionStatus.Deprecated, now);
-        await commandRepository.UpdateVersionStatus(commandVersion.Id, ContractVersionStatus.Archived, now);
-        Assert.NotEmpty(await commandRepository.GetAllWithVersions());
-        await commandRepository.Delete(command.Id);
 
+        await repository.Create(command);
+        await repository.AddVersion(command.Id, new CommandVersion { VersionNumber = "1.0.0", PayloadSchemaJson = "{}", Status = ContractVersionStatus.Draft });
+        db.ChangeTracker.Clear();
+        await repository.UpdateDefinition(command.Id, "Create Customer V2", "customer.create.v2", "Updated", now);
+        var version = Assert.Single((await repository.GetById(command.Id, includeVersions: true))!.Versions);
+        db.ChangeTracker.Clear();
+        await repository.UpdateDraftVersion(version.Id, """{"request":true}""", """{"reply":true}""", "Draft", now);
+        await repository.UpdateVersionStatus(version.Id, ContractVersionStatus.InReview, now);
+        await repository.UpdateVersionStatus(version.Id, ContractVersionStatus.Approved, now);
+        await repository.UpdateVersionStatus(version.Id, ContractVersionStatus.Deployed, now);
+        await repository.UpdateVersionStatus(version.Id, ContractVersionStatus.Deprecated, now);
+        await repository.UpdateVersionStatus(version.Id, ContractVersionStatus.Archived, now);
+        Assert.NotEmpty(await repository.GetAllWithVersions());
+        await repository.Delete(command.Id);
+
+        Assert.NotNull(await repository.GetVersionById(version.Id));
+        Assert.True(await repository.VersionExists(command.Id, "1.0.0"));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => repository.AddVersion(Guid.NewGuid(), new CommandVersion { VersionNumber = "9.9.9", PayloadSchemaJson = "{}" }));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => repository.UpdateVersionStatus(Guid.NewGuid(), ContractVersionStatus.InReview, now));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => repository.UpdateDraftVersion(Guid.NewGuid(), "{}", null, "Missing", now));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => repository.UpdateDraftVersion(version.Id, "{}", null, "Not draft", now));
+        Assert.Null(await repository.GetById(Guid.NewGuid(), includeVersions: true));
+    }
+
+    [Fact]
+    public async Task SchemaTypeRepositoryPersistsActiveVersionsAndKeyChecks()
+    {
+        await using var db = CreateControlPlaneContext();
+        var repository = new SchemaTypeRepository(db);
+        var now = DateTime.UtcNow;
         var schema = new SchemaTypeDefinition { Key = "customer-ref", Name = "Customer Ref", Description = "Ref", IsActive = true };
-        await schemaRepository.Create(schema);
-        var newSchemaVersion = new SchemaTypeVersion { VersionNumber = "1.0.0", DefinitionJson = "{}", IsActive = true };
-        await schemaRepository.AddVersion(schema.Id, newSchemaVersion);
-        db.ChangeTracker.Clear();
-        var activeSchemaVersion = Assert.Single(await schemaRepository.GetActiveVersionsWithDefinitions());
-        Assert.Equal(schema.Id, activeSchemaVersion.SchemaTypeDefinitionId);
-        Assert.NotNull(activeSchemaVersion.SchemaTypeDefinition);
-        Assert.NotNull(await schemaRepository.GetVersionById(activeSchemaVersion.Id));
-        db.ChangeTracker.Clear();
-        await schemaRepository.UpdateDefinition(schema.Id, "customer-ref", "Customer Reference", null, false, now);
-        var schemaVersion = Assert.Single((await schemaRepository.GetById(schema.Id, includeVersions: true))!.Versions);
-        db.ChangeTracker.Clear();
-        await schemaRepository.SetVersionActive(schema.Id, schemaVersion.Id, false, now);
 
+        await repository.Create(schema);
+        await repository.AddVersion(schema.Id, new SchemaTypeVersion { VersionNumber = "1.0.0", DefinitionJson = "{}", IsActive = true });
+        db.ChangeTracker.Clear();
+        var activeVersion = Assert.Single(await repository.GetActiveVersionsWithDefinitions());
+        Assert.Equal(schema.Id, activeVersion.SchemaTypeDefinitionId);
+        Assert.NotNull(activeVersion.SchemaTypeDefinition);
+        Assert.NotNull(await repository.GetVersionById(activeVersion.Id));
+        db.ChangeTracker.Clear();
+        await repository.UpdateDefinition(schema.Id, "customer-ref", "Customer Reference", null, false, now);
+        var version = Assert.Single((await repository.GetById(schema.Id, includeVersions: true))!.Versions);
+        db.ChangeTracker.Clear();
+        await repository.SetVersionActive(schema.Id, version.Id, false, now);
+
+        Assert.NotEmpty(await repository.GetAllWithVersions());
+        Assert.Empty(await repository.GetActiveVersionsWithDefinitions());
+        Assert.True(await repository.KeyExists("customer-ref"));
+        Assert.False(await repository.KeyExists("customer-ref", schema.Id));
+        Assert.True(await repository.VersionExists(schema.Id, "1.0.0"));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => repository.UpdateDefinition(Guid.NewGuid(), "x", "x", null, true, now));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => repository.SetVersionActive(schema.Id, Guid.NewGuid(), true, now));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => repository.SetVersionActive(Guid.NewGuid(), Guid.NewGuid(), true, now));
+    }
+
+    [Fact]
+    public async Task MetadataRepositoryUpsertsVersionsAndActiveState()
+    {
+        await using var db = CreateControlPlaneContext();
+        var repository = new ContractFieldMetadataRepository(db);
+        var now = DateTime.UtcNow;
         var metadata = new ContractFieldMetadataDefinition { Key = "trace-id", Name = "Trace Id", Description = "Trace", IsActive = true };
-        await metadataRepository.Create(metadata);
-        var newMetadataVersion = new ContractFieldMetadataVersion { VersionNumber = "1.0.0", DefinitionJson = "{}", IsActive = true };
-        await metadataRepository.UpsertVersion(metadata.Id, newMetadataVersion);
-        await metadataRepository.UpsertVersion(metadata.Id, new ContractFieldMetadataVersion
+
+        await repository.Create(metadata);
+        await repository.UpsertVersion(metadata.Id, new ContractFieldMetadataVersion { VersionNumber = "1.0.0", DefinitionJson = "{}", IsActive = true });
+        await repository.UpsertVersion(metadata.Id, new ContractFieldMetadataVersion
         {
             VersionNumber = "1.0.0",
             DefinitionJson = """{"dataType":"string"}""",
@@ -96,116 +139,50 @@ public sealed class EntityFrameworkRepositoryCoverageTests
             UpdatedAtUtc = now
         });
         db.ChangeTracker.Clear();
-        await metadataRepository.UpdateDefinition(metadata.Id, "trace-id", "Trace", null, false, now);
-        var metadataVersion = Assert.Single((await metadataRepository.GetById(metadata.Id, includeVersions: true))!.Versions);
-        Assert.Equal("Updated existing metadata version", metadataVersion.Comment);
+        await repository.UpdateDefinition(metadata.Id, "trace-id", "Trace", null, false, now);
+        var version = Assert.Single((await repository.GetById(metadata.Id, includeVersions: true))!.Versions);
+        Assert.Equal("Updated existing metadata version", version.Comment);
         db.ChangeTracker.Clear();
-        await metadataRepository.SetVersionActive(metadata.Id, metadataVersion.Id, false, now);
+        await repository.SetVersionActive(metadata.Id, version.Id, false, now);
 
-        Assert.NotEmpty(await eventRepository.GetAllWithVersions());
-        Assert.NotNull(await eventRepository.GetVersionById(eventVersion.Id));
-        Assert.True(await eventRepository.VersionExists(eventDefinition.Id, "1.0.0"));
-        Assert.NotNull(await commandRepository.GetVersionById(commandVersion.Id));
-        Assert.True(await commandRepository.VersionExists(command.Id, "1.0.0"));
-        Assert.NotEmpty(await schemaRepository.GetAllWithVersions());
-        Assert.Empty(await schemaRepository.GetActiveVersionsWithDefinitions());
-        Assert.True(await schemaRepository.KeyExists("customer-ref"));
-        Assert.False(await schemaRepository.KeyExists("customer-ref", schema.Id));
-        Assert.True(await schemaRepository.VersionExists(schema.Id, "1.0.0"));
-        Assert.NotEmpty(await metadataRepository.GetAllWithVersions());
-        Assert.Empty(await metadataRepository.GetActiveWithVersions());
-        Assert.True(await metadataRepository.KeyExists("trace-id"));
-        Assert.False(await metadataRepository.KeyExists("trace-id", metadata.Id));
-        Assert.True(await metadataRepository.VersionExists(metadata.Id, "1.0.0"));
-
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => eventRepository.UpdateDefinition(Guid.NewGuid(), "x", "x", null, now));
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => eventRepository.UpdateVersionStatus(Guid.NewGuid(), ContractVersionStatus.InReview, now));
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => eventRepository.UpdateDraftVersion(Guid.NewGuid(), "{}", "Missing", now));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => eventRepository.UpdateDraftVersion(eventVersion.Id, "{}", "Not draft", now));
-        Assert.Null(await eventRepository.GetById(Guid.NewGuid(), includeVersions: true));
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => commandRepository.AddVersion(Guid.NewGuid(), new CommandVersion { VersionNumber = "9.9.9", PayloadSchemaJson = "{}" }));
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => commandRepository.UpdateVersionStatus(Guid.NewGuid(), ContractVersionStatus.InReview, now));
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => commandRepository.UpdateDraftVersion(Guid.NewGuid(), "{}", null, "Missing", now));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => commandRepository.UpdateDraftVersion(commandVersion.Id, "{}", null, "Not draft", now));
-        Assert.Null(await commandRepository.GetById(Guid.NewGuid(), includeVersions: true));
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => schemaRepository.UpdateDefinition(Guid.NewGuid(), "x", "x", null, true, now));
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => schemaRepository.SetVersionActive(schema.Id, Guid.NewGuid(), true, now));
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => schemaRepository.SetVersionActive(Guid.NewGuid(), Guid.NewGuid(), true, now));
-        Assert.Null(await metadataRepository.GetById(Guid.NewGuid(), includeVersions: true));
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => metadataRepository.SetVersionActive(Guid.NewGuid(), Guid.NewGuid(), true, now));
+        Assert.NotEmpty(await repository.GetAllWithVersions());
+        Assert.Empty(await repository.GetActiveWithVersions());
+        Assert.True(await repository.KeyExists("trace-id"));
+        Assert.False(await repository.KeyExists("trace-id", metadata.Id));
+        Assert.True(await repository.VersionExists(metadata.Id, "1.0.0"));
+        Assert.Null(await repository.GetById(Guid.NewGuid(), includeVersions: true));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => repository.SetVersionActive(Guid.NewGuid(), Guid.NewGuid(), true, now));
     }
 
     [Fact]
-    public async Task ControlPlaneDistributionRepositoriesHydrateAndUpdateReleaseGraph()
+    public async Task ContractArtifactRepositoryPersistsAndQueriesDeployedArtifacts()
     {
         await using var db = CreateControlPlaneContext();
-        var artifactRepository = new ContractArtifactRepository(db);
-        var environmentRepository = new RuntimeEnvironmentRepository(db);
-        var nodeRepository = new RuntimeNodeRepository(db);
-        var releaseRepository = new ContractReleaseRepository(db);
-        var targetRepository = new ContractReleaseTargetRepository(db);
-        var now = DateTime.UtcNow;
-
+        var repository = new ContractArtifactRepository(db);
         var artifact = CreateArtifact("customer.created", ContractVersionStatus.Deployed.ToString());
-        await artifactRepository.Create(artifact);
+
+        await repository.Create(artifact);
+
+        Assert.NotEmpty(await repository.GetAll());
+        Assert.NotEmpty(await repository.GetDeployed());
+        Assert.NotNull(await repository.GetById(artifact.Id));
+        Assert.Single(await repository.GetByIds([artifact.Id]));
+        Assert.NotNull(await repository.GetBySourceVersion(artifact.ArtifactType, artifact.VersionId));
+        Assert.NotNull(await repository.GetByIdentity(artifact.ArtifactType, artifact.Topic, artifact.VersionNumber));
+        Assert.NotNull(await repository.GetDeployedByIdentity(artifact.ArtifactType, artifact.Topic, artifact.VersionNumber));
+        Assert.NotNull(await repository.GetLatestDeployed(artifact.ArtifactType, artifact.Topic));
+    }
+
+    [Fact]
+    public async Task RuntimeEnvironmentRepositoryUpdatesAndFiltersEnabledEnvironments()
+    {
+        await using var db = CreateControlPlaneContext();
+        var repository = new RuntimeEnvironmentRepository(db);
         var environment = new RuntimeEnvironment { Name = "Development", Code = "dev", IsEnabled = true };
-        await environmentRepository.Create(environment);
-        var node = CreateRuntimeNode(environment);
-        await nodeRepository.Create(node);
-        var release = new ContractRelease { Name = "Release 1", Description = "Release", CreatedAtUtc = now.AddMinutes(-5) };
-        var item = new ContractReleaseItem { Id = Guid.NewGuid(), ReleaseId = release.Id, ArtifactId = artifact.Id, CreatedAtUtc = now };
-        var target = new ContractReleaseTarget
-        {
-            Id = Guid.NewGuid(),
-            ReleaseId = release.Id,
-            ReleaseItemId = item.Id,
-            RuntimeNodeId = node.Id,
-            ArtifactId = artifact.Id,
-            RolloutGroup = "default",
-            Status = ContractReleaseTargetStatus.AvailableForPull,
-            ActivationStatus = ContractReleaseActivationStatus.NotActivated,
-            AssignedAtUtc = now,
-            CorrelationId = "corr"
-        };
-        release.Items.Add(item);
-        release.Targets.Add(target);
-        await releaseRepository.Create(release);
-        await targetRepository.AddAttempt(new ContractReleaseAttempt { ReleaseTargetId = target.Id, Action = "Pull", InitiatedBy = "runtime", Succeeded = true, StartedAtUtc = now });
-        await releaseRepository.UpdateStatus(release.Id, ContractReleaseStatus.Deployed, now);
-        await releaseRepository.UpdateStatus(release.Id, ContractReleaseStatus.Completed, now);
-        await releaseRepository.UpdateStatus(release.Id, ContractReleaseStatus.Failed, now);
-        await releaseRepository.UpdateStatus(release.Id, ContractReleaseStatus.Canceled, now);
 
-        var hydratedRelease = await releaseRepository.GetById(release.Id, includeItems: true, includeTargets: true);
-        var hydratedTarget = Assert.Single(hydratedRelease!.Targets);
-        var targetList = await targetRepository.GetByRelease(release.Id);
-        var pending = await targetRepository.GetPendingForRuntimeNode(node.Id);
-        var includedTarget = await targetRepository.GetById(target.Id, includeArtifact: true);
-
-        includedTarget!.Status = ContractReleaseTargetStatus.Delivered;
-        includedTarget.RuntimeVersionApplied = "runtime-1.0.0";
-        await targetRepository.Update(includedTarget);
-        await targetRepository.CreateMany([new ContractReleaseTarget
-        {
-            Id = Guid.NewGuid(),
-            ReleaseId = release.Id,
-            ReleaseItemId = item.Id,
-            RuntimeNodeId = node.Id,
-            ArtifactId = artifact.Id,
-            RolloutGroup = "manual",
-            Status = ContractReleaseTargetStatus.PushScheduled,
-            CorrelationId = "corr-2"
-        }]);
+        await repository.Create(environment);
         db.ChangeTracker.Clear();
-        var storedNode = await nodeRepository.GetById(node.Id);
-        var allNodesBeforeDelete = await nodeRepository.GetAll();
-        var activeNodesBeforeDelete = await nodeRepository.GetActiveEnabled();
-        storedNode!.Description = "Updated runtime node";
-        await nodeRepository.Update(storedNode);
-        await nodeRepository.SetIsEnabled(node.Id, false, now);
-        await nodeRepository.Delete(node.Id, now);
-        db.ChangeTracker.Clear();
-        await environmentRepository.Update(new RuntimeEnvironment
+        await repository.Update(new RuntimeEnvironment
         {
             Id = environment.Id,
             Name = "QA",
@@ -214,43 +191,105 @@ public sealed class EntityFrameworkRepositoryCoverageTests
             CreatedAtUtc = environment.CreatedAtUtc
         });
 
-        Assert.Equal(artifact.Topic, hydratedRelease.Items.Single().Artifact!.Topic);
-        Assert.Equal(environment.Id, hydratedTarget.RuntimeNode!.Environment!.Id);
-        Assert.NotEmpty(hydratedTarget.Attempts);
-        Assert.Single(targetList);
-        Assert.Single(pending);
-        Assert.NotNull(includedTarget.Artifact);
-        Assert.NotEmpty(await releaseRepository.GetAll());
-        Assert.NotEmpty(await artifactRepository.GetAll());
-        Assert.NotEmpty(await artifactRepository.GetDeployed());
-        Assert.NotNull(await artifactRepository.GetById(artifact.Id));
-        Assert.Single(await artifactRepository.GetByIds([artifact.Id]));
-        Assert.NotNull(await artifactRepository.GetBySourceVersion(artifact.ArtifactType, artifact.VersionId));
-        Assert.NotNull(await artifactRepository.GetByIdentity(artifact.ArtifactType, artifact.Topic, artifact.VersionNumber));
-        Assert.NotNull(await artifactRepository.GetDeployedByIdentity(artifact.ArtifactType, artifact.Topic, artifact.VersionNumber));
-        Assert.NotNull(await artifactRepository.GetLatestDeployed(artifact.ArtifactType, artifact.Topic));
-        Assert.NotEmpty(await environmentRepository.GetAll());
-        Assert.Empty(await environmentRepository.GetEnabled());
-        Assert.NotNull(await environmentRepository.GetById(environment.Id));
+        Assert.NotEmpty(await repository.GetAll());
+        Assert.Empty(await repository.GetEnabled());
+        Assert.NotNull(await repository.GetById(environment.Id));
+    }
+
+    [Fact]
+    public async Task RuntimeNodeRepositoryUpdatesDisablesAndSoftDeletesNodes()
+    {
+        await using var db = CreateControlPlaneContext();
+        var environmentRepository = new RuntimeEnvironmentRepository(db);
+        var repository = new RuntimeNodeRepository(db);
+        var now = DateTime.UtcNow;
+        var environment = new RuntimeEnvironment { Name = "Development", Code = "dev", IsEnabled = true };
+        await environmentRepository.Create(environment);
+        var node = CreateRuntimeNode(environment);
+        await repository.Create(node);
+
+        db.ChangeTracker.Clear();
+        var storedNode = await repository.GetById(node.Id);
+        var allNodesBeforeDelete = await repository.GetAll();
+        var activeNodesBeforeDelete = await repository.GetActiveEnabled();
+        storedNode!.Description = "Updated runtime node";
+        await repository.Update(storedNode);
+        await repository.SetIsEnabled(node.Id, false, now);
+        await repository.Delete(node.Id, now);
+
         Assert.Single(allNodesBeforeDelete);
         Assert.Equal(environment.Id, allNodesBeforeDelete.Single().Environment?.Id);
         Assert.Single(activeNodesBeforeDelete);
         Assert.Equal(environment.Id, activeNodesBeforeDelete.Single().Environment?.Id);
-        Assert.Empty(await nodeRepository.GetActiveEnabled());
-        Assert.NotNull(await nodeRepository.GetByCode(" runtime "));
-        Assert.NotNull(await nodeRepository.GetByInboundClientId(" inbound-client "));
-        Assert.Empty(await nodeRepository.GetAll());
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => releaseRepository.UpdateStatus(Guid.NewGuid(), ContractReleaseStatus.Deployed, now));
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => nodeRepository.SetIsEnabled(Guid.NewGuid(), true, now));
+        Assert.Empty(await repository.GetActiveEnabled());
+        Assert.NotNull(await repository.GetByCode(" runtime "));
+        Assert.NotNull(await repository.GetByInboundClientId(" inbound-client "));
+        Assert.Empty(await repository.GetAll());
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => repository.SetIsEnabled(Guid.NewGuid(), true, now));
     }
 
     [Fact]
-    public async Task DocumentationStorageRepositoriesPersistMetadataAndContent()
+    public async Task ContractReleaseRepositoryHydratesGraphAndUpdatesStatus()
+    {
+        await using var db = CreateControlPlaneContext();
+        var releaseRepository = new ContractReleaseRepository(db);
+        var targetRepository = new ContractReleaseTargetRepository(db);
+        var graph = await SeedDistributionGraph(db);
+        var now = DateTime.UtcNow;
+
+        await targetRepository.AddAttempt(new ContractReleaseAttempt { ReleaseTargetId = graph.Target.Id, Action = "Pull", InitiatedBy = "runtime", Succeeded = true, StartedAtUtc = now });
+        await releaseRepository.UpdateStatus(graph.Release.Id, ContractReleaseStatus.Deployed, now);
+        await releaseRepository.UpdateStatus(graph.Release.Id, ContractReleaseStatus.Completed, now);
+        await releaseRepository.UpdateStatus(graph.Release.Id, ContractReleaseStatus.Failed, now);
+        await releaseRepository.UpdateStatus(graph.Release.Id, ContractReleaseStatus.Canceled, now);
+
+        var hydratedRelease = await releaseRepository.GetById(graph.Release.Id, includeItems: true, includeTargets: true);
+        var hydratedTarget = Assert.Single(hydratedRelease!.Targets);
+
+        Assert.Equal(graph.Artifact.Topic, hydratedRelease.Items.Single().Artifact!.Topic);
+        Assert.Equal(graph.Environment.Id, hydratedTarget.RuntimeNode!.Environment!.Id);
+        Assert.NotEmpty(hydratedTarget.Attempts);
+        Assert.NotEmpty(await releaseRepository.GetAll());
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => releaseRepository.UpdateStatus(Guid.NewGuid(), ContractReleaseStatus.Deployed, now));
+    }
+
+    [Fact]
+    public async Task ContractReleaseTargetRepositoryTracksAttemptsPendingAndBulkTargets()
+    {
+        await using var db = CreateControlPlaneContext();
+        var repository = new ContractReleaseTargetRepository(db);
+        var graph = await SeedDistributionGraph(db);
+        var now = DateTime.UtcNow;
+
+        await repository.AddAttempt(new ContractReleaseAttempt { ReleaseTargetId = graph.Target.Id, Action = "Pull", InitiatedBy = "runtime", Succeeded = true, StartedAtUtc = now });
+        var targetList = await repository.GetByRelease(graph.Release.Id);
+        var pending = await repository.GetPendingForRuntimeNode(graph.Node.Id);
+        var includedTarget = await repository.GetById(graph.Target.Id, includeArtifact: true);
+        includedTarget!.Status = ContractReleaseTargetStatus.Delivered;
+        includedTarget.RuntimeVersionApplied = "runtime-1.0.0";
+        await repository.Update(includedTarget);
+        await repository.CreateMany([new ContractReleaseTarget
+        {
+            Id = Guid.NewGuid(),
+            ReleaseId = graph.Release.Id,
+            ReleaseItemId = graph.Item.Id,
+            RuntimeNodeId = graph.Node.Id,
+            ArtifactId = graph.Artifact.Id,
+            RolloutGroup = "manual",
+            Status = ContractReleaseTargetStatus.PushScheduled,
+            CorrelationId = "corr-2"
+        }]);
+
+        Assert.Single(targetList);
+        Assert.Single(pending);
+        Assert.NotNull(includedTarget.Artifact);
+    }
+
+    [Fact]
+    public async Task DocumentationRepositoryUpsertsMetadataAndVersionAssets()
     {
         await using var db = CreateDocumentationContext();
         var repository = new DocumentationRepository(db);
-        var content = new DatabaseDocumentationContentStore(db);
-
         var space = await repository.UpsertSpace(new DocumentationSpace { Key = "knowl", Name = "KnOwl", Description = "Docs" });
         await repository.UpsertSpace(new DocumentationSpace { Key = "knowl", Name = "KnOwl Updated", Description = "Docs updated", IsActive = false });
         var topic = await repository.UpsertTopic(new DocumentationTopic { SpaceId = space.Id, Key = "guides", Name = "Guides", Description = "Guides" });
@@ -295,13 +334,6 @@ public sealed class EntityFrameworkRepositoryCoverageTests
             ContentHash = "hash-latest",
             StorageKey = "asset-latest"
         });
-
-        await content.Save("asset", new MemoryStream("# Title"u8.ToArray()), "text/markdown");
-        await content.Save("asset", new MemoryStream("Updated"u8.ToArray()), "text/plain");
-        await using var opened = await content.Open("asset");
-        using var reader = new StreamReader(opened, Encoding.UTF8);
-        var openedText = await reader.ReadToEndAsync();
-        await content.Delete("asset");
         var latestPublished = await repository.GetLatestPublishedVersion("knowl", "guides", "intro", includeAssets: true);
 
         Assert.NotEmpty(await repository.GetSpaces());
@@ -323,6 +355,21 @@ public sealed class EntityFrameworkRepositoryCoverageTests
         Assert.Single(latestPublished!.Assets);
         Assert.NotNull(await repository.GetAsset(asset.Id));
         Assert.NotNull(await repository.GetAssetByLogicalPath(version.Id, "docs/index.md"));
+    }
+
+    [Fact]
+    public async Task DocumentationContentStoreSavesOverwritesOpensAndDeletesContent()
+    {
+        await using var db = CreateDocumentationContext();
+        var content = new DatabaseDocumentationContentStore(db);
+
+        await content.Save("asset", new MemoryStream("# Title"u8.ToArray()), "text/markdown");
+        await content.Save("asset", new MemoryStream("Updated"u8.ToArray()), "text/plain");
+        await using var opened = await content.Open("asset");
+        using var reader = new StreamReader(opened, Encoding.UTF8);
+        var openedText = await reader.ReadToEndAsync();
+        await content.Delete("asset");
+
         Assert.Equal("Updated", openedText);
         Assert.False(await content.Exists("asset"));
         await Assert.ThrowsAsync<FileNotFoundException>(() => content.Open("missing"));
@@ -356,13 +403,26 @@ public sealed class EntityFrameworkRepositoryCoverageTests
     }
 
     [Fact]
-    public async Task RuntimeStorageRepositoriesPersistArtifactsAndDesignNodes()
+    public async Task RuntimeArtifactRepositoryPersistsAndQueriesArtifacts()
     {
         await using var db = CreateRuntimeContext();
-        var artifactRepository = new RuntimeContractArtifactRepository(db);
-        var designNodeRepository = new RuntimeDesignNodeRepository(db);
+        var repository = new RuntimeContractArtifactRepository(db);
         var artifact = CreateRuntimeArtifact("customer.created");
         var olderArtifact = CreateRuntimeArtifact("customer.created", DateTime.UtcNow.AddDays(-1), "0.9.0");
+
+        await repository.Create(olderArtifact);
+        await repository.Create(artifact);
+
+        Assert.Equal(2, (await repository.GetAll()).Count);
+        Assert.Equal(artifact.Id, (await repository.GetByIdentity(artifact.ArtifactType, artifact.Topic, artifact.VersionNumber))!.Id);
+        Assert.Equal(artifact.Id, (await repository.GetLatest(artifact.ArtifactType, artifact.Topic))!.Id);
+    }
+
+    [Fact]
+    public async Task RuntimeDesignNodeRepositoryUpsertsAndFindsConnections()
+    {
+        await using var db = CreateRuntimeContext();
+        var repository = new RuntimeDesignNodeRepository(db);
         var designNode = new RuntimeDesignNode
         {
             Key = "control-plane",
@@ -375,20 +435,57 @@ public sealed class EntityFrameworkRepositoryCoverageTests
             InboundClientId = "inbound-client"
         };
 
-        await artifactRepository.Create(olderArtifact);
-        await artifactRepository.Create(artifact);
-        await designNodeRepository.Upsert(designNode);
+        await repository.Upsert(designNode);
         designNode.Name = "Control Plane Updated";
-        await designNodeRepository.Upsert(designNode);
+        await repository.Upsert(designNode);
 
-        Assert.Equal(2, (await artifactRepository.GetAll()).Count);
-        Assert.Equal(artifact.Id, (await artifactRepository.GetByIdentity(artifact.ArtifactType, artifact.Topic, artifact.VersionNumber))!.Id);
-        Assert.Equal(artifact.Id, (await artifactRepository.GetLatest(artifact.ArtifactType, artifact.Topic))!.Id);
-        Assert.Single(await designNodeRepository.GetAll());
-        Assert.NotNull(await designNodeRepository.GetById(designNode.Id));
-        Assert.NotNull(await designNodeRepository.GetByKey(" control-plane "));
-        Assert.NotNull(await designNodeRepository.GetByInboundClientId(" inbound-client "));
+        Assert.Single(await repository.GetAll());
+        Assert.NotNull(await repository.GetById(designNode.Id));
+        Assert.NotNull(await repository.GetByKey(" control-plane "));
+        Assert.NotNull(await repository.GetByInboundClientId(" inbound-client "));
     }
+
+    private static async Task<DistributionGraph> SeedDistributionGraph(KnOwlDbContext db)
+    {
+        var artifactRepository = new ContractArtifactRepository(db);
+        var environmentRepository = new RuntimeEnvironmentRepository(db);
+        var nodeRepository = new RuntimeNodeRepository(db);
+        var releaseRepository = new ContractReleaseRepository(db);
+        var now = DateTime.UtcNow;
+        var artifact = CreateArtifact("customer.created", ContractVersionStatus.Deployed.ToString());
+        await artifactRepository.Create(artifact);
+        var environment = new RuntimeEnvironment { Name = "Development", Code = "dev", IsEnabled = true };
+        await environmentRepository.Create(environment);
+        var node = CreateRuntimeNode(environment);
+        await nodeRepository.Create(node);
+        var release = new ContractRelease { Name = "Release 1", Description = "Release", CreatedAtUtc = now.AddMinutes(-5) };
+        var item = new ContractReleaseItem { Id = Guid.NewGuid(), ReleaseId = release.Id, ArtifactId = artifact.Id, CreatedAtUtc = now };
+        var target = new ContractReleaseTarget
+        {
+            Id = Guid.NewGuid(),
+            ReleaseId = release.Id,
+            ReleaseItemId = item.Id,
+            RuntimeNodeId = node.Id,
+            ArtifactId = artifact.Id,
+            RolloutGroup = "default",
+            Status = ContractReleaseTargetStatus.AvailableForPull,
+            ActivationStatus = ContractReleaseActivationStatus.NotActivated,
+            AssignedAtUtc = now,
+            CorrelationId = "corr"
+        };
+        release.Items.Add(item);
+        release.Targets.Add(target);
+        await releaseRepository.Create(release);
+        return new DistributionGraph(artifact, environment, node, release, item, target);
+    }
+
+    private sealed record DistributionGraph(
+        ContractArtifact Artifact,
+        RuntimeEnvironment Environment,
+        RuntimeNode Node,
+        ContractRelease Release,
+        ContractReleaseItem Item,
+        ContractReleaseTarget Target);
 
     private static KnOwlDbContext CreateControlPlaneContext()
         => new(new DbContextOptionsBuilder<KnOwlDbContext>()
