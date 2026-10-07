@@ -6,6 +6,8 @@
 [![Coverage](https://img.shields.io/badge/coverage-99.06%25-brightgreen.svg)](tests/KnOwl.Tests/KnOwl.Tests.csproj)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/mape1402/knowl)
 
+<img src="assets/knowl-readme-hero.png" alt="KnOwl contract design and runtime distribution" width="100%">
+
 KnOwl is a set of reusable .NET libraries for designing, versioning, promoting, distributing, and consuming async contract metadata. It gives teams a Control Plane where contracts are authored and released, plus a Runtime surface where deployed contracts can be consumed by running services.
 
 The goal is to keep product hosts thin. Your app owns the executable project, configuration, and EF migrations; KnOwl packages provide the domain model, application services, storage adapters, Razor UI, catalog endpoints, distribution endpoints, and runtime synchronization behavior.
