@@ -9,9 +9,9 @@ namespace KnOwl.Tests;
 public sealed class SchemaAndMetadataInputCoverageTests
 {
     [Fact]
-    public void SchemaTypeBuildCreatesScalarSchemasWithConstraintsAndEnums()
+    public void SchemaTypeBuildCreatesStringSchemaWithConstraintsAndUniqueEnum()
     {
-        var stringSchema = Read(SchemaTypeSchemaBuilder.Build(new TypeVersionInput
+        using var schema = Read(SchemaTypeSchemaBuilder.Build(new TypeVersionInput
         {
             BaseType = "string",
             MinLength = 2,
@@ -20,14 +20,18 @@ public sealed class SchemaAndMetadataInputCoverageTests
             AllowedValuesJson = """[" A ","A","B",""]"""
         }));
 
-        Assert.Equal("string", stringSchema.RootElement.GetProperty("type").GetString());
-        Assert.Equal(2, stringSchema.RootElement.GetProperty("minLength").GetInt32());
-        Assert.Equal(12, stringSchema.RootElement.GetProperty("maxLength").GetInt32());
-        Assert.Equal("^[A-Z]+$", stringSchema.RootElement.GetProperty("pattern").GetString());
-        var stringAllowedValues = stringSchema.RootElement.GetProperty("enum").EnumerateArray().Select(x => x.GetString()).OfType<string>().ToArray();
-        Assert.Equal(["A", "B"], stringAllowedValues);
+        Assert.Equal("string", schema.RootElement.GetProperty("type").GetString());
+        Assert.Equal(2, schema.RootElement.GetProperty("minLength").GetInt32());
+        Assert.Equal(12, schema.RootElement.GetProperty("maxLength").GetInt32());
+        Assert.Equal("^[A-Z]+$", schema.RootElement.GetProperty("pattern").GetString());
+        var allowedValues = schema.RootElement.GetProperty("enum").EnumerateArray().Select(x => x.GetString()).OfType<string>().ToArray();
+        Assert.Equal(["A", "B"], allowedValues);
+    }
 
-        var integerSchema = Read(SchemaTypeSchemaBuilder.Build(new TypeVersionInput
+    [Fact]
+    public void SchemaTypeBuildCreatesIntegerSchemaWithBoundsAndUniqueEnum()
+    {
+        using var schema = Read(SchemaTypeSchemaBuilder.Build(new TypeVersionInput
         {
             BaseType = "integer",
             Minimum = 1,
@@ -35,12 +39,16 @@ public sealed class SchemaAndMetadataInputCoverageTests
             AllowedValuesJson = "[1,2,2,3]"
         }));
 
-        Assert.Equal("integer", integerSchema.RootElement.GetProperty("type").GetString());
-        Assert.Equal(1, integerSchema.RootElement.GetProperty("minimum").GetDecimal());
-        Assert.Equal(9, integerSchema.RootElement.GetProperty("maximum").GetDecimal());
-        Assert.Equal([1, 2, 3], integerSchema.RootElement.GetProperty("enum").EnumerateArray().Select(x => x.GetInt32()).ToArray());
+        Assert.Equal("integer", schema.RootElement.GetProperty("type").GetString());
+        Assert.Equal(1, schema.RootElement.GetProperty("minimum").GetDecimal());
+        Assert.Equal(9, schema.RootElement.GetProperty("maximum").GetDecimal());
+        Assert.Equal([1, 2, 3], schema.RootElement.GetProperty("enum").EnumerateArray().Select(x => x.GetInt32()).ToArray());
+    }
 
-        var numberSchema = Read(SchemaTypeSchemaBuilder.Build(new TypeVersionInput
+    [Fact]
+    public void SchemaTypeBuildCreatesNumberSchemaWithPrecisionScaleAndUniqueEnum()
+    {
+        using var schema = Read(SchemaTypeSchemaBuilder.Build(new TypeVersionInput
         {
             BaseType = "number",
             Precision = 8,
@@ -50,9 +58,10 @@ public sealed class SchemaAndMetadataInputCoverageTests
             AllowedValuesJson = "[1.5,2.25,2.25]"
         }));
 
-        Assert.Equal(8, numberSchema.RootElement.GetProperty("precision").GetInt32());
-        Assert.Equal(2, numberSchema.RootElement.GetProperty("scale").GetInt32());
-        Assert.Equal([1.5m, 2.25m], numberSchema.RootElement.GetProperty("enum").EnumerateArray().Select(x => x.GetDecimal()).ToArray());
+        Assert.Equal("number", schema.RootElement.GetProperty("type").GetString());
+        Assert.Equal(8, schema.RootElement.GetProperty("precision").GetInt32());
+        Assert.Equal(2, schema.RootElement.GetProperty("scale").GetInt32());
+        Assert.Equal([1.5m, 2.25m], schema.RootElement.GetProperty("enum").EnumerateArray().Select(x => x.GetDecimal()).ToArray());
     }
 
     [Fact]
@@ -116,7 +125,7 @@ public sealed class SchemaAndMetadataInputCoverageTests
     }
 
     [Fact]
-    public void SchemaTypeHydrateAndValidateCoverValidAndInvalidInputs()
+    public void SchemaTypeHydrateRestoresArrayItemVersionReference()
     {
         var input = new TypeVersionInput();
 
@@ -135,46 +144,55 @@ public sealed class SchemaAndMetadataInputCoverageTests
         Assert.Equal(4, input.MaxItems);
         Assert.Equal(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), input.ArrayItemTypeVersionId);
         Assert.Equal("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", input.ArrayItemType);
+    }
 
-        var errors = new List<string>();
-        SchemaTypeSchemaBuilder.Validate(new TypeVersionInput
+    [Fact]
+    public void SchemaTypeValidateRejectsInvalidArrayConfiguration()
+    {
+        var errors = ValidateSchema(new TypeVersionInput
         {
             BaseType = "array",
             ArrayItemType = "not-a-type",
             MinItems = 5,
             MaxItems = 1,
             AllowedValuesJson = "[1]"
-        }, errors.Add);
+        });
 
         Assert.Contains("Select a valid array item type.", errors);
         Assert.Contains("MinItems no puede ser mayor que MaxItems.", errors);
         Assert.Contains("La lista de valores solo aplica para string, number o integer.", errors);
+    }
 
-        errors.Clear();
-        SchemaTypeSchemaBuilder.Validate(new TypeVersionInput
+    [Fact]
+    public void SchemaTypeValidateRejectsInvalidNumberConfiguration()
+    {
+        var errors = ValidateSchema(new TypeVersionInput
         {
             BaseType = "integer",
             AllowedValuesJson = """["not-number"]""",
             Precision = 0,
             Scale = -1
-        }, errors.Add);
+        });
 
         Assert.Contains("La lista de valores para number/integer solo acepta numeros.", errors);
         Assert.Contains("Precision debe ser mayor que cero.", errors);
         Assert.Contains("Scale no puede ser negativo.", errors);
+    }
 
-        errors.Clear();
-        SchemaTypeSchemaBuilder.Validate(new TypeVersionInput
+    [Fact]
+    public void SchemaTypeValidateRejectsObjectSchemaWithWrongRootType()
+    {
+        var errors = ValidateSchema(new TypeVersionInput
         {
             BaseType = "object",
             PayloadSchemaJson = """{"type":"array"}"""
-        }, errors.Add);
+        });
 
         Assert.Contains("El schema debe tener type 'object'.", errors);
     }
 
     [Fact]
-    public void SchemaTypeBuilderCoversRemainingEnumArrayAndObjectValidationBranches()
+    public void SchemaTypeBuildCreatesArrayWithBasicItemType()
     {
         using var arrayWithBasicItem = Read(SchemaTypeSchemaBuilder.Build(new TypeVersionInput
         {
@@ -183,7 +201,11 @@ public sealed class SchemaAndMetadataInputCoverageTests
             AllowedValuesJson = "[]"
         }));
         Assert.Equal("string", arrayWithBasicItem.RootElement.GetProperty("items").GetProperty("type").GetString());
+    }
 
+    [Fact]
+    public void SchemaTypeBuildFallsBackWhenReferencedDefinitionJsonIsInvalid()
+    {
         var brokenVersion = new SchemaTypeVersion
         {
             Id = Guid.NewGuid(),
@@ -198,7 +220,11 @@ public sealed class SchemaAndMetadataInputCoverageTests
             ArrayItemTypeVersionId = brokenVersion.Id
         }, brokenVersion));
         Assert.Equal("{}", arrayWithBrokenRef.RootElement.GetProperty("$defs").GetProperty("Broken@preview").GetRawText());
+    }
 
+    [Fact]
+    public void SchemaTypeHydrateRestoresArrayBasicItemType()
+    {
         var hydrated = new TypeVersionInput();
         SchemaTypeSchemaBuilder.Hydrate(hydrated, """
         {
@@ -207,37 +233,49 @@ public sealed class SchemaAndMetadataInputCoverageTests
         }
         """);
         Assert.Equal("integer", hydrated.ArrayItemType);
+    }
 
-        var errors = new List<string>();
-        SchemaTypeSchemaBuilder.Validate(new TypeVersionInput
+    [Fact]
+    public void SchemaTypeValidateRejectsUnknownBaseType()
+    {
+        var errors = ValidateSchema(new TypeVersionInput
         {
             BaseType = "bad",
             AllowedValuesJson = "[]"
-        }, errors.Add);
+        });
         Assert.Contains("Invalid base type.", errors);
+    }
 
-        errors.Clear();
-        SchemaTypeSchemaBuilder.Validate(new TypeVersionInput
+    [Fact]
+    public void SchemaTypeValidateRejectsStringEnumShapeAndNegativeLengths()
+    {
+        var errors = ValidateSchema(new TypeVersionInput
         {
             BaseType = "string",
             AllowedValuesJson = "{}",
             MinLength = -1,
             MaxLength = -2
-        }, errors.Add);
+        });
         Assert.Contains("La lista de valores debe ser un arreglo JSON.", errors);
         Assert.Contains("MinLength no puede ser negativo.", errors);
         Assert.Contains("MaxLength no puede ser negativo.", errors);
+    }
 
-        errors.Clear();
-        SchemaTypeSchemaBuilder.Validate(new TypeVersionInput
+    [Fact]
+    public void SchemaTypeValidateRejectsInvalidValuesJson()
+    {
+        var errors = ValidateSchema(new TypeVersionInput
         {
             BaseType = "string",
             AllowedValuesJson = "{"
-        }, errors.Add);
+        });
         Assert.Contains("The values list is not valid JSON.", errors);
+    }
 
-        errors.Clear();
-        SchemaTypeSchemaBuilder.Validate(new TypeVersionInput
+    [Fact]
+    public void SchemaTypeValidateRejectsIntegerDecimalEnumAndNegativeArrayBounds()
+    {
+        var errors = ValidateSchema(new TypeVersionInput
         {
             BaseType = "integer",
             AllowedValuesJson = "[1.2]",
@@ -245,50 +283,70 @@ public sealed class SchemaAndMetadataInputCoverageTests
             Maximum = 1,
             MinItems = -1,
             MaxItems = -2
-        }, errors.Add);
+        });
         Assert.Contains("La lista de valores para integer solo acepta enteros.", errors);
         Assert.Contains("MinItems no puede ser negativo.", errors);
         Assert.Contains("MaxItems no puede ser negativo.", errors);
+    }
 
-        errors.Clear();
-        SchemaTypeSchemaBuilder.Validate(new TypeVersionInput
+    [Fact]
+    public void SchemaTypeValidateRejectsInvalidObjectJson()
+    {
+        var errors = ValidateSchema(new TypeVersionInput
         {
             BaseType = "object",
             PayloadSchemaJson = "{"
-        }, errors.Add);
+        });
         Assert.Contains("The JSON schema is not valid.", errors);
+    }
 
-        errors.Clear();
-        SchemaTypeSchemaBuilder.Validate(new TypeVersionInput
+    [Fact]
+    public void SchemaTypeValidateAcceptsValidObjectSchema()
+    {
+        var errors = ValidateSchema(new TypeVersionInput
         {
             BaseType = "object",
             PayloadSchemaJson = """{"type":"object"}"""
-        }, errors.Add);
+        });
         Assert.Empty(errors);
+    }
 
-        errors.Clear();
-        SchemaTypeSchemaBuilder.Validate(new TypeVersionInput
+    [Fact]
+    public void SchemaTypeValidateRejectsNumericEnumForString()
+    {
+        var errors = ValidateSchema(new TypeVersionInput
         {
             BaseType = "string",
             AllowedValuesJson = "[1]"
-        }, errors.Add);
+        });
         Assert.Contains("La lista de valores para string solo acepta texto.", errors);
+    }
 
-        errors.Clear();
-        SchemaTypeSchemaBuilder.Validate(new TypeVersionInput
+    [Fact]
+    public void SchemaTypeValidateAcceptsIntegerEnum()
+    {
+        var errors = ValidateSchema(new TypeVersionInput
         {
             BaseType = "integer",
             AllowedValuesJson = "[1]"
-        }, errors.Add);
+        });
         Assert.Empty(errors);
+    }
 
+    [Fact]
+    public void SchemaTypeBuildCreatesObjectSchemaFromPayloadJson()
+    {
         using var objectSchema = Read(SchemaTypeSchemaBuilder.Build(new TypeVersionInput
         {
             BaseType = "object",
             PayloadSchemaJson = """{"type":"object"}"""
         }));
         Assert.Equal("object", objectSchema.RootElement.GetProperty("type").GetString());
+    }
 
+    [Fact]
+    public void SchemaTypeBuildOmitsEnumForBlankOrNonArrayValues()
+    {
         using var emptyEnumSchema = Read(SchemaTypeSchemaBuilder.Build(new TypeVersionInput
         {
             BaseType = "string",
@@ -302,7 +360,11 @@ public sealed class SchemaAndMetadataInputCoverageTests
             AllowedValuesJson = "{}"
         }));
         Assert.False(nonArrayEnumSchema.RootElement.TryGetProperty("enum", out _));
+    }
 
+    [Fact]
+    public void SchemaTypeBuildFallsBackWhenReferencedSchemaHasNoSchemaNode()
+    {
         var missingSchemaVersion = new SchemaTypeVersion
         {
             Id = Guid.NewGuid(),
@@ -320,12 +382,23 @@ public sealed class SchemaAndMetadataInputCoverageTests
     }
 
     [Fact]
-    public void MetadataInputBuildsValidationAndAppliesToJson()
+    public void MetadataInputBuildsAppliesToJsonForEvents()
     {
         var input = new ContractFieldMetadataInput
         {
             AppliesToEvents = true,
             AppliesToCommands = false,
+            DataType = "string"
+        };
+
+        Assert.Equal("""["events"]""", input.BuildAppliesToJson());
+    }
+
+    [Fact]
+    public void MetadataInputBuildsStringValidationJson()
+    {
+        var input = new ContractFieldMetadataInput
+        {
             DataType = "string",
             MinLength = 1,
             MaxLength = 20,
@@ -333,38 +406,60 @@ public sealed class SchemaAndMetadataInputCoverageTests
             AllowedValuesText = "alpha\nalpha\n beta "
         };
 
-        Assert.Equal("""["events"]""", input.BuildAppliesToJson());
         using var stringValidation = Read(input.BuildValidationJson());
         Assert.Equal(1, stringValidation.RootElement.GetProperty("minLength").GetInt32());
         Assert.Equal(20, stringValidation.RootElement.GetProperty("maxLength").GetInt32());
         Assert.Equal("^A", stringValidation.RootElement.GetProperty("pattern").GetString());
         var fieldAllowedValues = stringValidation.RootElement.GetProperty("allowedValues").EnumerateArray().Select(x => x.GetString()).OfType<string>().ToArray();
         Assert.Equal(["alpha", "beta"], fieldAllowedValues);
-
-        input.DataType = "number";
-        input.Minimum = 1.2m;
-        input.Maximum = 9.8m;
-        using var numberValidation = Read(input.BuildValidationJson());
-        Assert.Equal(1.2m, numberValidation.RootElement.GetProperty("minimum").GetDecimal());
-        Assert.Equal(9.8m, numberValidation.RootElement.GetProperty("maximum").GetDecimal());
-
-        input.DataType = "date";
-        input.DateMinimum = "2026-01-01";
-        input.DateMaximum = "2026-12-31";
-        using var dateValidation = Read(input.BuildValidationJson());
-        Assert.Equal("2026-01-01", dateValidation.RootElement.GetProperty("minimum").GetString());
-        Assert.Equal("2026-12-31", dateValidation.RootElement.GetProperty("maximum").GetString());
-
-        input.DataType = "boolean";
-        using var booleanValidation = Read(input.BuildValidationJson());
-        Assert.Empty(booleanValidation.RootElement.EnumerateObject());
     }
 
     [Fact]
-    public void MetadataInputValidateHydrateAndEntityMappingCoverEdgeCases()
+    public void MetadataInputBuildsNumberValidationJson()
     {
-        var errors = new List<string>();
-        new ContractFieldMetadataInput
+        var input = new ContractFieldMetadataInput
+        {
+            DataType = "number",
+            Minimum = 1.2m,
+            Maximum = 9.8m
+        };
+
+        using var validation = Read(input.BuildValidationJson());
+
+        Assert.Equal(1.2m, validation.RootElement.GetProperty("minimum").GetDecimal());
+        Assert.Equal(9.8m, validation.RootElement.GetProperty("maximum").GetDecimal());
+    }
+
+    [Fact]
+    public void MetadataInputBuildsDateValidationJson()
+    {
+        var input = new ContractFieldMetadataInput
+        {
+            DataType = "date",
+            DateMinimum = "2026-01-01",
+            DateMaximum = "2026-12-31"
+        };
+
+        using var validation = Read(input.BuildValidationJson());
+
+        Assert.Equal("2026-01-01", validation.RootElement.GetProperty("minimum").GetString());
+        Assert.Equal("2026-12-31", validation.RootElement.GetProperty("maximum").GetString());
+    }
+
+    [Fact]
+    public void MetadataInputBuildsEmptyValidationForBoolean()
+    {
+        var input = new ContractFieldMetadataInput { DataType = "boolean" };
+
+        using var validation = Read(input.BuildValidationJson());
+
+        Assert.Empty(validation.RootElement.EnumerateObject());
+    }
+
+    [Fact]
+    public void MetadataInputValidateReportsInvalidShapeErrors()
+    {
+        var errors = ValidateMetadata(new ContractFieldMetadataInput
         {
             DataType = "bad",
             AppliesToEvents = false,
@@ -375,7 +470,7 @@ public sealed class SchemaAndMetadataInputCoverageTests
             Maximum = 4,
             DateMinimum = "bad-date",
             DateMaximum = "2026-01-01"
-        }.Validate(errors.Add);
+        });
 
         Assert.Contains("Invalid data type.", errors);
         Assert.Contains("Select at least one applicable section.", errors);
@@ -383,17 +478,24 @@ public sealed class SchemaAndMetadataInputCoverageTests
         Assert.Contains("MaxLength no puede ser negativo.", errors);
         Assert.Contains("Minimum no puede ser mayor que Maximum.", errors);
         Assert.Contains("Fecha minima invalida.", errors);
+    }
 
-        errors.Clear();
-        new ContractFieldMetadataInput
+    [Fact]
+    public void MetadataInputValidateRejectsInvertedDateRange()
+    {
+        var errors = ValidateMetadata(new ContractFieldMetadataInput
         {
             DataType = "date",
             DateMinimum = "2026-12-31",
             DateMaximum = "2026-01-01"
-        }.Validate(errors.Add);
+        });
 
         Assert.Contains("Fecha minima no puede ser mayor que fecha maxima.", errors);
+    }
 
+    [Fact]
+    public void MetadataInputFromEntityCopiesDefinitionFields()
+    {
         var entity = new ContractFieldMetadataDefinition
         {
             Name = "Trace Id",
@@ -406,7 +508,11 @@ public sealed class SchemaAndMetadataInputCoverageTests
         Assert.Equal(entity.Key, mapped.Key);
         Assert.Equal(entity.Description, mapped.Description);
         Assert.False(mapped.IsActive);
+    }
 
+    [Fact]
+    public void MetadataInputHydrateValidationRestoresDateBoundsAndAllowedValues()
+    {
         var hydrated = new ContractFieldMetadataInput { DataType = "date" };
         typeof(ContractFieldMetadataInput)
             .GetMethod("HydrateValidation", BindingFlags.NonPublic | BindingFlags.Static)!
@@ -415,6 +521,20 @@ public sealed class SchemaAndMetadataInputCoverageTests
         Assert.Equal("2026-01-02", hydrated.DateMinimum);
         Assert.Equal("2026-03-04", hydrated.DateMaximum);
         Assert.Equal($"a{Environment.NewLine}b", hydrated.AllowedValuesText);
+    }
+
+    private static List<string> ValidateSchema(TypeVersionInput input)
+    {
+        var errors = new List<string>();
+        SchemaTypeSchemaBuilder.Validate(input, errors.Add);
+        return errors;
+    }
+
+    private static List<string> ValidateMetadata(ContractFieldMetadataInput input)
+    {
+        var errors = new List<string>();
+        input.Validate(errors.Add);
+        return errors;
     }
 
     private static JsonDocument Read(string json) => JsonDocument.Parse(json);
