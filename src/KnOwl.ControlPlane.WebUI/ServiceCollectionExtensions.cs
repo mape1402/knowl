@@ -14,13 +14,18 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddKnOwlControlPlaneWebUI(
         this IServiceCollection services,
-        Action<KnOwlControlPlaneThemeOptions>? configure = null)
+        Action<KnOwlControlPlaneThemeOptions>? configure = null,
+        Action<KnOwlControlPlaneHomeOptions>? configureHome = null)
     {
         var themeOptions = new KnOwlControlPlaneThemeOptions();
         configure?.Invoke(themeOptions);
+        var homeOptions = new KnOwlControlPlaneHomeOptions();
+        configureHome?.Invoke(homeOptions);
 
         services.AddOptions<KnOwlControlPlaneThemeOptions>()
             .Configure(options => CopyThemeOptions(themeOptions, options));
+        services.AddOptions<KnOwlControlPlaneHomeOptions>()
+            .Configure(options => CopyHomeOptions(homeOptions, options));
 
         services.AddScoped<IMenuService, MenuService>();
         services.AddKnOwlButterMorphDesigner(themeOptions);
@@ -54,5 +59,34 @@ public static class ServiceCollectionExtensions
         target.CodeBackgroundColor = source.CodeBackgroundColor;
         target.CodeTextColor = source.CodeTextColor;
         target.ShadowColor = source.ShadowColor;
+    }
+
+    private static void CopyHomeOptions(KnOwlControlPlaneHomeOptions source, KnOwlControlPlaneHomeOptions target)
+    {
+        target.Path = source.Path;
+        target.RedirectRootToPath = source.RedirectRootToPath;
+        target.Title = source.Title;
+        target.Subtitle = source.Subtitle;
+        target.ShowQuickAccess = source.ShowQuickAccess;
+        target.ShowOverview = source.ShowOverview;
+        target.ShowGettingStarted = source.ShowGettingStarted;
+
+        target.QuickAccessCards.Clear();
+        foreach (var card in source.QuickAccessCards)
+        {
+            target.QuickAccessCards.Add(card);
+        }
+
+        target.OverviewCards.Clear();
+        foreach (var card in source.OverviewCards)
+        {
+            target.OverviewCards.Add(card);
+        }
+
+        target.GettingStartedItems.Clear();
+        foreach (var item in source.GettingStartedItems)
+        {
+            target.GettingStartedItems.Add(item);
+        }
     }
 }

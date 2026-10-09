@@ -1,12 +1,14 @@
+using Microsoft.Extensions.Options;
+
 namespace KnOwl.ControlPlane.WebUI.Navigation;
 
 public class MenuService : IMenuService
 {
     public IList<MenuItem> Items { get; } = new List<MenuItem>();
 
-    public MenuService()
+    public MenuService(IOptions<KnOwlControlPlaneHomeOptions> homeOptions)
     {
-        Items.Add(new MenuItem { Text = "Home", Url = "/", Icon = "house-fill" });
+        Items.Add(new MenuItem { Text = "Home", Url = NormalizePath(homeOptions.Value.Path), Icon = "house-fill" });
 
         var apis = new MenuItem { Text = "APIs", Icon = "journal-code" };
         apis.Add("Overview", "/apis", "list-ul")
@@ -39,5 +41,10 @@ public class MenuService : IMenuService
 
         Items.Add(new MenuItem { Text = "Privacy", Url = "/Privacy", Icon = "shield-check" });
     }
+
+    private static string NormalizePath(string? path)
+        => string.IsNullOrWhiteSpace(path) || !path.StartsWith("/", StringComparison.Ordinal)
+            ? "/"
+            : path;
 }
 

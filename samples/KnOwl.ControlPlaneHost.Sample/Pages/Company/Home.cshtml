@@ -1,0 +1,361 @@
+@page "/company/home"
+@model KnOwl.ControlPlaneHost.Sample.Pages.Company.HomeModel
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Company Home";
+}
+
+<style>
+    .company-home {
+        display: grid;
+        gap: 18px;
+    }
+
+    .company-home :is(h1, h2, h3, p) {
+        margin: 0;
+    }
+
+    .company-command-center {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
+        gap: 18px;
+        align-items: stretch;
+        border: 1px solid var(--knowl-border, #d9deec);
+        border-left: 5px solid #0f766e;
+        border-radius: 8px;
+        background:
+            linear-gradient(90deg, color-mix(in srgb, #0f766e 9%, transparent), transparent 38%),
+            var(--knowl-surface, #ffffff);
+        padding: 22px;
+    }
+
+    .company-kicker {
+        color: #0f766e;
+        font-size: .75rem;
+        font-weight: 800;
+        text-transform: uppercase;
+    }
+
+    .company-title {
+        margin-top: 8px;
+        color: var(--knowl-text, #130b2c);
+        font-size: 1.85rem;
+        line-height: 1.08;
+    }
+
+    .company-copy {
+        max-width: 760px;
+        margin-top: 12px;
+        color: var(--knowl-muted-text, #5d6380);
+    }
+
+    .company-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+    }
+
+    .company-action {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 36px;
+        border: 1px solid var(--knowl-border, #d9deec);
+        border-radius: 7px;
+        background: var(--knowl-surface, #ffffff);
+        color: var(--knowl-text, #130b2c);
+        padding: 0 12px;
+        font-weight: 700;
+        text-decoration: none;
+    }
+
+    .company-action:hover {
+        border-color: #0f766e;
+        color: #0f766e;
+        text-decoration: none;
+    }
+
+    .company-action-primary {
+        border-color: #0f766e;
+        background: #0f766e;
+        color: #ffffff;
+    }
+
+    .company-action-primary:hover {
+        background: #115e59;
+        color: #ffffff;
+    }
+
+    .company-status-panel {
+        display: grid;
+        align-content: start;
+        gap: 10px;
+        border: 1px solid color-mix(in srgb, var(--knowl-border, #d9deec) 72%, transparent);
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--knowl-subtle-bg, #eef2f8) 68%, var(--knowl-surface, #ffffff));
+        padding: 16px;
+    }
+
+    .company-status-title {
+        color: var(--knowl-muted-text, #5d6380);
+        font-size: .72rem;
+        font-weight: 800;
+        text-transform: uppercase;
+    }
+
+    .company-status-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border-top: 1px solid var(--knowl-border, #d9deec);
+        padding-top: 10px;
+    }
+
+    .company-status-row:first-of-type {
+        border-top: 0;
+        padding-top: 0;
+    }
+
+    .company-status-row span {
+        color: var(--knowl-muted-text, #5d6380);
+    }
+
+    .company-status-row strong {
+        color: var(--knowl-text, #130b2c);
+    }
+
+    .company-pulse {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #047857;
+        font-weight: 800;
+    }
+
+    .company-pulse::before {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: currentColor;
+        content: "";
+    }
+
+    .company-panel-title {
+        color: var(--knowl-text, #130b2c);
+        font-size: .95rem;
+        font-weight: 800;
+    }
+
+    .company-tile-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 14px;
+    }
+
+    .company-tile {
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        min-height: 168px;
+        border: 1px solid var(--knowl-border, #d9deec);
+        border-top: 3px solid var(--tile-accent, #0f766e);
+        border-radius: 8px;
+        background: var(--knowl-surface, #ffffff);
+        color: inherit;
+        padding: 15px;
+        text-decoration: none;
+    }
+
+    .company-tile:hover {
+        border-color: var(--tile-accent, #0f766e);
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .company-tile-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    .company-tile-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 7px;
+        background: color-mix(in srgb, var(--tile-accent, #0f766e) 13%, transparent);
+        color: var(--tile-accent, #0f766e);
+    }
+
+    .company-tile h3 {
+        margin-top: 14px;
+        color: var(--knowl-text, #130b2c);
+        font-size: 1rem;
+    }
+
+    .company-tile p {
+        margin-top: 8px;
+        color: var(--knowl-muted-text, #5d6380);
+    }
+
+    .company-tile-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 14px;
+        color: var(--tile-accent, #0f766e);
+        font-weight: 800;
+    }
+
+    .company-lanes {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .company-lane {
+        border: 1px solid var(--knowl-border, #d9deec);
+        border-radius: 8px;
+        background: var(--knowl-surface, #ffffff);
+        padding: 14px;
+    }
+
+    .company-lane h3 {
+        color: var(--knowl-text, #130b2c);
+        font-size: .95rem;
+    }
+
+    .company-lane p {
+        margin-top: 6px;
+        color: var(--knowl-muted-text, #5d6380);
+    }
+
+    [data-bs-theme="dark"] .company-command-center {
+        background:
+            linear-gradient(90deg, color-mix(in srgb, #2dd4bf 12%, transparent), transparent 38%),
+            var(--knowl-surface, #1e293b);
+        border-left-color: #2dd4bf;
+    }
+
+    [data-bs-theme="dark"] .company-kicker,
+    [data-bs-theme="dark"] .company-action:hover,
+    [data-bs-theme="dark"] .company-tile-link {
+        color: #5eead4;
+    }
+
+    [data-bs-theme="dark"] .company-action-primary {
+        border-color: #14b8a6;
+        background: #0f766e;
+    }
+
+    [data-bs-theme="dark"] .company-pulse {
+        color: #86efac;
+    }
+
+    @@media (max-width: 1100px) {
+        .company-command-center,
+        .company-lanes {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="company-home">
+    <section class="company-command-center" aria-labelledby="company-home-title">
+        <div>
+            <p class="company-kicker">Host-owned workspace</p>
+            <h1 id="company-home-title" class="company-title">Company Contract Hub</h1>
+            <p class="company-copy">
+                A tailored landing page from the host application. It keeps the KnOwl shell,
+                but the content, visual language, and workflow priorities belong to this host.
+            </p>
+            <div class="company-actions">
+                <a class="company-action company-action-primary" href="/contracts/events">
+                    <i class="bi bi-broadcast"></i>
+                    Events
+                </a>
+                <a class="company-action" href="/contracts/commands">
+                    <i class="bi bi-terminal"></i>
+                    Commands
+                </a>
+                <a class="company-action" href="/documentation/spaces">
+                    <i class="bi bi-journal-text"></i>
+                    Documentation
+                </a>
+            </div>
+        </div>
+
+        <aside class="company-status-panel" aria-label="Operational summary">
+            <h2 class="company-status-title">Today</h2>
+            <div class="company-status-row">
+                <span>Design catalog</span>
+                <strong class="company-pulse">Online</strong>
+            </div>
+            <div class="company-status-row">
+                <span>Review queue</span>
+                <strong>4 items</strong>
+            </div>
+            <div class="company-status-row">
+                <span>Runtime sync</span>
+                <strong>Ready</strong>
+            </div>
+        </aside>
+    </section>
+
+    <section aria-labelledby="company-shortcuts-title">
+        <h2 id="company-shortcuts-title" class="company-panel-title">Primary workflows</h2>
+        <div class="company-tile-grid mt-2">
+            <a href="/contracts/types" class="company-tile" style="--tile-accent: #2563eb;">
+                <div class="company-tile-head">
+                    <span class="company-tile-icon"><i class="bi bi-tags"></i></span>
+                    <i class="bi bi-arrow-up-right"></i>
+                </div>
+                <h3>Data modeling</h3>
+                <p>Manage reusable data types and field metadata for contract payloads.</p>
+                <span class="company-tile-link">Open catalog <i class="bi bi-arrow-right"></i></span>
+            </a>
+
+            <a href="/contracts/releases" class="company-tile" style="--tile-accent: #dc2626;">
+                <div class="company-tile-head">
+                    <span class="company-tile-icon"><i class="bi bi-rocket-takeoff"></i></span>
+                    <i class="bi bi-arrow-up-right"></i>
+                </div>
+                <h3>Release board</h3>
+                <p>Promote deployable artifacts and track what is ready for distribution.</p>
+                <span class="company-tile-link">Review releases <i class="bi bi-arrow-right"></i></span>
+            </a>
+
+            <a href="/contracts/runtime-nodes" class="company-tile" style="--tile-accent: #0f766e;">
+                <div class="company-tile-head">
+                    <span class="company-tile-icon"><i class="bi bi-hdd-network"></i></span>
+                    <i class="bi bi-arrow-up-right"></i>
+                </div>
+                <h3>Runtime delivery</h3>
+                <p>Check nodes, environments, and artifact delivery readiness.</p>
+                <span class="company-tile-link">Open distribution <i class="bi bi-arrow-right"></i></span>
+            </a>
+        </div>
+    </section>
+
+    <section aria-labelledby="company-lanes-title">
+        <h2 id="company-lanes-title" class="company-panel-title">Operating lanes</h2>
+        <div class="company-lanes mt-2">
+            <article class="company-lane">
+                <h3>Capture</h3>
+                <p>Start from Events and Commands, then evolve schemas through versioned drafts.</p>
+            </article>
+            <article class="company-lane">
+                <h3>Approve</h3>
+                <p>Move versions through review and keep release candidates intentional.</p>
+            </article>
+            <article class="company-lane">
+                <h3>Publish</h3>
+                <p>Bundle deployable artifacts and distribute them to configured runtime nodes.</p>
+            </article>
+        </div>
+    </section>
+</div>

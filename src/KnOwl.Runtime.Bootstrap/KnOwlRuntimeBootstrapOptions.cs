@@ -25,6 +25,11 @@ public sealed class KnOwlRuntimeBootstrapOptions
     public KnOwlRuntimeThemeOptions Theme { get; } = new();
 
     /// <summary>
+    /// Gets default home page and host override options used by the Runtime Web UI.
+    /// </summary>
+    public KnOwlRuntimeHomeOptions Home { get; } = new();
+
+    /// <summary>
     /// Gets or sets the authorization policy applied to the Runtime REST API. Leave empty to let the host map the API without a policy.
     /// </summary>
     public string? ApiAuthorizationPolicy

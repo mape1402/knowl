@@ -143,6 +143,39 @@ public sealed class WebUiRouteRenderingCoverageTests
     }
 
     [Fact]
+    public async Task ControlPlaneHomeUsesConfiguredContentAndNavigationPath()
+    {
+        await using var fixture = await ControlPlaneWebUiFixture.Start(configureHome: home =>
+        {
+            home.Path = "/company/home";
+            home.RedirectRootToPath = false;
+            home.Title = "Company Contract Hub";
+            home.Subtitle = "Custom host landing copy.";
+            home.QuickAccessCards.Clear();
+            home.QuickAccessCards.Add(new KnOwlHomeCardOptions("Company Docs", "Host-owned documentation.", "/company/docs", "book", "#2563eb"));
+        });
+
+        var html = await fixture.Client.GetStringAsync("/");
+
+        Assert.Contains("href=\"/company/home\"", html);
+        Assert.Contains("Company Contract Hub", html);
+        Assert.Contains("Custom host landing copy.", html);
+        Assert.Contains("Company Docs", html);
+        Assert.Contains("/company/docs", html);
+    }
+
+    [Fact]
+    public async Task ControlPlaneHomeCanRedirectToHostOwnedPage()
+    {
+        await using var fixture = await ControlPlaneWebUiFixture.Start(configureHome: home => home.Path = "/company/home");
+
+        using var response = await fixture.Client.GetAsync("/");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/company/home", response.Headers.Location?.OriginalString);
+    }
+
+    [Fact]
     public async Task RuntimeLayoutHidesUserMenuWhenWolfAuthIsNotRegistered()
     {
         await using var fixture = await RuntimeWebUiFixture.Start(authenticated: true);
@@ -151,6 +184,27 @@ public sealed class WebUiRouteRenderingCoverageTests
 
         Assert.DoesNotContain("topbar-user-menu", html);
         Assert.DoesNotContain("Sign out", html);
+    }
+
+    [Fact]
+    public async Task RuntimeHomeUsesConfiguredContentAndNavigationPath()
+    {
+        await using var fixture = await RuntimeWebUiFixture.Start(configureHome: home =>
+        {
+            home.Path = "/runtime/landing";
+            home.RedirectRootToPath = false;
+            home.Title = "Runtime Console";
+            home.Subtitle = "Custom runtime landing copy.";
+            home.EndpointRoutes.Clear();
+            home.EndpointRoutes.Add("GET /custom/runtime/catalog");
+        });
+
+        var html = await fixture.Client.GetStringAsync("/");
+
+        Assert.Contains("href=\"/runtime/landing\"", html);
+        Assert.Contains("Runtime Console", html);
+        Assert.Contains("Custom runtime landing copy.", html);
+        Assert.Contains("GET /custom/runtime/catalog", html);
     }
 
     [Fact]
@@ -208,12 +262,15 @@ public sealed class WebUiRouteRenderingCoverageTests
         public HttpClient Client { get; }
         public ControlPlaneWebUiState State { get; }
 
-        public static async Task<ControlPlaneWebUiFixture> Start(bool authenticated = false, bool registerWolfAuth = false)
+        public static async Task<ControlPlaneWebUiFixture> Start(
+            bool authenticated = false,
+            bool registerWolfAuth = false,
+            Action<KnOwlControlPlaneHomeOptions>? configureHome = null)
         {
             var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
             builder.WebHost.UseTestServer();
             builder.Services.AddRazorPages().AddApplicationPart(typeof(ControlPlaneHomeModel).Assembly);
-            builder.Services.AddKnOwlControlPlaneWebUI();
+            builder.Services.AddKnOwlControlPlaneWebUI(configureHome: configureHome);
             if (registerWolfAuth)
             {
                 builder.Services.AddSingleton<IKnOwlWolfAuthRegistration, TestWolfAuthRegistration>();
@@ -267,12 +324,15 @@ public sealed class WebUiRouteRenderingCoverageTests
         public HttpClient Client { get; }
         public RuntimeWebUiState State { get; }
 
-        public static async Task<RuntimeWebUiFixture> Start(bool authenticated = false, bool registerWolfAuth = false)
+        public static async Task<RuntimeWebUiFixture> Start(
+            bool authenticated = false,
+            bool registerWolfAuth = false,
+            Action<KnOwlRuntimeHomeOptions>? configureHome = null)
         {
             var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
             builder.WebHost.UseTestServer();
             builder.Services.AddRazorPages().AddApplicationPart(typeof(RuntimeHomeModel).Assembly);
-            builder.Services.AddKnOwlRuntimeWebUI();
+            builder.Services.AddKnOwlRuntimeWebUI(configureHome: configureHome);
             if (registerWolfAuth)
             {
                 builder.Services.AddSingleton<IKnOwlWolfAuthRegistration, TestWolfAuthRegistration>();

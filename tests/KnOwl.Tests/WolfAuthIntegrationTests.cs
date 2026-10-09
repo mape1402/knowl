@@ -5,6 +5,7 @@ using KnOwl.WolfAuth;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -42,6 +43,39 @@ public sealed class WolfAuthIntegrationTests
         Assert.Contains("Authentication required.", html);
         Assert.Contains(">Login</a>", html);
         Assert.Contains("/auth/login/challenge?returnUrl=%2Fsecure", html);
+    }
+
+    [Fact]
+    public async Task LoginShellUsesHostProvidedRenderer()
+    {
+        await using var fixture = await WolfAuthFixture.Start(
+            options => options.ApplicationName = "Custom App",
+            configureServices: services =>
+                services.AddSingleton<IKnOwlLoginPageRenderer, CustomLoginPageRenderer>());
+
+        var html = await fixture.Client.GetStringAsync("/auth/login?returnUrl=/secure");
+
+        Assert.Equal("custom login: Custom App", html);
+    }
+
+    [Fact]
+    public async Task LoginEndpointCanBeLeftForHostOwnedPage()
+    {
+        await using var fixture = await WolfAuthFixture.Start(options =>
+        {
+            options.MapLoginEndpoint = false;
+            options.ChallengeSchemes.Add(TestAuthenticationDefaults.Scheme);
+        },
+        configureApp: app =>
+            app.MapGet("/auth/login", () => "host login").AllowAnonymous());
+
+        using var login = await fixture.Client.GetAsync("/auth/login");
+        using var challenge = await fixture.Client.GetAsync("/auth/login/challenge?returnUrl=/secure");
+
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        Assert.Equal("host login", await login.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.Redirect, challenge.StatusCode);
+        Assert.Equal("/external-login?returnUrl=%2Fsecure", challenge.Headers.Location?.OriginalString);
     }
 
     [Fact]
@@ -123,7 +157,9 @@ public sealed class WolfAuthIntegrationTests
             Action<KnOwlWolfAuthOptions>? configureOptions = null,
             bool authenticated = false,
             bool registerKnOwlWolfAuth = true,
-            IConfiguration? wolfAuthConfiguration = null)
+            IConfiguration? wolfAuthConfiguration = null,
+            Action<IServiceCollection>? configureServices = null,
+            Action<WebApplication>? configureApp = null)
         {
             var builder = WebApplication.CreateBuilder();
             builder.WebHost.UseTestServer();
@@ -134,6 +170,7 @@ public sealed class WolfAuthIntegrationTests
             builder.Services.AddAuthorization();
 
             builder.Services.Configure<TestAuthenticationState>(options => options.IsAuthenticated = authenticated);
+            configureServices?.Invoke(builder.Services);
 
             if (registerKnOwlWolfAuth)
             {
@@ -152,6 +189,7 @@ public sealed class WolfAuthIntegrationTests
             app.UseKnOwlWolfAuthLoginGate();
             app.UseAuthorization();
             app.MapKnOwlWolfAuthEndpoints();
+            configureApp?.Invoke(app);
             app.MapGet("/secure", () => "ok");
 
             await app.StartAsync();
@@ -163,6 +201,12 @@ public sealed class WolfAuthIntegrationTests
             Client.Dispose();
             await app.DisposeAsync();
         }
+    }
+
+    private sealed class CustomLoginPageRenderer : IKnOwlLoginPageRenderer
+    {
+        public IResult Render(HttpContext context, KnOwlWolfAuthOptions options)
+            => Results.Text($"custom login: {options.ApplicationName}");
     }
 
     private static class TestAuthenticationDefaults

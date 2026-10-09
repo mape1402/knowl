@@ -73,6 +73,7 @@ var knowlServices = builder.Services.AddKnOwlControlPlane(builder.Configuration,
     options.Theme.Dark.SidebarBrandBackgroundColor = "#0b1220";
     options.Theme.Dark.SidebarTextColor = "#f8fafc";
     options.Theme.Dark.SidebarMutedTextColor = "#bfdbfe";
+    options.Home.Path = "/company/home";
     options.ConfigureStorage = db => db.UseSqlServer(
         connectionString,
         sql => sql.MigrationsAssembly(migrationsAssembly));
@@ -85,6 +86,8 @@ if (entraId.IsConfigured)
         options.ApplicationName = "Sample KnOwl";
         options.Subtitle = "Sign in with Microsoft Entra ID.";
         options.LoginButtonText = "Login";
+        options.LoginPath = "/company/login";
+        options.MapLoginEndpoint = false;
         options.ChallengeSchemes.Add(OpenIdConnectDefaults.AuthenticationScheme);
         options.SignOutSchemes.Add(CookieAuthenticationDefaults.AuthenticationScheme);
         options.SignOutSchemes.Add(OpenIdConnectDefaults.AuthenticationScheme);
