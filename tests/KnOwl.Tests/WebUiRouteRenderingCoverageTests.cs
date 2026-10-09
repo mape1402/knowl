@@ -1,4 +1,5 @@
 using System.Net;
+using System.Security.Claims;
 using KnOwl.Contracts.ArtifactDelivery;
 using KnOwl.Contracts.Artifacts;
 using KnOwl.Contracts.Distribution;
@@ -20,8 +21,10 @@ using KnOwl.Runtime.Application.Security;
 using KnOwl.Runtime.Core;
 using KnOwl.Runtime.Storage;
 using KnOwl.Runtime.WebUI;
+using KnOwl.WolfAuth;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using ControlPlaneHomeModel = KnOwl.ControlPlane.WebUI.Pages.IndexModel;
@@ -117,6 +120,40 @@ public sealed class WebUiRouteRenderingCoverageTests
     }
 
     [Fact]
+    public async Task ControlPlaneLayoutHidesUserMenuWhenWolfAuthIsNotRegistered()
+    {
+        await using var fixture = await ControlPlaneWebUiFixture.Start(authenticated: true);
+
+        var html = await fixture.Client.GetStringAsync("/");
+
+        Assert.DoesNotContain("topbar-user-menu", html);
+        Assert.DoesNotContain("Sign out", html);
+    }
+
+    [Fact]
+    public async Task ControlPlaneLayoutShowsUserMenuWhenWolfAuthIsRegistered()
+    {
+        await using var fixture = await ControlPlaneWebUiFixture.Start(authenticated: true, registerWolfAuth: true);
+
+        var html = await fixture.Client.GetStringAsync("/");
+
+        Assert.Contains("topbar-user-menu", html);
+        Assert.Contains("Test User", html);
+        Assert.Contains("Sign out", html);
+    }
+
+    [Fact]
+    public async Task RuntimeLayoutHidesUserMenuWhenWolfAuthIsNotRegistered()
+    {
+        await using var fixture = await RuntimeWebUiFixture.Start(authenticated: true);
+
+        var html = await fixture.Client.GetStringAsync("/");
+
+        Assert.DoesNotContain("topbar-user-menu", html);
+        Assert.DoesNotContain("Sign out", html);
+    }
+
+    [Fact]
     public async Task DocumentationWebUiRoutesRenderWithRepresentativeData()
     {
         await using var fixture = await DocumentationWebUiFixture.Start();
@@ -171,12 +208,16 @@ public sealed class WebUiRouteRenderingCoverageTests
         public HttpClient Client { get; }
         public ControlPlaneWebUiState State { get; }
 
-        public static async Task<ControlPlaneWebUiFixture> Start()
+        public static async Task<ControlPlaneWebUiFixture> Start(bool authenticated = false, bool registerWolfAuth = false)
         {
             var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
             builder.WebHost.UseTestServer();
             builder.Services.AddRazorPages().AddApplicationPart(typeof(ControlPlaneHomeModel).Assembly);
             builder.Services.AddKnOwlControlPlaneWebUI();
+            if (registerWolfAuth)
+            {
+                builder.Services.AddSingleton<IKnOwlWolfAuthRegistration, TestWolfAuthRegistration>();
+            }
 
             var state = new ControlPlaneWebUiState();
             builder.Services.AddSingleton(state);
@@ -195,6 +236,11 @@ public sealed class WebUiRouteRenderingCoverageTests
             builder.Services.AddSingleton<IArtifactDeliveryInteractionService>(state);
 
             var app = builder.Build();
+            if (authenticated)
+            {
+                app.Use(TestUser);
+            }
+
             app.MapRazorPages();
             await app.StartAsync();
             return new ControlPlaneWebUiFixture(app, app.GetTestClient(), state);
@@ -221,12 +267,17 @@ public sealed class WebUiRouteRenderingCoverageTests
         public HttpClient Client { get; }
         public RuntimeWebUiState State { get; }
 
-        public static async Task<RuntimeWebUiFixture> Start()
+        public static async Task<RuntimeWebUiFixture> Start(bool authenticated = false, bool registerWolfAuth = false)
         {
             var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
             builder.WebHost.UseTestServer();
             builder.Services.AddRazorPages().AddApplicationPart(typeof(RuntimeHomeModel).Assembly);
             builder.Services.AddKnOwlRuntimeWebUI();
+            if (registerWolfAuth)
+            {
+                builder.Services.AddSingleton<IKnOwlWolfAuthRegistration, TestWolfAuthRegistration>();
+            }
+
             var state = new RuntimeWebUiState();
             builder.Services.AddSingleton(state);
             builder.Services.AddSingleton<IRuntimeContractCatalogService>(state);
@@ -234,6 +285,11 @@ public sealed class WebUiRouteRenderingCoverageTests
             builder.Services.AddSingleton<IRuntimeDesignNodeConnectionService>(state);
 
             var app = builder.Build();
+            if (authenticated)
+            {
+                app.Use(TestUser);
+            }
+
             app.MapRazorPages();
             await app.StartAsync();
             return new RuntimeWebUiFixture(app, app.GetTestClient(), state);
@@ -244,6 +300,19 @@ public sealed class WebUiRouteRenderingCoverageTests
             Client.Dispose();
             await app.DisposeAsync();
         }
+    }
+
+    private sealed class TestWolfAuthRegistration : IKnOwlWolfAuthRegistration;
+
+    private static async Task TestUser(HttpContext context, RequestDelegate next)
+    {
+        context.User = new ClaimsPrincipal(new ClaimsIdentity(
+            [
+                new Claim(ClaimTypes.Name, "Test User"),
+                new Claim(ClaimTypes.Email, "test.user@example.test")
+            ],
+            "test"));
+        await next(context);
     }
 
     private sealed class DocumentationWebUiFixture : IAsyncDisposable
