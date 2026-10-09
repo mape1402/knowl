@@ -1,4 +1,4 @@
-@page "/documentation/topics/{id:guid}"
+@page "/documentation/spaces/{spaceId:guid}/topics/{topicId:guid}/pages"
 @model KnOwl.Documentation.WebUI.Pages.Documentation.TopicModel
 @{
     ViewData["Title"] = Model.Topic?.Name ?? "Documentation Topic";
@@ -21,7 +21,7 @@
         }
         @if (Model.Space is not null)
         {
-            <a class="btn btn-secondary btn-sm" asp-page="/Documentation/Space" asp-route-id="@Model.Space.Id"><i class="bi bi-arrow-left"></i> Back</a>
+            <a class="btn btn-secondary btn-sm" asp-page="/Documentation/Space" asp-route-spaceId="@Model.Space.Id"><i class="bi bi-arrow-left"></i> Back</a>
         }
     </div>
 </div>
@@ -34,7 +34,7 @@
     <button type="submit" class="btn btn-secondary"><i class="bi bi-search"></i> Search</button>
     @if (!string.IsNullOrWhiteSpace(Model.Search))
     {
-        <a class="btn btn-secondary" asp-page="/Documentation/Topic" asp-route-id="@Model.Topic?.Id">Clear</a>
+        <a class="btn btn-secondary" asp-page="/Documentation/Topic" asp-route-spaceId="@Model.Space?.Id" asp-route-topicId="@Model.Topic?.Id">Clear</a>
     }
 </form>
 
@@ -50,11 +50,12 @@
     else
     {
         <div class="documentation-card-grid">
-            @foreach (var docPage in Model.Pages)
+            @foreach (var card in Model.PageCards)
             {
-                var browseUrl = Model.Space is not null && Model.Topic is not null
-                    ? Url.Page("/Documentation/View", new { spaceKey = Model.Space.Key, topicKey = Model.Topic.Key, pageKey = docPage.Key })
-                    : Url.Page("/Documentation/Page", new { id = docPage.Id });
+                var docPage = card.Page;
+                var browseUrl = Model.Space is not null && Model.Topic is not null && card.LatestVersionId.HasValue
+                    ? Url.Page("/Documentation/View", new { spaceId = Model.Space.Id, topicId = Model.Topic.Id, pageId = docPage.Id, versionId = card.LatestVersionId.Value })
+                    : Url.Page("/Documentation/Page", new { spaceId = Model.Space?.Id, topicId = Model.Topic?.Id, pageId = docPage.Id });
 
                 <article class="documentation-card" data-open-url="@browseUrl">
                     <div class="documentation-card-top">
@@ -68,7 +69,7 @@
                                 <button class="od-kebab" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Page actions">&#8942;</button>
                                 <ul class="dropdown-menu dropdown-menu-end">
                                     <li>
-                                        <a class="dropdown-item" asp-page="/Documentation/Page" asp-route-id="@docPage.Id">Versions</a>
+                                        <a class="dropdown-item" asp-page="/Documentation/Page" asp-route-spaceId="@Model.Space?.Id" asp-route-topicId="@Model.Topic?.Id" asp-route-pageId="@docPage.Id">Versions</a>
                                     </li>
                                 </ul>
                             </div>
@@ -89,7 +90,7 @@
     <div class="modal fade" id="newPageModal" tabindex="-1" aria-labelledby="newPageModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
-                <form method="post" asp-page-handler="CreatePage" asp-route-id="@Model.Topic.Id">
+                <form method="post" asp-page-handler="CreatePage" asp-route-spaceId="@Model.Space?.Id" asp-route-topicId="@Model.Topic.Id">
                     <div class="modal-header">
                         <h5 class="modal-title" id="newPageModalLabel">New page for @Model.Topic.Name</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>

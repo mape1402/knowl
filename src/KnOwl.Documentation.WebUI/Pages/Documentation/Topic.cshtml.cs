@@ -10,15 +10,16 @@ public sealed class TopicModel(IDocumentationInteractionService documentation) :
     public KnOwl.Documentation.DocumentationSpace? Space { get; private set; }
     public KnOwl.Documentation.DocumentationTopic? Topic { get; private set; }
     public IReadOnlyList<KnOwl.Documentation.DocumentationPage> Pages { get; private set; } = [];
+    public IReadOnlyList<DocumentationPageCard> PageCards { get; private set; } = [];
     public string? Search { get; private set; }
     public bool ShowNewPageModal { get; private set; }
 
     [BindProperty]
     public DocumentationPageInput NewPage { get; set; } = new();
 
-    public async Task<IActionResult> OnGetAsync(Guid id, string? search, CancellationToken cancellationToken)
+    public async Task<IActionResult> OnGetAsync(Guid spaceId, Guid topicId, string? search, CancellationToken cancellationToken)
     {
-        if (!await Load(id, search, cancellationToken))
+        if (!await Load(spaceId, topicId, search, cancellationToken))
         {
             return NotFound();
         }
@@ -26,9 +27,9 @@ public sealed class TopicModel(IDocumentationInteractionService documentation) :
         return Page();
     }
 
-    public async Task<IActionResult> OnPostCreatePageAsync(Guid id, string? search, CancellationToken cancellationToken)
+    public async Task<IActionResult> OnPostCreatePageAsync(Guid spaceId, Guid topicId, string? search, CancellationToken cancellationToken)
     {
-        if (!await Load(id, search, cancellationToken))
+        if (!await Load(spaceId, topicId, search, cancellationToken))
         {
             return NotFound();
         }
@@ -40,21 +41,15 @@ public sealed class TopicModel(IDocumentationInteractionService documentation) :
         }
 
         var page = await documentation.UpsertPage(Space!.Key, Topic!.Key, NewPage.Key, NewPage.Title, NewPage.Description, isActive: true, cancellationToken);
-        return RedirectToPage("/Documentation/Page", new { id = page.Id });
+        return RedirectToPage("/Documentation/Page", new { spaceId = Space.Id, topicId = Topic.Id, pageId = page.Id });
     }
 
-    private async Task<bool> Load(Guid id, string? search, CancellationToken cancellationToken)
+    private async Task<bool> Load(Guid spaceId, Guid topicId, string? search, CancellationToken cancellationToken)
     {
         Search = search;
-        Topic = await documentation.GetTopic(id, cancellationToken);
-        if (Topic is null)
-        {
-            return false;
-        }
-
-        var spaces = await documentation.GetSpaces(cancellationToken);
-        Space = spaces.FirstOrDefault(x => x.Id == Topic.SpaceId);
-        if (Space is null)
+        Space = await documentation.GetSpace(spaceId, cancellationToken);
+        Topic = await documentation.GetTopic(topicId, cancellationToken);
+        if (Space is null || Topic is null || Topic.SpaceId != Space.Id)
         {
             return false;
         }
@@ -68,8 +63,35 @@ public sealed class TopicModel(IDocumentationInteractionService documentation) :
                 (page.Description?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false) ||
                 (page.IsActive ? "Active" : "Inactive").Contains(search, StringComparison.OrdinalIgnoreCase))
                 .ToArray();
+        PageCards = await BuildPageCards(Pages, cancellationToken);
         return true;
     }
+
+    private async Task<IReadOnlyList<DocumentationPageCard>> BuildPageCards(
+        IReadOnlyList<KnOwl.Documentation.DocumentationPage> pages,
+        CancellationToken cancellationToken)
+    {
+        List<DocumentationPageCard> cards = [];
+        foreach (var page in pages)
+        {
+            var pageWithVersions = await documentation.GetPage(page.Id, includeVersions: true, cancellationToken);
+            var latestVersionId = LatestBrowsableVersion(pageWithVersions)?.Id;
+            cards.Add(new DocumentationPageCard(page, latestVersionId));
+        }
+
+        return cards;
+    }
+
+    private static KnOwl.Documentation.DocumentationPageVersion? LatestBrowsableVersion(KnOwl.Documentation.DocumentationPage? page)
+        => page?.Versions
+            .Where(version => version.Status == KnOwl.Documentation.DocPageVersionStatus.Published)
+            .OrderByDescending(version => version.PublishedAtUtc ?? version.CreatedAtUtc)
+            .FirstOrDefault()
+            ?? page?.Versions
+                .OrderByDescending(version => version.PublishedAtUtc ?? version.CreatedAtUtc)
+                .FirstOrDefault();
+
+    public sealed record DocumentationPageCard(KnOwl.Documentation.DocumentationPage Page, Guid? LatestVersionId);
 
     public sealed class DocumentationPageInput
     {

@@ -1,4 +1,4 @@
-@page "/documentation"
+@page "/documentation/spaces"
 @model KnOwl.Documentation.WebUI.Pages.Documentation.IndexModel
 @{
     ViewData["Title"] = "Documentation";
@@ -43,7 +43,7 @@
         <div class="documentation-card-grid">
             @foreach (var space in Model.Spaces)
             {
-                <article class="documentation-card" data-open-url="@Url.Page("/Documentation/Space", new { id = space.Id })">
+                <article class="documentation-card" data-open-url="@Url.Page("/Documentation/Space", new { spaceId = space.Id })">
                     <div class="documentation-card-top">
                         <div class="documentation-card-title-block">
                             <h2 class="documentation-card-title">@space.Name</h2>

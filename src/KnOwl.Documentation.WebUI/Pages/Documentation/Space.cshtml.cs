@@ -15,14 +15,14 @@ public sealed class SpaceModel(IDocumentationInteractionService documentation) :
     [BindProperty]
     public TopicInput NewTopic { get; set; } = new();
 
-    public async Task<IActionResult> OnGetAsync(Guid id, string? search, CancellationToken cancellationToken)
+    public async Task<IActionResult> OnGetAsync(Guid spaceId, string? search, CancellationToken cancellationToken)
     {
-        return await Load(id, search, cancellationToken) ? Page() : NotFound();
+        return await Load(spaceId, search, cancellationToken) ? Page() : NotFound();
     }
 
-    public async Task<IActionResult> OnPostCreateTopicAsync(Guid id, string? search, CancellationToken cancellationToken)
+    public async Task<IActionResult> OnPostCreateTopicAsync(Guid spaceId, string? search, CancellationToken cancellationToken)
     {
-        if (!await Load(id, search, cancellationToken))
+        if (!await Load(spaceId, search, cancellationToken))
         {
             return NotFound();
         }
@@ -34,13 +34,13 @@ public sealed class SpaceModel(IDocumentationInteractionService documentation) :
         }
 
         var topic = await documentation.UpsertTopic(Space!.Key, NewTopic.Key, NewTopic.Name, NewTopic.Description, isActive: true, cancellationToken);
-        return RedirectToPage("/Documentation/Topic", new { id = topic.Id });
+        return RedirectToPage("/Documentation/Topic", new { spaceId = Space.Id, topicId = topic.Id });
     }
 
-    private async Task<bool> Load(Guid id, string? search, CancellationToken cancellationToken)
+    private async Task<bool> Load(Guid spaceId, string? search, CancellationToken cancellationToken)
     {
         Search = search;
-        Space = await documentation.GetSpace(id, cancellationToken);
+        Space = await documentation.GetSpace(spaceId, cancellationToken);
         if (Space is null)
         {
             return false;

@@ -1,4 +1,4 @@
-@page "/documentation/pages/{id:guid}"
+@page "/documentation/spaces/{spaceId:guid}/topics/{topicId:guid}/pages/{pageId:guid}/versions"
 @model KnOwl.Documentation.WebUI.Pages.Documentation.DocumentationPageModel
 @{
     ViewData["Title"] = Model.PageItem?.Title ?? "Documentation Page";
@@ -29,7 +29,7 @@
         }
         @if (Model.Topic is not null)
         {
-            <a class="btn btn-secondary btn-sm" asp-page="/Documentation/Topic" asp-route-id="@Model.Topic.Id"><i class="bi bi-arrow-left"></i> Back</a>
+            <a class="btn btn-secondary btn-sm" asp-page="/Documentation/Topic" asp-route-spaceId="@Model.Space?.Id" asp-route-topicId="@Model.Topic.Id"><i class="bi bi-arrow-left"></i> Back</a>
         }
     </div>
 </div>
@@ -42,7 +42,7 @@
     <button type="submit" class="btn btn-secondary"><i class="bi bi-search"></i> Search</button>
     @if (!string.IsNullOrWhiteSpace(Model.Search))
     {
-        <a class="btn btn-secondary" asp-page="/Documentation/Page" asp-route-id="@Model.PageItem?.Id">Clear</a>
+        <a class="btn btn-secondary" asp-page="/Documentation/Page" asp-route-spaceId="@Model.Space?.Id" asp-route-topicId="@Model.Topic?.Id" asp-route-pageId="@Model.PageItem?.Id">Clear</a>
     }
 </form>
 
@@ -61,7 +61,7 @@
             @foreach (var version in Model.Versions)
             {
                 var browseUrl = Model.Space is not null && Model.Topic is not null && Model.PageItem is not null
-                    ? Url.Page("/Documentation/View", new { spaceKey = Model.Space.Key, topicKey = Model.Topic.Key, pageKey = Model.PageItem.Key, version = version.VersionNumber })
+                    ? Url.Page("/Documentation/View", new { spaceId = Model.Space.Id, topicId = Model.Topic.Id, pageId = Model.PageItem.Id, versionId = version.Id })
                     : null;
 
                 <article class="documentation-card documentation-version-card" data-open-url="@browseUrl">
@@ -90,7 +90,7 @@
     <div class="modal fade" id="newVersionModal" tabindex="-1" aria-labelledby="newVersionModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
-                <form method="post" enctype="multipart/form-data" asp-page-handler="UploadVersion" asp-route-id="@Model.PageItem.Id">
+                <form method="post" enctype="multipart/form-data" asp-page-handler="UploadVersion" asp-route-spaceId="@Model.Space?.Id" asp-route-topicId="@Model.Topic?.Id" asp-route-pageId="@Model.PageItem.Id">
                     <div class="modal-header">
                         <h5 class="modal-title" id="newVersionModalLabel">Upload version for @Model.PageItem.Title</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>

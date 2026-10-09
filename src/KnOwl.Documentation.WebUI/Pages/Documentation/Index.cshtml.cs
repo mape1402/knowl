@@ -29,7 +29,7 @@ public sealed class IndexModel(IDocumentationInteractionService documentation) :
         }
 
         var space = await documentation.UpsertSpace(NewSpace.Key, NewSpace.Name, NewSpace.Description, isActive: true, cancellationToken);
-        return RedirectToPage("/Documentation/Space", new { id = space.Id });
+        return RedirectToPage("/Documentation/Space", new { spaceId = space.Id });
     }
 
     private async Task Load(string? search, CancellationToken cancellationToken)

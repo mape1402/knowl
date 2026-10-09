@@ -18,10 +18,10 @@ public sealed class DocumentationPageModel(IDocumentationInteractionService docu
     [BindProperty]
     public VersionInput NewVersion { get; set; } = new();
 
-    public async Task<IActionResult> OnGetAsync(Guid id, string? search, CancellationToken cancellationToken)
+    public async Task<IActionResult> OnGetAsync(Guid spaceId, Guid topicId, Guid pageId, string? search, CancellationToken cancellationToken)
     {
         Search = search;
-        if (!await Load(id, cancellationToken))
+        if (!await Load(spaceId, topicId, pageId, cancellationToken))
         {
             return NotFound();
         }
@@ -29,10 +29,10 @@ public sealed class DocumentationPageModel(IDocumentationInteractionService docu
         return Page();
     }
 
-    public async Task<IActionResult> OnPostUploadVersionAsync(Guid id, string? search, CancellationToken cancellationToken)
+    public async Task<IActionResult> OnPostUploadVersionAsync(Guid spaceId, Guid topicId, Guid pageId, string? search, CancellationToken cancellationToken)
     {
         Search = search;
-        if (!await Load(id, cancellationToken))
+        if (!await Load(spaceId, topicId, pageId, cancellationToken))
         {
             return NotFound();
         }
@@ -45,41 +45,17 @@ public sealed class DocumentationPageModel(IDocumentationInteractionService docu
 
         await using var stream = NewVersion.File.OpenReadStream();
         await documentation.ImportVersion(new DocumentationVersionInput(PageItem!.Id, NewVersion.VersionNumber, NewVersion.File.FileName, NewVersion.File.ContentType, stream, NewVersion.EntryPath), cancellationToken);
-        return RedirectToPage("/Documentation/Page", new { id = PageItem.Id });
+        return RedirectToPage("/Documentation/Page", new { spaceId = Space!.Id, topicId = Topic!.Id, pageId = PageItem.Id });
     }
 
-    private async Task<bool> Load(Guid id, CancellationToken cancellationToken)
+    private async Task<bool> Load(Guid spaceId, Guid topicId, Guid pageId, CancellationToken cancellationToken)
     {
-        PageItem = await documentation.GetPage(id, includeVersions: true, cancellationToken);
-        if (PageItem is null)
+        Space = await documentation.GetSpace(spaceId, cancellationToken);
+        Topic = await documentation.GetTopic(topicId, cancellationToken);
+        PageItem = await documentation.GetPage(pageId, includeVersions: true, cancellationToken);
+        if (Space is null || Topic is null || PageItem is null || Topic.SpaceId != Space.Id || PageItem.TopicId != Topic.Id)
         {
             return false;
-        }
-
-        var topics = (await documentation.GetSpaces(cancellationToken))
-            .SelectMany(space => space.Topics.Select(topic => (space, topic)));
-        foreach (var (space, topic) in topics)
-        {
-            if (topic.Id == PageItem.TopicId)
-            {
-                Space = space;
-                Topic = topic;
-                break;
-            }
-        }
-
-        if (Topic is null)
-        {
-            foreach (var space in await documentation.GetSpaces(cancellationToken))
-            {
-                var matchingTopics = await documentation.GetTopics(space.Key, cancellationToken);
-                Topic = matchingTopics.FirstOrDefault(x => x.Id == PageItem.TopicId);
-                if (Topic is not null)
-                {
-                    Space = space;
-                    break;
-                }
-            }
         }
 
         var versions = PageItem.Versions.OrderByDescending(x => x.VersionNumber);
@@ -90,7 +66,7 @@ public sealed class DocumentationPageModel(IDocumentationInteractionService docu
                 version.EntryPath.Contains(Search, StringComparison.OrdinalIgnoreCase) ||
                 version.ContentHash.Contains(Search, StringComparison.OrdinalIgnoreCase))
                 .ToArray();
-        return Space is not null && Topic is not null;
+        return true;
     }
 
     public sealed class VersionInput

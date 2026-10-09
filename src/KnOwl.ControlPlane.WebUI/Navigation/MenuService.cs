@@ -34,7 +34,7 @@ public class MenuService : IMenuService
         Items.Add(nuget);
 
         var documentation = new MenuItem { Text = "Documentation", Icon = "book" };
-        documentation.Add("Spaces", "/documentation", "journal-richtext");
+        documentation.Add("Spaces", "/documentation/spaces", "journal-richtext");
         Items.Add(documentation);
 
         Items.Add(new MenuItem { Text = "Privacy", Url = "/Privacy", Icon = "shield-check" });

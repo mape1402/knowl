@@ -150,6 +150,12 @@ public sealed class DocumentationInteractionService(
         return new RenderedDocumentation(version, source, markdown, rendered.Html, rendered.TableOfContents);
     }
 
+    public async Task<RenderedDocumentation?> Render(Guid versionId, CancellationToken cancellationToken = default)
+    {
+        var version = await repository.GetVersion(versionId, includeAssets: true, cancellationToken);
+        return version is null ? null : await RenderByVersion(version, cancellationToken);
+    }
+
     public Task<DocumentationAsset?> GetAsset(Guid assetId, CancellationToken cancellationToken = default)
         => repository.GetAsset(assetId, cancellationToken);
 
