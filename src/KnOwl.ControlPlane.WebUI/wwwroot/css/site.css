@@ -1024,6 +1024,108 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
 }
 
 /* ═══════════════════════════════════════════════════════════
+   Placeholder pages
+═══════════════════════════════════════════════════════════ */
+.knowl-under-construction {
+    display: grid;
+    gap: 1rem;
+    max-width: 980px;
+}
+
+.under-construction-hero {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 1rem;
+    align-items: start;
+    border: 1px solid var(--knowl-border, #e2e3ef);
+    border-left: 4px solid var(--knowl-primary, #7c3aed);
+    border-radius: var(--radius);
+    background:
+        linear-gradient(90deg, color-mix(in srgb, var(--knowl-primary, #7c3aed) 10%, transparent), transparent 42%),
+        var(--knowl-surface, #ffffff);
+    padding: 1.5rem;
+}
+
+.under-construction-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--knowl-primary, #7c3aed) 12%, transparent);
+    color: var(--knowl-primary, #7c3aed);
+    font-size: 1.35rem;
+}
+
+.under-construction-status {
+    margin: 0 0 0.35rem;
+    color: var(--knowl-primary, #7c3aed);
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.under-construction-hero h1 {
+    margin-bottom: 0.45rem;
+    font-size: 1.6rem;
+}
+
+.under-construction-copy {
+    max-width: 720px;
+    margin: 0;
+    color: var(--knowl-muted-text, #6b6e8c);
+}
+
+.under-construction-panel {
+    border: 1px solid var(--knowl-border, #e2e3ef);
+    border-radius: var(--radius);
+    background: var(--knowl-surface, #ffffff);
+    padding: 1.25rem;
+}
+
+.under-construction-panel h2 {
+    margin-bottom: 0.85rem;
+    color: var(--topbar-muted);
+    font-size: 0.86rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.under-construction-list {
+    display: grid;
+    gap: 0.7rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.under-construction-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    color: var(--knowl-text, #1f1433);
+}
+
+.under-construction-list i {
+    color: var(--knowl-success-text, #047857);
+    margin-top: 0.12rem;
+}
+
+.under-construction-actions {
+    display: flex;
+    justify-content: flex-start;
+}
+
+@media (max-width: 640px) {
+    .under-construction-hero {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════
    Hub card grid
 ═══════════════════════════════════════════════════════════ */
 .hub-grid {
