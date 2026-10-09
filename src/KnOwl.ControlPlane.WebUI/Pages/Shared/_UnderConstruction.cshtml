@@ -1,0 +1,34 @@
+@model UnderConstructionViewModel
+
+<section class="knowl-under-construction" aria-labelledby="under-construction-title">
+    <div class="under-construction-hero">
+        <div class="under-construction-icon" aria-hidden="true">
+            <i class="bi bi-@Model.Icon"></i>
+        </div>
+        <div>
+            <p class="under-construction-status">@Model.StatusLabel</p>
+            <h1 id="under-construction-title">@Model.Title</h1>
+            <p class="under-construction-copy">@Model.Subtitle</p>
+        </div>
+    </div>
+
+    <div class="under-construction-panel">
+        <h2>Coming next</h2>
+        <ul class="under-construction-list">
+            @foreach (var feature in Model.UpcomingFeatures)
+            {
+                <li>
+                    <i class="bi bi-check2-circle" aria-hidden="true"></i>
+                    <span>@feature</span>
+                </li>
+            }
+        </ul>
+    </div>
+
+    <div class="under-construction-actions">
+        <a class="btn btn-primary" href="@Model.PrimaryLinkUrl">
+            <i class="bi bi-arrow-left"></i>
+            @Model.PrimaryLinkText
+        </a>
+    </div>
+</section>

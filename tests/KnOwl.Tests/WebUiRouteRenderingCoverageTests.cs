@@ -57,6 +57,9 @@ public sealed class WebUiRouteRenderingCoverageTests
         {
             "/",
             "/Privacy",
+            "/Apis",
+            "/Apis/Rest",
+            "/Apis/Grpc",
             "/Contracts/Schemas",
             "/Contracts/Types",
             $"/Contracts/Types/View/{type.Id}",
@@ -86,7 +89,9 @@ public sealed class WebUiRouteRenderingCoverageTests
             "/Contracts/ContractArtifacts",
             $"/Contracts/ContractArtifacts?groupKey={artifactGroupKey}",
             "/Contracts/ContractReleases",
-            $"/Contracts/ContractReleases/View?id={release.Id}"
+            $"/Contracts/ContractReleases/View?id={release.Id}",
+            "/Nuget/Packages",
+            "/Nuget/Config"
         };
 
         foreach (var url in urls)
