@@ -6,6 +6,11 @@ namespace KnOwl.WolfAuth;
 public sealed class KnOwlWolfAuthOptions
 {
     /// <summary>
+    /// Gets or sets a value indicating whether KnOwl should require WolfAuth-backed authentication.
+    /// </summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
     /// Gets or sets the anonymous login page path.
     /// </summary>
     public string LoginPath { get; set; } = "/auth/login";

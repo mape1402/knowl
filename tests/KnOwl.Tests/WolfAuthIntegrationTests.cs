@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -80,6 +81,40 @@ public sealed class WolfAuthIntegrationTests
         Assert.Equal("ok", content);
     }
 
+    [Fact]
+    public async Task IntegrationIsNoOpWhenWolfAuthIsDisabledByOptions()
+    {
+        await using var fixture = await WolfAuthFixture.Start(
+            options => options.Enabled = false);
+
+        var content = await fixture.Client.GetStringAsync("/secure");
+        using var login = await fixture.Client.GetAsync("/auth/login");
+
+        Assert.Equal("ok", content);
+        Assert.Equal(HttpStatusCode.NotFound, login.StatusCode);
+    }
+
+    [Fact]
+    public async Task IntegrationIsNoOpWhenWolfAuthIsDisabledByConfiguration()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Enabled"] = "false"
+            })
+            .Build();
+        await using var fixture = await WolfAuthFixture.Start(
+            configureOptions: null,
+            authenticated: false,
+            wolfAuthConfiguration: configuration);
+
+        var content = await fixture.Client.GetStringAsync("/secure");
+        using var login = await fixture.Client.GetAsync("/auth/login");
+
+        Assert.Equal("ok", content);
+        Assert.Equal(HttpStatusCode.NotFound, login.StatusCode);
+    }
+
     private sealed class WolfAuthFixture(WebApplication app, HttpClient client) : IAsyncDisposable
     {
         public HttpClient Client { get; } = client;
@@ -87,7 +122,8 @@ public sealed class WolfAuthIntegrationTests
         public static async Task<WolfAuthFixture> Start(
             Action<KnOwlWolfAuthOptions>? configureOptions = null,
             bool authenticated = false,
-            bool registerKnOwlWolfAuth = true)
+            bool registerKnOwlWolfAuth = true,
+            IConfiguration? wolfAuthConfiguration = null)
         {
             var builder = WebApplication.CreateBuilder();
             builder.WebHost.UseTestServer();
@@ -101,7 +137,14 @@ public sealed class WolfAuthIntegrationTests
 
             if (registerKnOwlWolfAuth)
             {
-                builder.Services.UseWolfAuth(configureOptions);
+                if (wolfAuthConfiguration is null)
+                {
+                    builder.Services.UseWolfAuth(configureOptions);
+                }
+                else
+                {
+                    builder.Services.UseWolfAuth(wolfAuthConfiguration, configureOptions);
+                }
             }
 
             var app = builder.Build();

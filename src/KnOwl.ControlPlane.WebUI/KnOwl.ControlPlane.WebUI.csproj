@@ -5,6 +5,7 @@
     <ProjectReference Include="..\KnOwl.ControlPlane\KnOwl.ControlPlane.csproj" />
     <ProjectReference Include="..\KnOwl.ControlPlane.Application\KnOwl.ControlPlane.Application.csproj" />
     <ProjectReference Include="..\KnOwl.ControlPlane.Storage.EntityFramework\KnOwl.ControlPlane.Storage.EntityFramework.csproj" />
+    <ProjectReference Include="..\KnOwl.WolfAuth\KnOwl.WolfAuth.csproj" />
   </ItemGroup>
 
   <ItemGroup>

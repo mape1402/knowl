@@ -80,7 +80,7 @@ var knowlServices = builder.Services.AddKnOwlControlPlane(builder.Configuration,
 
 if (entraId.IsConfigured)
 {
-    knowlServices.UseWolfAuth(options =>
+    knowlServices.UseWolfAuth(builder.Configuration.GetSection("KnOwl:WolfAuth"), options =>
     {
         options.ApplicationName = "Sample KnOwl";
         options.Subtitle = "Sign in with Microsoft Entra ID.";

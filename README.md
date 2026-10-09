@@ -44,7 +44,7 @@ Install only the layer your host needs:
 | `KnOwl.Runtime.Storage.EntityFramework` | Provider-agnostic EF Core storage for Runtime state. |
 | `KnOwl.Runtime.WebUI` | Reusable Razor UI for Runtime hosts. |
 | `KnOwl.Runtime.Bootstrap` | ASP.NET Core composition for Runtime hosts. |
-| `KnOwl.WolfAuth` | Optional WolfAuth authentication integration for KnOwl hosts. |
+| `KnOwl.WolfAuth` | Optional WolfAuth authentication integration and login shell for KnOwl hosts. |
 
 All packages target `net9.0` and `net10.0`.
 
@@ -355,6 +355,8 @@ Hosts remain responsible for authentication. The API packages do not force JWT, 
 
 KnOwl delegates user authentication to WolfAuth. The host configures WolfAuth directly, including its provider, schemes, claims, and storage. KnOwl only adds the reusable login shell and middleware hooks needed by the Control Plane or Runtime UI.
 
+WolfAuth integration is enabled by default when a host calls `UseWolfAuth`. Disable it per environment with `KnOwl:WolfAuth:Enabled = false`; when disabled, KnOwl skips the login gate and hides the top-bar user menu.
+
 Typical Control Plane setup:
 
 ```csharp
@@ -378,7 +380,7 @@ builder.Services
             builder.Configuration.GetConnectionString("KnOwlDb"),
             sql => sql.MigrationsAssembly(typeof(Program).Assembly.GetName().Name));
     })
-    .UseWolfAuth(options =>
+    .UseWolfAuth(builder.Configuration.GetSection("KnOwl:WolfAuth"), options =>
     {
         options.ApplicationName = "My Contracts";
         options.Subtitle = "Sign in to continue.";
@@ -392,9 +394,24 @@ app.MapKnOwlControlPlane();
 app.Run();
 ```
 
+Configuration:
+
+```json
+{
+  "KnOwl": {
+    "WolfAuth": {
+      "Enabled": true,
+      "LoginPath": "/auth/login",
+      "ChallengePath": "/auth/login/challenge",
+      "LogoutPath": "/auth/logout"
+    }
+  }
+}
+```
+
 When `UseWolfAuth` is enabled, anonymous browser requests are redirected to `/auth/login`. That page renders a single `Login` button that triggers `/auth/login/challenge`, and the challenge uses the authentication scheme configured by the host through WolfAuth/ASP.NET Core authentication.
 
-This phase covers authentication. KnOwl's previous in-package subject, role, permission, and security storage packages have been deprecated and removed; authorization is expected to move through WolfAuth as the central security layer.
+This phase covers authentication. KnOwl's previous in-package user security layer for subjects, roles, permissions, authentication, and security storage is deprecated in favor of WolfAuth as the central security layer. Distribution credential/token primitives used for Control Plane and Runtime artifact delivery remain part of KnOwl because they secure node-to-node distribution, not user sign-in.
 
 ## Local Development
 
@@ -406,7 +423,7 @@ dotnet build KnOwl.slnx --no-restore --configuration Release
 dotnet test KnOwl.slnx --no-build --configuration Release
 ```
 
-The test suite is intentionally granular. It includes focused unit coverage for public contract shapes, API mappers, token providers, page models, security, storage repositories, distribution flows, Documentation rendering, and Runtime behavior. The current release validates 3,164 xUnit cases on both `net9.0` and `net10.0` with 99.06% line coverage.
+The test suite is intentionally granular. It includes focused unit coverage for public contract shapes, API mappers, token providers, page models, WolfAuth integration, distribution credential security, storage repositories, distribution flows, Documentation rendering, and Runtime behavior. The current release validates 3,164 xUnit cases on `net9.0` and 2,932 on `net10.0` with 99%+ line coverage.
 
 Pack the libraries:
 
@@ -426,4 +443,4 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-knowl-distributi
 
 The release workflow builds, tests, packs, creates the GitHub release, and publishes NuGet packages. Production releases are driven by `.release` and `CHANGELOG.md`.
 
-Current release: `2.2.4`
+Current release: `2.3.0`

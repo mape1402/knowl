@@ -1,5 +1,13 @@
 # Changelog
 
+## [v2.3.0]
+
+- Adds a host-configurable WolfAuth feature flag through `KnOwl:WolfAuth:Enabled`, defaulting to `true`, so hosts can disable KnOwl's WolfAuth login gate per environment without removing WolfAuth provider configuration.
+- Hides the Control Plane and Runtime top-bar user menu whenever KnOwl WolfAuth integration is disabled.
+- Adds a configuration-bound `UseWolfAuth` overload and updates the sample Control Plane host to wire WolfAuth from `KnOwl:WolfAuth` settings.
+- Documents the deprecation path for KnOwl's previous in-package user security/authentication layer in favor of WolfAuth-managed authentication.
+- Adds focused tests for enabled and disabled WolfAuth integration behavior plus UI rendering of the authenticated user menu.
+
 ## [v2.2.4]
 
 - Expands and granularizes the unit test suite with focused public contract shape coverage for mutable properties, constructor mappings, `Required`, and `MaxLength` validation.

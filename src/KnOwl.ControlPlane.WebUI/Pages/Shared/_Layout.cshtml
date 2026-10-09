@@ -8,11 +8,13 @@
     var iconCssClass = string.IsNullOrWhiteSpace(theme.IconCssClass) ? "bi bi-hexagon-fill" : theme.IconCssClass;
     var principal = User;
     var isAuthenticated = principal?.Identity?.IsAuthenticated == true;
+    var isWolfAuthEnabled = Context.RequestServices.GetService(typeof(KnOwl.WolfAuth.IKnOwlWolfAuthRegistration)) is not null;
+    var showUserMenu = isWolfAuthEnabled && isAuthenticated;
     var userDisplayName = string.Empty;
     var userEmail = string.Empty;
     var userInitials = string.Empty;
 
-    if (isAuthenticated && principal is not null)
+    if (showUserMenu && principal is not null)
     {
         userDisplayName = principal.FindFirst("name")?.Value
             ?? principal.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
@@ -142,7 +144,7 @@
                         <i class="bi bi-moon-stars"></i>
                         <span>Dark</span>
                     </button>
-                    @if (isAuthenticated)
+                    @if (showUserMenu)
                     {
                         <details class="topbar-user-menu">
                             <summary class="topbar-user-trigger" title="@userDisplayName" aria-label="User menu">
