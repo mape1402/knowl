@@ -168,6 +168,11 @@ public sealed class DocumentationApiEndpointTests
                 "<h1 id=\"setup\">Setup</h1>",
                 [new DocumentationTableOfContentsItem("setup", "Setup", 1)]));
 
+        public Task<RenderedDocumentation?> Render(Guid versionId, CancellationToken cancellationToken = default)
+            => versionId == version.Id
+                ? Render("orchestrator", "guides", Page.Key, version.VersionNumber, cancellationToken)
+                : Task.FromResult<RenderedDocumentation?>(null);
+
         public Task<DocumentationAsset?> GetAsset(Guid assetId, CancellationToken cancellationToken = default)
             => Task.FromResult<DocumentationAsset?>(assetId == source.Id ? source : null);
 

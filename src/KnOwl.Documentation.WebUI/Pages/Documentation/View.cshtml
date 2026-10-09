@@ -1,4 +1,4 @@
-@page "/documentation/view/{spaceKey}/{topicKey}/{pageKey}/{version?}"
+@page "/documentation/spaces/{spaceId:guid}/topics/{topicId:guid}/pages/{pageId:guid}/versions/{versionId:guid}/view"
 @model KnOwl.Documentation.WebUI.Pages.Documentation.ViewModel
 @{
     ViewData["Title"] = Model.PageTitle;
@@ -18,9 +18,9 @@
                 <i class="bi bi-arrows-fullscreen"></i>
                 <span>Focus</span>
             </button>
-            <a class="btn btn-secondary btn-sm" href="/docs/@Model.SpaceKey/@Model.TopicKey/@Model.PageKey/@Model.Rendered.Version.VersionNumber/source.md">MD</a>
-            <a class="btn btn-secondary btn-sm" href="/docs/@Model.SpaceKey/@Model.TopicKey/@Model.PageKey/@Model.Rendered.Version.VersionNumber/package.zip">ZIP</a>
-            <button class="btn btn-secondary btn-sm" type="button" data-history-back data-fallback-url="@Url.Page("/Documentation/Page", new { id = Model.Rendered.Version.PageId })">
+            <a class="btn btn-secondary btn-sm" href="@Url.Page("/Documentation/Source", new { spaceId = Model.SpaceId, topicId = Model.TopicId, pageId = Model.PageId, versionId = Model.VersionId })">MD</a>
+            <a class="btn btn-secondary btn-sm" href="@Url.Page("/Documentation/Package", new { spaceId = Model.SpaceId, topicId = Model.TopicId, pageId = Model.PageId, versionId = Model.VersionId })">ZIP</a>
+            <button class="btn btn-secondary btn-sm" type="button" data-history-back data-fallback-url="@Url.Page("/Documentation/Page", new { spaceId = Model.SpaceId, topicId = Model.TopicId, pageId = Model.PageId })">
                 <i class="bi bi-arrow-left"></i> Back
             </button>
         }

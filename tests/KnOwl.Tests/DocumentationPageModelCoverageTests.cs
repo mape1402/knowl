@@ -72,19 +72,19 @@ public sealed class DocumentationPageModelCoverageTests
     {
         var docs = new DocumentationServiceFake();
         var missingTopic = Attach(new TopicModel(docs));
-        Assert.IsType<NotFoundResult>(await missingTopic.OnGetAsync(Guid.NewGuid(), null, CancellationToken.None));
+        Assert.IsType<NotFoundResult>(await missingTopic.OnGetAsync(docs.Space.Id, Guid.NewGuid(), null, CancellationToken.None));
 
         var orphan = new DocumentationTopic { Id = Guid.NewGuid(), SpaceId = Guid.NewGuid(), Key = "orphan", Name = "Orphan" };
         docs.Topics.Add(orphan);
         var missingSpace = Attach(new TopicModel(docs));
-        Assert.IsType<NotFoundResult>(await missingSpace.OnGetAsync(orphan.Id, null, CancellationToken.None));
+        Assert.IsType<NotFoundResult>(await missingSpace.OnGetAsync(docs.Space.Id, orphan.Id, null, CancellationToken.None));
 
         var model = Attach(new TopicModel(docs));
-        Assert.IsType<PageResult>(await model.OnGetAsync(docs.Topic.Id, "active", CancellationToken.None));
+        Assert.IsType<PageResult>(await model.OnGetAsync(docs.Space.Id, docs.Topic.Id, "active", CancellationToken.None));
         Assert.Single(model.Pages);
 
         model.ModelState.AddModelError("NewPage.Key", "Required");
-        var invalid = await model.OnPostCreatePageAsync(docs.Topic.Id, null, CancellationToken.None);
+        var invalid = await model.OnPostCreatePageAsync(docs.Space.Id, docs.Topic.Id, null, CancellationToken.None);
         Assert.IsType<PageResult>(invalid);
         Assert.True(model.ShowNewPageModal);
 
@@ -95,29 +95,26 @@ public sealed class DocumentationPageModelCoverageTests
             Title = "Install",
             Description = "Install guide"
         };
-        var created = Assert.IsType<RedirectToPageResult>(await validModel.OnPostCreatePageAsync(docs.Topic.Id, null, CancellationToken.None));
+        var created = Assert.IsType<RedirectToPageResult>(await validModel.OnPostCreatePageAsync(docs.Space.Id, docs.Topic.Id, null, CancellationToken.None));
         Assert.Equal("/Documentation/Page", created.PageName);
     }
 
     [Fact]
-    public async Task DocumentationPageLoadUploadAndFallbackTopicBranches()
+    public async Task DocumentationPageLoadUploadAndParentValidationBranches()
     {
         var docs = new DocumentationServiceFake();
         var missing = Attach(new PageModel(docs));
-        Assert.IsType<NotFoundResult>(await missing.OnGetAsync(Guid.NewGuid(), null, CancellationToken.None));
+        Assert.IsType<NotFoundResult>(await missing.OnGetAsync(docs.Space.Id, docs.Topic.Id, Guid.NewGuid(), null, CancellationToken.None));
+        Assert.IsType<NotFoundResult>(await missing.OnGetAsync(Guid.NewGuid(), docs.Topic.Id, docs.Page.Id, null, CancellationToken.None));
 
         var model = Attach(new PageModel(docs));
-        Assert.IsType<PageResult>(await model.OnGetAsync(docs.Page.Id, "hash", CancellationToken.None));
+        Assert.IsType<PageResult>(await model.OnGetAsync(docs.Space.Id, docs.Topic.Id, docs.Page.Id, "hash", CancellationToken.None));
         Assert.Single(model.Versions);
 
         model.ModelState.AddModelError("NewVersion.File", "Required");
-        var invalid = await model.OnPostUploadVersionAsync(docs.Page.Id, null, CancellationToken.None);
+        var invalid = await model.OnPostUploadVersionAsync(docs.Space.Id, docs.Topic.Id, docs.Page.Id, null, CancellationToken.None);
         Assert.IsType<PageResult>(invalid);
         Assert.True(model.ShowNewVersionModal);
-
-        docs.Space.Topics.Clear();
-        var fallbackModel = Attach(new PageModel(docs));
-        Assert.IsType<PageResult>(await fallbackModel.OnGetAsync(docs.Page.Id, null, CancellationToken.None));
 
         var validModel = Attach(new PageModel(docs));
         validModel.NewVersion = new PageModel.VersionInput
@@ -126,7 +123,7 @@ public sealed class DocumentationPageModelCoverageTests
             EntryPath = "docs/index.md",
             File = CreateFormFile("docs.zip", "application/zip", "package")
         };
-        var uploaded = Assert.IsType<RedirectToPageResult>(await validModel.OnPostUploadVersionAsync(docs.Page.Id, "1.0", CancellationToken.None));
+        var uploaded = Assert.IsType<RedirectToPageResult>(await validModel.OnPostUploadVersionAsync(docs.Space.Id, docs.Topic.Id, docs.Page.Id, "1.0", CancellationToken.None));
 
         Assert.Equal("/Documentation/Page", uploaded.PageName);
         Assert.Equal("1.0.1", docs.ImportedVersion);
@@ -230,6 +227,7 @@ public sealed class DocumentationPageModelCoverageTests
         public Task PublishVersion(Guid versionId, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task ArchiveVersion(Guid versionId, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<RenderedDocumentation?> Render(string spaceKey, string topicKey, string pageKey, string? versionNumber, CancellationToken cancellationToken = default) => Task.FromResult<RenderedDocumentation?>(null);
+        public Task<RenderedDocumentation?> Render(Guid versionId, CancellationToken cancellationToken = default) => Task.FromResult<RenderedDocumentation?>(null);
         public Task<DocumentationAsset?> GetAsset(Guid assetId, CancellationToken cancellationToken = default) => Task.FromResult<DocumentationAsset?>(null);
         public Task<Stream> OpenAsset(DocumentationAsset asset, CancellationToken cancellationToken = default) => Task.FromResult<Stream>(new MemoryStream());
         public Task<(string FileName, Stream Content)> BuildSourcePackage(Guid versionId, CancellationToken cancellationToken = default) => Task.FromResult<(string, Stream)>(("docs.zip", new MemoryStream()));

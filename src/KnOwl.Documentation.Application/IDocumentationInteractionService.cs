@@ -17,6 +17,7 @@ public interface IDocumentationInteractionService
     Task PublishVersion(Guid versionId, CancellationToken cancellationToken = default);
     Task ArchiveVersion(Guid versionId, CancellationToken cancellationToken = default);
     Task<RenderedDocumentation?> Render(string spaceKey, string topicKey, string pageKey, string? versionNumber, CancellationToken cancellationToken = default);
+    Task<RenderedDocumentation?> Render(Guid versionId, CancellationToken cancellationToken = default);
     Task<DocumentationAsset?> GetAsset(Guid assetId, CancellationToken cancellationToken = default);
     Task<Stream> OpenAsset(DocumentationAsset asset, CancellationToken cancellationToken = default);
     Task<(string FileName, Stream Content)> BuildSourcePackage(Guid versionId, CancellationToken cancellationToken = default);

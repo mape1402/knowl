@@ -339,6 +339,19 @@ public sealed class RuntimeAndDocumentationApiEndpointCoverageTests
             return Task.FromResult<RenderedDocumentation?>(rendered);
         }
 
+        public Task<RenderedDocumentation?> Render(Guid versionId, CancellationToken cancellationToken = default)
+        {
+            var version = Versions.FirstOrDefault(x => x.Id == versionId);
+            if (version is null) return Task.FromResult<RenderedDocumentation?>(null);
+            var asset = Assets.FirstOrDefault(x => x.PageVersionId == version.Id) ?? new DocumentationAsset { PageVersionId = version.Id, LogicalPath = "index.md", FileName = "index.md", ContentType = "text/markdown", ContentHash = "hash", StorageKey = "memory" };
+            return Task.FromResult<RenderedDocumentation?>(new RenderedDocumentation(
+                version,
+                asset,
+                "# Title",
+                "<h1>Title</h1><p>Body</p>",
+                [new("title", "Title", 1), new("section", "Section", 2)]));
+        }
+
         public Task<DocumentationAsset?> GetAsset(Guid assetId, CancellationToken cancellationToken = default) => Task.FromResult(Assets.FirstOrDefault(x => x.Id == assetId));
         public Task<Stream> OpenAsset(DocumentationAsset asset, CancellationToken cancellationToken = default) => Task.FromResult<Stream>(new MemoryStream("asset"u8.ToArray()));
         public Task<(string FileName, Stream Content)> BuildSourcePackage(Guid versionId, CancellationToken cancellationToken = default) => Task.FromResult<(string, Stream)>(("docs.zip", new MemoryStream("zip"u8.ToArray())));

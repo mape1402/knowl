@@ -124,15 +124,23 @@ public sealed class WebUiRouteRenderingCoverageTests
         var space = state.Space;
         var topic = state.Topic;
         var page = state.Page;
+        var version = state.Version;
 
         var urls = new[]
         {
             "/documentation",
+            "/documentation/spaces",
             $"/documentation/{space.Id}",
+            $"/documentation/spaces/{space.Id}/topics",
             $"/documentation/topics/{topic.Id}",
+            $"/documentation/spaces/{space.Id}/topics/{topic.Id}/pages",
             $"/documentation/pages/{page.Id}",
+            $"/documentation/spaces/{space.Id}/topics/{topic.Id}/pages/{page.Id}/versions",
             $"/documentation/view/{space.Key}/{topic.Key}/{page.Key}",
-            $"/documentation/view/{space.Key}/{topic.Key}/{page.Key}/1.0.0"
+            $"/documentation/view/{space.Key}/{topic.Key}/{page.Key}/1.0.0",
+            $"/documentation/spaces/{space.Id}/topics/{topic.Id}/pages/{page.Id}/versions/{version.Id}/view",
+            $"/documentation/spaces/{space.Id}/topics/{topic.Id}/pages/{page.Id}/versions/{version.Id}/source",
+            $"/documentation/spaces/{space.Id}/topics/{topic.Id}/pages/{page.Id}/versions/{version.Id}/zip"
         };
 
         foreach (var url in urls)
@@ -140,7 +148,9 @@ public sealed class WebUiRouteRenderingCoverageTests
             using var response = await fixture.Client.GetAsync(url);
             var html = await response.Content.ReadAsStringAsync();
             Assert.True(response.StatusCode is HttpStatusCode.OK or HttpStatusCode.Found, $"{url} returned {response.StatusCode}. {html}");
-            if (response.StatusCode == HttpStatusCode.OK)
+            if (response.StatusCode == HttpStatusCode.OK
+                && !url.EndsWith("/source", StringComparison.Ordinal)
+                && !url.EndsWith("/zip", StringComparison.Ordinal))
             {
                 Assert.Contains("<", html);
             }
@@ -630,6 +640,16 @@ public sealed class WebUiRouteRenderingCoverageTests
                 "<h1 id=\"overview\">Overview</h1><h2 id=\"details\">Details</h2><p>Body</p>",
                 [new("overview", "Overview", 1), new("details", "Details", 2)]);
             return Task.FromResult<RenderedDocumentation?>(rendered);
+        }
+
+        Task<RenderedDocumentation?> IDocumentationInteractionService.Render(Guid versionId, CancellationToken cancellationToken)
+        {
+            if (versionId != Version.Id)
+            {
+                return Task.FromResult<RenderedDocumentation?>(null);
+            }
+
+            return ((IDocumentationInteractionService)this).Render(Space.Key, Topic.Key, Page.Key, Version.VersionNumber, cancellationToken);
         }
 
         Task<DocumentationAsset?> IDocumentationInteractionService.GetAsset(Guid assetId, CancellationToken cancellationToken) => Task.FromResult(assetId == Source.Id ? Source : null);

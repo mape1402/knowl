@@ -1,4 +1,4 @@
-@page "/documentation/{id:guid}"
+@page "/documentation/spaces/{spaceId:guid}/topics"
 @model KnOwl.Documentation.WebUI.Pages.Documentation.SpaceModel
 @{
     ViewData["Title"] = Model.Space?.Name ?? "Documentation Space";
@@ -31,7 +31,7 @@
     <button type="submit" class="btn btn-secondary"><i class="bi bi-search"></i> Search</button>
     @if (!string.IsNullOrWhiteSpace(Model.Search))
     {
-        <a class="btn btn-secondary" asp-page="/Documentation/Space" asp-route-id="@Model.Space?.Id">Clear</a>
+        <a class="btn btn-secondary" asp-page="/Documentation/Space" asp-route-spaceId="@Model.Space?.Id">Clear</a>
     }
 </form>
 
@@ -49,7 +49,7 @@
         <div class="documentation-card-grid">
             @foreach (var topic in Model.Topics)
             {
-                <article class="documentation-card" data-open-url="@Url.Page("/Documentation/Topic", new { id = topic.Id })">
+                <article class="documentation-card" data-open-url="@Url.Page("/Documentation/Topic", new { spaceId = Model.Space!.Id, topicId = topic.Id })">
                     <div class="documentation-card-top">
                         <div class="documentation-card-title-block">
                             <h2 class="documentation-card-title">@topic.Name</h2>
@@ -72,7 +72,7 @@
     <div class="modal fade" id="newTopicModal" tabindex="-1" aria-labelledby="newTopicModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
-                <form method="post" asp-page-handler="CreateTopic" asp-route-id="@Model.Space.Id">
+                <form method="post" asp-page-handler="CreateTopic" asp-route-spaceId="@Model.Space.Id">
                     <div class="modal-header">
                         <h5 class="modal-title" id="newTopicModalLabel">New topic for @Model.Space.Name</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
