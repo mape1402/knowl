@@ -68,6 +68,7 @@ public static class ServiceCollectionExtensions
         }
 
         services.TryAddSingleton<IKnOwlWolfAuthRegistration, KnOwlWolfAuthRegistration>();
+        services.TryAddSingleton<IKnOwlLoginPageRenderer, DefaultKnOwlLoginPageRenderer>();
         services.AddAuthorization(options =>
         {
             options.FallbackPolicy = new AuthorizationPolicyBuilder()

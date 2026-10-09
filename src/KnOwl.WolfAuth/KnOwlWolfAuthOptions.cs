@@ -16,6 +16,12 @@ public sealed class KnOwlWolfAuthOptions
     public string LoginPath { get; set; } = "/auth/login";
 
     /// <summary>
+    /// Gets or sets a value indicating whether KnOwl maps its default login page endpoint.
+    /// Set this to <see langword="false" /> when the host maps its own page at <see cref="LoginPath" />.
+    /// </summary>
+    public bool MapLoginEndpoint { get; set; } = true;
+
+    /// <summary>
     /// Gets or sets the endpoint that issues the ASP.NET Core authentication challenge.
     /// </summary>
     public string ChallengePath { get; set; } = "/auth/login/challenge";

@@ -1,4 +1,5 @@
 @inject Microsoft.Extensions.Options.IOptions<KnOwl.Runtime.WebUI.KnOwlRuntimeThemeOptions> ThemeOptions
+@inject Microsoft.Extensions.Options.IOptions<KnOwl.Runtime.WebUI.KnOwlRuntimeHomeOptions> HomeOptions
 @{
     var theme = ThemeOptions.Value;
     var appTitle = string.IsNullOrWhiteSpace(theme.Title) ? "KnOwl Runtime" : theme.Title;
@@ -8,6 +9,9 @@
     var artifactsActive = path.StartsWithSegments("/Artifacts");
     var controlPlanesActive = path.StartsWithSegments("/ControlPlanes");
     var overviewActive = !artifactsActive && !controlPlanesActive;
+    var homePath = string.IsNullOrWhiteSpace(HomeOptions.Value.Path) || !HomeOptions.Value.Path.StartsWith("/")
+        ? "/"
+        : HomeOptions.Value.Path;
     var principal = User;
     var isAuthenticated = principal?.Identity?.IsAuthenticated == true;
     var isWolfAuthEnabled = Context.RequestServices.GetService(typeof(KnOwl.WolfAuth.IKnOwlWolfAuthRegistration)) is not null;
@@ -64,7 +68,7 @@
     <div class="app-shell runtime-app-shell">
         <nav id="sidebar" class="sidebar">
             <div class="sidebar-brand">
-                <a class="brand-link" asp-page="/Index">
+                <a class="brand-link" href="@homePath">
                     <span class="brand-icon">
                         @if (!string.IsNullOrWhiteSpace(theme.IconImageUrl))
                         {
@@ -80,7 +84,7 @@
             </div>
 
             <div class="sidebar-nav" role="navigation" aria-label="Runtime navigation">
-                <a class="nav-item-link @(overviewActive ? "active" : null)" asp-page="/Index">
+                <a class="nav-item-link @(overviewActive ? "active" : null)" href="@homePath">
                     <i class="bi bi-speedometer2 nav-icon"></i>
                     <span>Overview</span>
                 </a>

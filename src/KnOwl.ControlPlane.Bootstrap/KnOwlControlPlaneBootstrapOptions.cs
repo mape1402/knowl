@@ -35,6 +35,11 @@ public sealed class KnOwlControlPlaneBootstrapOptions
     public KnOwlControlPlaneThemeOptions Theme { get; } = new();
 
     /// <summary>
+    /// Gets default home page and host override options used by the Control Plane Web UI.
+    /// </summary>
+    public KnOwlControlPlaneHomeOptions Home { get; } = new();
+
+    /// <summary>
     /// Gets or sets the authorization policy applied to the Control Plane REST API. Leave empty to let the host map the API without a policy.
     /// </summary>
     public string? ApiAuthorizationPolicy

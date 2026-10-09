@@ -413,6 +413,67 @@ When `UseWolfAuth` is enabled, anonymous browser requests are redirected to `/au
 
 This phase covers authentication. KnOwl's previous in-package user security layer for subjects, roles, permissions, authentication, and security storage is deprecated in favor of WolfAuth as the central security layer. Distribution credential/token primitives used for Control Plane and Runtime artifact delivery remain part of KnOwl because they secure node-to-node distribution, not user sign-in.
 
+## Custom Home And Login Pages
+
+KnOwl ships default Home and Login pages, but hosts can replace them without forking the Web UI packages.
+
+To replace Home with a host-owned route, set the home path in the bootstrap options and map that route in the host:
+
+```csharp
+builder.Services.AddKnOwlControlPlane(builder.Configuration, options =>
+{
+    options.Home.Path = "/company/home";
+});
+```
+
+The sidebar and brand link will point to the configured route. By default, KnOwl's built-in root page redirects to that path; set `options.Home.RedirectRootToPath = false` when the host still wants KnOwl's default root page to render.
+
+For lightweight Home customization, keep `Home.Path = "/"` and edit the built-in content from options:
+
+```csharp
+builder.Services.AddKnOwlControlPlane(builder.Configuration, options =>
+{
+    options.Home.Title = "Company Contract Hub";
+    options.Home.Subtitle = "Design and release async contracts.";
+    options.Home.QuickAccessCards.Clear();
+    options.Home.QuickAccessCards.Add(new(
+        "Internal Docs",
+        "Architecture and contract guidance.",
+        "/documentation/spaces",
+        "book",
+        "#2563eb"));
+});
+```
+
+Runtime hosts expose the same idea through `AddKnOwlRuntime(..., options => options.Home...)`.
+
+Login can be customized in two ways. For small changes, configure `KnOwlWolfAuthOptions`:
+
+```csharp
+.UseWolfAuth(builder.Configuration.GetSection("KnOwl:WolfAuth"), options =>
+{
+    options.ApplicationName = "Company Contracts";
+    options.Subtitle = "Sign in with your company account.";
+    options.LoginButtonText = "Sign in";
+});
+```
+
+For a full custom login page rendered by KnOwl, replace `IKnOwlLoginPageRenderer`:
+
+```csharp
+builder.Services.AddSingleton<IKnOwlLoginPageRenderer, CompanyLoginPageRenderer>();
+```
+
+For a host-owned Razor Page or endpoint at the login path, disable KnOwl's login endpoint while keeping the challenge and logout endpoints. The host-owned login page should be allowed anonymously:
+
+```csharp
+.UseWolfAuth(builder.Configuration.GetSection("KnOwl:WolfAuth"), options =>
+{
+    options.LoginPath = "/company/login";
+    options.MapLoginEndpoint = false;
+});
+```
+
 ## Local Development
 
 Build and test:
@@ -423,7 +484,7 @@ dotnet build KnOwl.slnx --no-restore --configuration Release
 dotnet test KnOwl.slnx --no-build --configuration Release
 ```
 
-The test suite is intentionally granular. It includes focused unit coverage for public contract shapes, API mappers, token providers, page models, WolfAuth integration, distribution credential security, storage repositories, distribution flows, Documentation rendering, and Runtime behavior. The current release validates 3,164 xUnit cases on `net9.0` and 2,932 on `net10.0` with 99%+ line coverage.
+The test suite is intentionally granular. It includes focused unit coverage for public contract shapes, API mappers, token providers, page models, WolfAuth integration, distribution credential security, storage repositories, distribution flows, Documentation rendering, and Runtime behavior. The current release validates 2,939 xUnit cases on both `net9.0` and `net10.0` with 99%+ line coverage.
 
 Pack the libraries:
 

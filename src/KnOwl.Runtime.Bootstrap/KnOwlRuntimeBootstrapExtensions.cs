@@ -33,16 +33,18 @@ public static class KnOwlRuntimeBootstrapExtensions
         configure?.Invoke(options);
 
         services.AddRazorPages();
-        services.AddKnOwlRuntimeWebUI(theme =>
-        {
-            theme.Title = options.Theme.Title;
-            theme.Mode = options.Theme.Mode;
-            theme.Subtitle = options.Theme.Subtitle;
-            theme.IconCssClass = options.Theme.IconCssClass;
-            theme.IconImageUrl = options.Theme.IconImageUrl;
-            CopyThemePalette(options.Theme.Light, theme.Light);
-            CopyThemePalette(options.Theme.Dark, theme.Dark);
-        });
+        services.AddKnOwlRuntimeWebUI(
+            theme =>
+            {
+                theme.Title = options.Theme.Title;
+                theme.Mode = options.Theme.Mode;
+                theme.Subtitle = options.Theme.Subtitle;
+                theme.IconCssClass = options.Theme.IconCssClass;
+                theme.IconImageUrl = options.Theme.IconImageUrl;
+                CopyThemePalette(options.Theme.Light, theme.Light);
+                CopyThemePalette(options.Theme.Dark, theme.Dark);
+            },
+            home => CopyHomeOptions(options.Home, home));
         services.AddHealthChecks();
         services.AddAuthorization();
         services.AddGrpc();
@@ -117,6 +119,30 @@ public static class KnOwlRuntimeBootstrapExtensions
         target.CodeBackgroundColor = source.CodeBackgroundColor;
         target.CodeTextColor = source.CodeTextColor;
         target.ShadowColor = source.ShadowColor;
+    }
+
+    private static void CopyHomeOptions(
+        KnOwlRuntimeHomeOptions source,
+        KnOwlRuntimeHomeOptions target)
+    {
+        target.Path = source.Path;
+        target.RedirectRootToPath = source.RedirectRootToPath;
+        target.Title = source.Title;
+        target.Subtitle = source.Subtitle;
+        target.ArtifactsActionText = source.ArtifactsActionText;
+        target.ControlPlanesActionText = source.ControlPlanesActionText;
+        target.LatestArtifactsTitle = source.LatestArtifactsTitle;
+        target.LatestArtifactsSubtitle = source.LatestArtifactsSubtitle;
+        target.ControlPlanesTitle = source.ControlPlanesTitle;
+        target.ControlPlanesSubtitle = source.ControlPlanesSubtitle;
+        target.EndpointsTitle = source.EndpointsTitle;
+        target.EndpointsSubtitle = source.EndpointsSubtitle;
+
+        target.EndpointRoutes.Clear();
+        foreach (var route in source.EndpointRoutes)
+        {
+            target.EndpointRoutes.Add(route);
+        }
     }
 
     private static Action<Microsoft.EntityFrameworkCore.DbContextOptionsBuilder> ThrowMissingStorageConfiguration(string storageName)

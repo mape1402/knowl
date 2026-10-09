@@ -40,15 +40,17 @@ public static class KnOwlControlPlaneBootstrapExtensions
         configure?.Invoke(options);
 
         services.AddRazorPages();
-        services.AddKnOwlControlPlaneWebUI(theme =>
-        {
-            theme.Title = options.Theme.Title;
-            theme.Mode = options.Theme.Mode;
-            theme.IconCssClass = options.Theme.IconCssClass;
-            theme.IconImageUrl = options.Theme.IconImageUrl;
-            CopyThemePalette(options.Theme.Light, theme.Light);
-            CopyThemePalette(options.Theme.Dark, theme.Dark);
-        });
+        services.AddKnOwlControlPlaneWebUI(
+            theme =>
+            {
+                theme.Title = options.Theme.Title;
+                theme.Mode = options.Theme.Mode;
+                theme.IconCssClass = options.Theme.IconCssClass;
+                theme.IconImageUrl = options.Theme.IconImageUrl;
+                CopyThemePalette(options.Theme.Light, theme.Light);
+                CopyThemePalette(options.Theme.Dark, theme.Dark);
+            },
+            home => CopyHomeOptions(options.Home, home));
         services.AddKnOwlDocumentationWebUI();
         services.AddHealthChecks();
         services.AddAuthorization();
@@ -128,6 +130,37 @@ public static class KnOwlControlPlaneBootstrapExtensions
         target.CodeBackgroundColor = source.CodeBackgroundColor;
         target.CodeTextColor = source.CodeTextColor;
         target.ShadowColor = source.ShadowColor;
+    }
+
+    private static void CopyHomeOptions(
+        KnOwlControlPlaneHomeOptions source,
+        KnOwlControlPlaneHomeOptions target)
+    {
+        target.Path = source.Path;
+        target.RedirectRootToPath = source.RedirectRootToPath;
+        target.Title = source.Title;
+        target.Subtitle = source.Subtitle;
+        target.ShowQuickAccess = source.ShowQuickAccess;
+        target.ShowOverview = source.ShowOverview;
+        target.ShowGettingStarted = source.ShowGettingStarted;
+
+        target.QuickAccessCards.Clear();
+        foreach (var card in source.QuickAccessCards)
+        {
+            target.QuickAccessCards.Add(card);
+        }
+
+        target.OverviewCards.Clear();
+        foreach (var card in source.OverviewCards)
+        {
+            target.OverviewCards.Add(card);
+        }
+
+        target.GettingStartedItems.Clear();
+        foreach (var item in source.GettingStartedItems)
+        {
+            target.GettingStartedItems.Add(item);
+        }
     }
 
     private static Action<Microsoft.EntityFrameworkCore.DbContextOptionsBuilder> ThrowMissingStorageConfiguration(string storageName)

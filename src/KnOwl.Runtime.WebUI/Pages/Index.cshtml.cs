@@ -5,7 +5,11 @@ using KnOwl.Runtime.Core;
 using KnOwl.Runtime.Distribution;
 using KnOwl.Runtime.Application.Catalog;
 using KnOwl.Runtime.Storage;
+using KnOwl.Runtime.WebUI;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Options;
 
 namespace KnOwl.Runtime.WebUI.Pages;
 
@@ -14,7 +18,8 @@ namespace KnOwl.Runtime.WebUI.Pages;
 /// </summary>
 public sealed class IndexModel(
     IRuntimeContractCatalogService catalog,
-    IRuntimeDesignNodeRepository designNodes) : PageModel
+    IRuntimeDesignNodeRepository designNodes,
+    IOptions<KnOwlRuntimeHomeOptions> homeOptions) : PageModel
 {
     /// <summary>
     /// Gets the total number of artifacts stored in runtime.
@@ -47,10 +52,22 @@ public sealed class IndexModel(
     public IReadOnlyList<RuntimeControlPlaneSummary> ControlPlanes { get; private set; } = [];
 
     /// <summary>
+    /// Gets host-configurable Runtime home page options.
+    /// </summary>
+    public KnOwlRuntimeHomeOptions Home => homeOptions.Value;
+
+    /// <summary>
     /// Loads runtime dashboard information.
     /// </summary>
-    public async Task OnGet(CancellationToken cancellationToken)
+    public async Task<IActionResult> OnGet(CancellationToken cancellationToken)
     {
+        if (Home.RedirectRootToPath &&
+            TryGetCustomHomePath(Home.Path, out var customHomePath) &&
+            !Request.Path.StartsWithSegments(customHomePath, StringComparison.OrdinalIgnoreCase))
+        {
+            return LocalRedirect(customHomePath.Value!);
+        }
+
         var artifacts = await catalog.GetAll(cancellationToken);
         var nodes = await designNodes.GetAll(cancellationToken);
 
@@ -60,6 +77,22 @@ public sealed class IndexModel(
         LatestArtifacts = artifacts.Take(5).ToList();
         ControlPlanes = nodes.Select(RuntimeControlPlaneSummary.FromNode).Take(5).ToList();
         ActiveControlPlanes = ControlPlanes.Count(x => x.IsReady);
+
+        return Page();
+    }
+
+    private static bool TryGetCustomHomePath(string? path, out PathString customHomePath)
+    {
+        customHomePath = PathString.Empty;
+        if (string.IsNullOrWhiteSpace(path) ||
+            !path.StartsWith("/", StringComparison.Ordinal) ||
+            string.Equals(path, "/", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        customHomePath = new PathString(path);
+        return true;
     }
 }
 

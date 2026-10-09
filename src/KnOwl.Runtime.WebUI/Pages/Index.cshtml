@@ -1,17 +1,17 @@
 @page
 @model IndexModel
 @{
-    ViewData["Title"] = "Runtime Overview";
+    ViewData["Title"] = Model.Home.Title;
 }
 
 <div class="od-page-head">
     <div>
-        <h1 class="od-page-title">Runtime Overview</h1>
-        <p class="od-page-subtitle">Operational view of deployed contract artifacts and Control Plane connections.</p>
+        <h1 class="od-page-title">@Model.Home.Title</h1>
+        <p class="od-page-subtitle">@Model.Home.Subtitle</p>
     </div>
     <div class="event-list-actions">
-        <a class="btn btn-primary btn-sm" asp-page="/Artifacts/Index"><i class="bi bi-box-seam"></i> View artifacts</a>
-        <a class="btn btn-secondary btn-sm" asp-page="/ControlPlanes/Index"><i class="bi bi-hdd-network"></i> Control planes</a>
+        <a class="btn btn-primary btn-sm" asp-page="/Artifacts/Index"><i class="bi bi-box-seam"></i> @Model.Home.ArtifactsActionText</a>
+        <a class="btn btn-secondary btn-sm" asp-page="/ControlPlanes/Index"><i class="bi bi-hdd-network"></i> @Model.Home.ControlPlanesActionText</a>
     </div>
 </div>
 
@@ -42,8 +42,8 @@
     <article class="od-panel">
         <div class="od-section-head">
             <div>
-                <h2 class="od-section-title">Latest Artifacts</h2>
-                <p class="od-page-subtitle">Most recent deployments available in this Runtime.</p>
+                <h2 class="od-section-title">@Model.Home.LatestArtifactsTitle</h2>
+                <p class="od-page-subtitle">@Model.Home.LatestArtifactsSubtitle</p>
             </div>
             <a class="btn btn-secondary btn-sm" asp-page="/Artifacts/Index">Open</a>
         </div>
@@ -72,8 +72,8 @@
     <article class="od-panel">
         <div class="od-section-head">
             <div>
-                <h2 class="od-section-title">Control Planes</h2>
-                <p class="od-page-subtitle">Configured sources for incoming releases.</p>
+                <h2 class="od-section-title">@Model.Home.ControlPlanesTitle</h2>
+                <p class="od-page-subtitle">@Model.Home.ControlPlanesSubtitle</p>
             </div>
             <a class="btn btn-secondary btn-sm" asp-page="/ControlPlanes/Index">Open</a>
         </div>
@@ -103,13 +103,14 @@
 <section class="od-panel runtime-endpoint-panel">
     <div class="od-section-head">
         <div>
-            <h2 class="od-section-title">Runtime Endpoints</h2>
-            <p class="od-page-subtitle">Use these routes to consume deployed contracts.</p>
+            <h2 class="od-section-title">@Model.Home.EndpointsTitle</h2>
+            <p class="od-page-subtitle">@Model.Home.EndpointsSubtitle</p>
         </div>
     </div>
     <div class="endpoint-grid">
-        <code>GET /runtime/contracts/artifacts</code>
-        <code>GET /runtime/contracts/events/{eventKey}/versions/{versionNumber}</code>
-        <code>GET /runtime/contracts/commands/{commandKey}/versions/{versionNumber}</code>
+        @foreach (var route in Model.Home.EndpointRoutes)
+        {
+            <code>@route</code>
+        }
     </div>
 </section>
