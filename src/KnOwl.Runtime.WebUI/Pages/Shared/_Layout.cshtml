@@ -8,6 +8,43 @@
     var artifactsActive = path.StartsWithSegments("/Artifacts");
     var controlPlanesActive = path.StartsWithSegments("/ControlPlanes");
     var overviewActive = !artifactsActive && !controlPlanesActive;
+    var principal = User;
+    var isAuthenticated = principal?.Identity?.IsAuthenticated == true;
+    var userDisplayName = string.Empty;
+    var userEmail = string.Empty;
+    var userInitials = string.Empty;
+
+    if (isAuthenticated && principal is not null)
+    {
+        userDisplayName = principal.FindFirst("name")?.Value
+            ?? principal.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
+            ?? principal.Identity?.Name
+            ?? "Signed in";
+        userEmail = principal.FindFirst("preferred_username")?.Value
+            ?? principal.FindFirst("upn")?.Value
+            ?? principal.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
+            ?? principal.FindFirst("email")?.Value
+            ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(userDisplayName))
+        {
+            userDisplayName = string.IsNullOrWhiteSpace(userEmail) ? "Signed in" : userEmail;
+        }
+
+        var initialsSource = string.IsNullOrWhiteSpace(userDisplayName) || userDisplayName.Contains('@', StringComparison.Ordinal)
+            ? userEmail
+            : userDisplayName;
+        var initials = new List<char>();
+        foreach (var part in initialsSource.Split(new[] { ' ', '.', '_', '-', '@' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            initials.Add(char.ToUpperInvariant(part[0]));
+            if (initials.Count == 2)
+            {
+                break;
+            }
+        }
+
+        userInitials = initials.Count == 0 ? "U" : new string(initials.ToArray());
+    }
 }
 <!DOCTYPE html>
 <html lang="en" data-bs-theme="@theme.CssMode" data-knowl-theme="@theme.CssMode" style="color-scheme: var(--knowl-color-scheme);">
@@ -69,11 +106,40 @@
                     <span class="topbar-title">@pageTitle</span>
                 </div>
                 <div class="topbar-actions">
+                    <a class="btn btn-secondary btn-sm" href="/health">Health</a>
                     <button id="theme-toggle" class="theme-toggle-btn" type="button" aria-label="Switch color mode" title="Switch color mode">
                         <i class="bi bi-moon-stars"></i>
                         <span>Dark</span>
                     </button>
-                    <a class="btn btn-secondary btn-sm" href="/health">Health</a>
+                    @if (isAuthenticated)
+                    {
+                        <details class="topbar-user-menu">
+                            <summary class="topbar-user-trigger" title="@userDisplayName" aria-label="User menu">
+                                <span class="topbar-user-avatar" aria-hidden="true">@userInitials</span>
+                                <span class="topbar-user-text">
+                                    <span class="topbar-user-name">@userDisplayName</span>
+                                    @if (!string.IsNullOrWhiteSpace(userEmail) && !string.Equals(userEmail, userDisplayName, StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        <span class="topbar-user-email">@userEmail</span>
+                                    }
+                                </span>
+                                <i class="bi bi-chevron-down topbar-user-caret" aria-hidden="true"></i>
+                            </summary>
+                            <div class="topbar-user-dropdown">
+                                <div class="topbar-user-menu-header">
+                                    <span class="topbar-user-menu-name">@userDisplayName</span>
+                                    @if (!string.IsNullOrWhiteSpace(userEmail) && !string.Equals(userEmail, userDisplayName, StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        <span class="topbar-user-menu-email">@userEmail</span>
+                                    }
+                                </div>
+                                <a class="topbar-user-menu-item" href="@($"{Context.Request.PathBase}/auth/logout?returnUrl=/")">
+                                    <i class="bi bi-box-arrow-right"></i>
+                                    <span>Sign out</span>
+                                </a>
+                            </div>
+                        </details>
+                    }
                 </div>
             </header>
             <main class="content-body">

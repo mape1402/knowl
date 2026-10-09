@@ -4,8 +4,7 @@ using KnOwl.Runtime.Bootstrap.Grpc;
 using KnOwl.Runtime.Bootstrap.Runtime;
 using KnOwl.Runtime.Storage.EntityFramework;
 using KnOwl.Runtime.WebUI;
-using KnOwl.Security;
-using KnOwl.Security.Storage.EntityFramework;
+using KnOwl.WolfAuth;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -13,6 +12,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using WolfAuth.AspNetCore;
 
 namespace KnOwl.Runtime.Bootstrap;
 
@@ -44,26 +44,13 @@ public static class KnOwlRuntimeBootstrapExtensions
             CopyThemePalette(options.Theme.Dark, theme.Dark);
         });
         services.AddHealthChecks();
-        services.AddKnOwlSecurity(securityOptions =>
-        {
-            securityOptions.RequireKnownSubject = options.Security.RequireKnownSubject;
-            securityOptions.AllowBootstrapAdminSync = options.Security.AllowBootstrapAdminSync;
-            securityOptions.Subject.Provider = options.Security.Subject.Provider;
-            CopyList(options.Security.Subject.SubjectIdClaimTypes, securityOptions.Subject.SubjectIdClaimTypes);
-            CopyList(options.Security.Subject.DisplayNameClaimTypes, securityOptions.Subject.DisplayNameClaimTypes);
-            CopyList(options.Security.Subject.EmailClaimTypes, securityOptions.Subject.EmailClaimTypes);
-            CopyList(options.Security.Subject.GroupClaimTypes, securityOptions.Subject.GroupClaimTypes);
-            securityOptions.BootstrapAdmins.Clear();
-            securityOptions.BootstrapAdmins.AddRange(options.Security.BootstrapAdmins);
-        });
+        services.AddAuthorization();
         services.AddGrpc();
         services.Configure<KnOwlRuntimeArtifactPullOptions>(
             configuration.GetSection("Runtime:ArtifactPull"));
         services.AddHostedService<KnOwlRuntimeArtifactPullWorker>();
 
         services.AddKnOwlRuntimeStorageEntityFramework(options.ConfigureStorage ?? ThrowMissingStorageConfiguration("Runtime"));
-        services.AddKnOwlSecurityStorageEntityFramework(
-            options.ConfigureSecurityStorage ?? options.ConfigureStorage ?? ThrowMissingStorageConfiguration("Runtime security"));
         services.AddKnOwlRuntimeApplication();
 
         services.AddSingleton(options);
@@ -88,12 +75,19 @@ public static class KnOwlRuntimeBootstrapExtensions
             app.UseAuthentication();
         }
 
+        if (app.Services.GetService<IKnOwlWolfAuthRegistration>() is not null)
+        {
+            app.UseWolfAuth();
+        }
+
+        app.UseKnOwlWolfAuthLoginGate();
         app.UseAuthorization();
 
         app.MapHealthChecks("/health");
         app.MapHealthChecks("/healthz");
         app.MapHealthChecks("/health/live");
         app.MapHealthChecks("/health/ready");
+        app.MapKnOwlWolfAuthEndpoints();
         var options = app.Services.GetRequiredService<KnOwlRuntimeBootstrapOptions>();
         app.MapKnOwlRuntimeApi(options.Authorization);
         app.MapKnOwlRuntimeEndpoints();
@@ -102,12 +96,6 @@ public static class KnOwlRuntimeBootstrapExtensions
         app.MapRazorPages();
 
         return app;
-    }
-
-    private static void CopyList(IReadOnlyCollection<string> source, List<string> target)
-    {
-        target.Clear();
-        target.AddRange(source);
     }
 
     private static void CopyThemePalette(
@@ -133,5 +121,5 @@ public static class KnOwlRuntimeBootstrapExtensions
 
     private static Action<Microsoft.EntityFrameworkCore.DbContextOptionsBuilder> ThrowMissingStorageConfiguration(string storageName)
         => _ => throw new InvalidOperationException(
-            $"KnOwl {storageName} storage requires an EF Core provider configuration. Set ConfigureStorage or ConfigureSecurityStorage in the bootstrap options.");
+            $"KnOwl {storageName} storage requires an EF Core provider configuration. Set ConfigureStorage in the bootstrap options.");
 }

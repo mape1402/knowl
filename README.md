@@ -31,7 +31,7 @@ Install only the layer your host needs:
 
 | Package | Purpose |
 | --- | --- |
-| `KnOwl.Contracts` | Shared DTOs for artifacts, delivery, catalog responses, and security. |
+| `KnOwl.Contracts` | Shared DTOs for artifacts, delivery, catalog responses, and distribution credential primitives. |
 | `KnOwl.ControlPlane` | Control Plane domain model and repository contracts. |
 | `KnOwl.ControlPlane.Application` | Control Plane services for design, lifecycle, artifacts, releases, and delivery. |
 | `KnOwl.ControlPlane.Api` | Minimal API endpoints for Control Plane automation and external integrations. |
@@ -39,13 +39,12 @@ Install only the layer your host needs:
 | `KnOwl.ControlPlane.WebUI` | Reusable Razor UI for Control Plane hosts. |
 | `KnOwl.ControlPlane.Bootstrap` | ASP.NET Core composition for Control Plane hosts. |
 | `KnOwl.Runtime` | Runtime domain model and repository contracts. |
-| `KnOwl.Runtime.Application` | Runtime catalog, deployment, pull, and security services. |
+| `KnOwl.Runtime.Application` | Runtime catalog, deployment, pull, and connection credential services. |
 | `KnOwl.Runtime.Api` | Minimal API endpoints for Runtime administration and artifact consumption. |
 | `KnOwl.Runtime.Storage.EntityFramework` | Provider-agnostic EF Core storage for Runtime state. |
 | `KnOwl.Runtime.WebUI` | Reusable Razor UI for Runtime hosts. |
 | `KnOwl.Runtime.Bootstrap` | ASP.NET Core composition for Runtime hosts. |
-| `KnOwl.Security` | Provider-agnostic subject resolution, roles, permissions, and ASP.NET Core authorization policies. |
-| `KnOwl.Security.Storage.EntityFramework` | Provider-agnostic EF Core storage for KnOwl subjects, role assignments, permission assignments, and external group mappings. |
+| `KnOwl.WolfAuth` | Optional WolfAuth authentication integration for KnOwl hosts. |
 
 All packages target `net9.0` and `net10.0`.
 
@@ -124,12 +123,7 @@ dotnet ef migrations add InitialKnOwlControlPlane `
   --context KnOwlDbContext `
   --output-dir Migrations
 
-dotnet ef migrations add InitialKnOwlSecurity `
-  --context KnOwlSecurityDbContext `
-  --output-dir Migrations/Security
-
 dotnet ef database update --context KnOwlDbContext
-dotnet ef database update --context KnOwlSecurityDbContext
 ```
 
 Run the host and open the Control Plane UI. From there you can create data types, custom metadata fields, events, commands, versions, artifacts, runtime environments, runtime nodes, and releases.
@@ -153,10 +147,6 @@ builder.Services.AddKnOwlControlPlane(builder.Configuration, options =>
 {
     options.ConfigureStorage = db => db.UseNpgsql(
         builder.Configuration.GetConnectionString("KnOwlDb"),
-        provider => provider.MigrationsAssembly(typeof(Program).Assembly.GetName().Name));
-
-    options.ConfigureSecurityStorage = db => db.UseNpgsql(
-        builder.Configuration.GetConnectionString("KnOwlSecurityDb"),
         provider => provider.MigrationsAssembly(typeof(Program).Assembly.GetName().Name));
 });
 ```
@@ -241,12 +231,7 @@ dotnet ef migrations add InitialKnOwlRuntime `
   --context KnOwlRuntimeDbContext `
   --output-dir Migrations/RuntimeStorage
 
-dotnet ef migrations add InitialKnOwlSecurity `
-  --context KnOwlSecurityDbContext `
-  --output-dir Migrations/Security
-
 dotnet ef database update --context KnOwlRuntimeDbContext
-dotnet ef database update --context KnOwlSecurityDbContext
 ```
 
 The bootstrap package also maps the Runtime REST API at `/api/v1/runtime`.
@@ -364,59 +349,41 @@ POST /api/v1/control-plane/commands
 }
 ```
 
-Security administration endpoints are also available on the Control Plane:
-
-- `GET /api/v1/control-plane/security/subjects`
-- `PUT /api/v1/control-plane/security/subjects`
-- `GET /api/v1/control-plane/security/role-assignments`
-- `POST /api/v1/control-plane/security/role-assignments`
-- `GET /api/v1/control-plane/security/permission-assignments`
-- `POST /api/v1/control-plane/security/permission-assignments`
-- `GET /api/v1/control-plane/security/external-group-role-assignments`
-- `POST /api/v1/control-plane/security/external-group-role-assignments`
-
 Hosts remain responsible for authentication. The API packages do not force JWT, cookies, managed identity, or API-key infrastructure.
 
-## Security
+## Authentication With WolfAuth
 
-KnOwl keeps identity provider concerns in the host and keeps authorization rules in reusable libraries:
-
-- The host authenticates users with Entra ID, cookies, OpenID Connect, JWT bearer tokens, or any other ASP.NET Core authentication handler.
-- KnOwl resolves the authenticated principal into an external subject using configurable claims.
-- KnOwl stores known subjects, direct roles, direct permissions, and external group-to-role mappings.
-- KnOwl policies protect Web/API surfaces without depending on a specific identity provider.
+KnOwl delegates user authentication to WolfAuth. The host configures WolfAuth directly, including its provider, schemes, claims, and storage. KnOwl only adds the reusable login shell and middleware hooks needed by the Control Plane or Runtime UI.
 
 Typical Control Plane setup:
 
 ```csharp
 using KnOwl.ControlPlane.Bootstrap;
-using KnOwl.Security.Authorization;
-using KnOwl.Security.Subjects;
+using KnOwl.WolfAuth;
+using Microsoft.EntityFrameworkCore;
+using WolfAuth.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services
-    .AddAuthentication(/* host-owned scheme */)
-    .AddJwtBearer(/* Entra ID, Auth0, local STS, etc. */);
-
-builder.Services.AddKnOwlControlPlane(builder.Configuration, options =>
+builder.Services.AddWolfAuth(wolf =>
 {
-    options.MigrationsAssembly = typeof(Program).Assembly.GetName().Name;
-
-    options.Security.RequireKnownSubject = true;
-    options.Security.Subject.Provider = "entra-id";
-    options.Security.BootstrapAdmins.Add(new KnOwlBootstrapSubject
-    {
-        Provider = "entra-id",
-        SubjectId = "<external-user-object-id>"
-    });
-
-    options.Authorization.SecurityManagePolicy = KnOwlAuthorizationPolicies.SecurityManage;
-    options.Authorization.CommandsWritePolicy = KnOwlAuthorizationPolicies.CommandsWrite;
-    options.Authorization.EventsWritePolicy = KnOwlAuthorizationPolicies.EventsWrite;
-    options.Authorization.ArtifactsBuildPolicy = KnOwlAuthorizationPolicies.ArtifactsBuild;
-    options.Authorization.ReleasesExecutePolicy = KnOwlAuthorizationPolicies.ReleasesExecute;
+    // Configure WolfAuth directly here: provider, claims mapping, persistence, and policies.
 });
+
+builder.Services
+    .AddKnOwlControlPlane(builder.Configuration, options =>
+    {
+        options.MigrationsAssembly = typeof(Program).Assembly.GetName().Name;
+        options.ConfigureStorage = db => db.UseSqlServer(
+            builder.Configuration.GetConnectionString("KnOwlDb"),
+            sql => sql.MigrationsAssembly(typeof(Program).Assembly.GetName().Name));
+    })
+    .UseWolfAuth(options =>
+    {
+        options.ApplicationName = "My Contracts";
+        options.Subtitle = "Sign in to continue.";
+        options.LoginButtonText = "Login";
+    });
 
 var app = builder.Build();
 
@@ -425,18 +392,9 @@ app.MapKnOwlControlPlane();
 app.Run();
 ```
 
-`RequireKnownSubject` blocks authenticated users until they are registered in KnOwl. Bootstrap admins are the first-run and recovery mechanism: they are matched by provider and external subject id, receive admin access, and can be synchronized into KnOwl security storage.
+When `UseWolfAuth` is enabled, anonymous browser requests are redirected to `/auth/login`. That page renders a single `Login` button that triggers `/auth/login/challenge`, and the challenge uses the authentication scheme configured by the host through WolfAuth/ASP.NET Core authentication.
 
-Built-in roles:
-
-- `Reader`
-- `Designer`
-- `ReleaseManager`
-- `RuntimeOperator`
-- `SecurityAdmin`
-- `Admin`
-
-External identity groups can be mapped to KnOwl roles, so Entra ID or another provider can remain the system of record for users while KnOwl remains the system of record for product-specific access.
+This phase covers authentication. KnOwl's previous in-package subject, role, permission, and security storage packages have been deprecated and removed; authorization is expected to move through WolfAuth as the central security layer.
 
 ## Local Development
 

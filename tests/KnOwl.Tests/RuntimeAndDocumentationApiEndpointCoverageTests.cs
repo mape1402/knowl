@@ -15,7 +15,7 @@ using KnOwl.Runtime.Application.Security;
 using KnOwl.Runtime.Core;
 using KnOwl.Runtime.Distribution;
 using KnOwl.Runtime.Storage;
-using KnOwl.Security.Authorization;
+using KnOwl.Contracts.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;

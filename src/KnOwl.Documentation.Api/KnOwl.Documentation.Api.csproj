@@ -5,8 +5,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\KnOwl.Contracts\KnOwl.Contracts.csproj" />
     <ProjectReference Include="..\KnOwl.Documentation.Application\KnOwl.Documentation.Application.csproj" />
-    <ProjectReference Include="..\KnOwl.Security\KnOwl.Security.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

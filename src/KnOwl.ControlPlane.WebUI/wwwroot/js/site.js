@@ -35,6 +35,55 @@
     });
 }());
 
+// ── Topbar user menu ─────────────────────────────────────
+(function () {
+    const menus = Array.from(document.querySelectorAll('.topbar-user-menu'));
+    if (!menus.length) {
+        return;
+    }
+
+    const closeMenu = menu => {
+        menu.removeAttribute('open');
+    };
+
+    menus.forEach(menu => {
+        menu.addEventListener('toggle', () => {
+            if (!menu.open) {
+                return;
+            }
+
+            menus.forEach(otherMenu => {
+                if (otherMenu !== menu) {
+                    closeMenu(otherMenu);
+                }
+            });
+        });
+    });
+
+    document.addEventListener('click', event => {
+        menus.forEach(menu => {
+            if (menu.open && !menu.contains(event.target)) {
+                closeMenu(menu);
+            }
+        });
+    });
+
+    document.addEventListener('keydown', event => {
+        if (event.key !== 'Escape') {
+            return;
+        }
+
+        menus.forEach(menu => {
+            if (!menu.open) {
+                return;
+            }
+
+            closeMenu(menu);
+            menu.querySelector('summary')?.focus?.({ preventScroll: true });
+        });
+    });
+}());
+
 // ── Documentation table of contents ─────────────────────
 (function () {
     const links = Array.from(document.querySelectorAll('.documentation-toc-link'));

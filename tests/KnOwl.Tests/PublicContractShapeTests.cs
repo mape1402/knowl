@@ -15,7 +15,7 @@ using KnOwl.Runtime.Api.Contracts;
 using KnOwl.Runtime.Application.Security;
 using KnOwl.Runtime.Core;
 using KnOwl.Runtime.Distribution;
-using KnOwl.Security.Storage;
+using KnOwl.WolfAuth;
 
 namespace KnOwl.Tests;
 
@@ -34,7 +34,7 @@ public sealed class PublicContractShapeTests
         typeof(DocumentationSpace).Assembly,
         typeof(DocumentationVersionInput).Assembly,
         typeof(DocumentationSpaceResponse).Assembly,
-        typeof(KnOwlSubject).Assembly
+        typeof(KnOwlWolfAuthOptions).Assembly
     ];
 
     public static IEnumerable<object[]> PublicMutableProperties()

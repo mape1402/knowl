@@ -1,11 +1,11 @@
 using KnOwl.Contracts.Artifacts;
+using KnOwl.Contracts.Authorization;
 using KnOwl.Runtime.Api.Contracts;
 using KnOwl.Runtime.Api.Mapping;
 using KnOwl.Runtime.Application.ArtifactDelivery;
 using KnOwl.Runtime.Application.Catalog;
 using KnOwl.Runtime.Application.Security;
 using KnOwl.Runtime.Storage;
-using KnOwl.Security.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;

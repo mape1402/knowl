@@ -1,5 +1,5 @@
 using KnOwl.Documentation.Application;
-using KnOwl.Security.Authorization;
+using KnOwl.Contracts.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;

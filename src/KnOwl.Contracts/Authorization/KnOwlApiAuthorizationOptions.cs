@@ -1,4 +1,4 @@
-namespace KnOwl.Security.Authorization;
+namespace KnOwl.Contracts.Authorization;
 
 /// <summary>
 /// Configures policy names applied to KnOwl API endpoint groups.
@@ -7,7 +7,6 @@ public sealed class KnOwlApiAuthorizationOptions
 {
     public string? FallbackPolicy { get; set; }
     public string? PortalPolicy { get; set; }
-    public string? SecurityManagePolicy { get; set; }
     public string? SchemaTypesReadPolicy { get; set; }
     public string? SchemaTypesWritePolicy { get; set; }
     public string? MetadataReadPolicy { get; set; }

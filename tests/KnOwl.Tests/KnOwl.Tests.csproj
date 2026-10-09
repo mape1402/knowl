@@ -41,6 +41,7 @@
     <ProjectReference Include="..\..\src\KnOwl.Runtime.Bootstrap\KnOwl.Runtime.Bootstrap.csproj" />
     <ProjectReference Include="..\..\src\KnOwl.Runtime.Storage.EntityFramework\KnOwl.Runtime.Storage.EntityFramework.csproj" />
     <ProjectReference Include="..\..\src\KnOwl.Runtime.WebUI\KnOwl.Runtime.WebUI.csproj" />
+    <ProjectReference Include="..\..\src\KnOwl.WolfAuth\KnOwl.WolfAuth.csproj" />
     <ProjectReference Include="..\..\samples\KnOwl.ControlPlaneHost.Sample\KnOwl.ControlPlaneHost.Sample.csproj" />
     <ProjectReference Include="..\..\samples\KnOwl.RuntimeHost.Sample\KnOwl.RuntimeHost.Sample.csproj" />
   </ItemGroup>

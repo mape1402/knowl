@@ -1,7 +1,6 @@
 using KnOwl.ControlPlane.Storage.EntityFramework.Design.Data;
 using KnOwl.Documentation.Storage.EntityFramework.Data;
 using KnOwl.Runtime.Storage.EntityFramework.Data;
-using KnOwl.Security.Storage.EntityFramework.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace KnOwl.Tests;
@@ -54,18 +53,6 @@ public sealed class EntityFrameworkModelCoverageTests
         Assert.NotEmpty(context.Assets.EntityType.GetProperties());
         Assert.NotEmpty(context.ContentBlobs.EntityType.GetProperties());
         Assert.True(context.Model.GetEntityTypes().Count() >= 6);
-    }
-
-    [Fact]
-    public void SecurityContextBuildsTheCompleteRelationalModel()
-    {
-        using var context = new KnOwlSecurityDbContext(CreateOptions<KnOwlSecurityDbContext>());
-
-        Assert.NotEmpty(context.Subjects.EntityType.GetProperties());
-        Assert.NotEmpty(context.RoleAssignments.EntityType.GetProperties());
-        Assert.NotEmpty(context.PermissionAssignments.EntityType.GetProperties());
-        Assert.NotEmpty(context.ExternalGroupRoleAssignments.EntityType.GetProperties());
-        Assert.True(context.Model.GetEntityTypes().Count() >= 4);
     }
 
     private static DbContextOptions<TContext> CreateOptions<TContext>()

@@ -1,6 +1,5 @@
 using KnOwl.ControlPlane.WebUI;
-using KnOwl.Security;
-using KnOwl.Security.Authorization;
+using KnOwl.Contracts.Authorization;
 using Microsoft.EntityFrameworkCore;
 
 namespace KnOwl.ControlPlane.Bootstrap;
@@ -19,11 +18,6 @@ public sealed class KnOwlControlPlaneBootstrapOptions
     /// Gets or sets the EF Core provider configuration used by Control Plane storage.
     /// </summary>
     public Action<DbContextOptionsBuilder>? ConfigureStorage { get; set; }
-
-    /// <summary>
-    /// Gets or sets the EF Core provider configuration used by security storage. When omitted, the bootstrap uses the Control Plane storage configuration.
-    /// </summary>
-    public Action<DbContextOptionsBuilder>? ConfigureSecurityStorage { get; set; }
 
     /// <summary>
     /// Gets or sets the EF Core provider configuration used by documentation storage. When omitted, the bootstrap uses the Control Plane storage configuration.
@@ -48,11 +42,6 @@ public sealed class KnOwlControlPlaneBootstrapOptions
         get => Authorization.FallbackPolicy;
         set => Authorization.FallbackPolicy = value;
     }
-
-    /// <summary>
-    /// Gets security options used by provider-agnostic KnOwl authorization.
-    /// </summary>
-    public KnOwlSecurityOptions Security { get; } = new();
 
     /// <summary>
     /// Gets authorization policy names applied to the Control Plane REST API.

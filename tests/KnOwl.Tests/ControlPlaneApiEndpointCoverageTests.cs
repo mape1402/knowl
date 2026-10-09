@@ -13,8 +13,7 @@ using KnOwl.ControlPlane.Application.Distribution.Security;
 using KnOwl.ControlPlane.Design.Core;
 using KnOwl.ControlPlane.Distribution.Core;
 using KnOwl.ControlPlane.Distribution.Storage;
-using KnOwl.Security.Authorization;
-using KnOwl.Security.Storage;
+using KnOwl.Contracts.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
@@ -100,14 +99,6 @@ public sealed class ControlPlaneApiEndpointCoverageTests
         await AssertStatus(client.PostAsJsonAsync($"/api/v1/control-plane/releases/{releaseId}/execute", new ExecuteReleaseRequest("api")), HttpStatusCode.OK);
         await AssertStatus(client.PostAsJsonAsync("/api/v1/control-plane/releases/execute", new CreateAndExecuteReleaseRequest(" One Shot ", "Now", [state.Artifacts.Single().Id], [runtimeId], "Manual", "api")), HttpStatusCode.OK);
 
-        await AssertStatus(client.GetAsync("/api/v1/control-plane/security/subjects"), HttpStatusCode.OK);
-        await AssertStatus(client.PutAsJsonAsync("/api/v1/control-plane/security/subjects", new UpsertSecuritySubjectRequest(" oidc ", " user-1 ", " User ", " user@example.test ")), HttpStatusCode.OK);
-        await AssertStatus(client.GetAsync("/api/v1/control-plane/security/role-assignments"), HttpStatusCode.OK);
-        await AssertStatus(client.PostAsJsonAsync("/api/v1/control-plane/security/role-assignments", new AssignSecurityRoleRequest(" oidc ", " user-1 ", " Admin ", " Global ", " * ")), HttpStatusCode.Created);
-        await AssertStatus(client.GetAsync("/api/v1/control-plane/security/permission-assignments"), HttpStatusCode.OK);
-        await AssertStatus(client.PostAsJsonAsync("/api/v1/control-plane/security/permission-assignments", new AssignSecurityPermissionRequest(" oidc ", " user-1 ", " contracts.read ", " Global ", " * ")), HttpStatusCode.Created);
-        await AssertStatus(client.GetAsync("/api/v1/control-plane/security/external-group-role-assignments"), HttpStatusCode.OK);
-        await AssertStatus(client.PostAsJsonAsync("/api/v1/control-plane/security/external-group-role-assignments", new AssignSecurityExternalGroupRoleRequest(" oidc ", " group-1 ", " Reader ", " Global ", " * ")), HttpStatusCode.Created);
     }
 
     [Fact]
@@ -222,7 +213,6 @@ public sealed class ControlPlaneApiEndpointCoverageTests
             builder.Services.AddSingleton<IContractReleaseRepository>(state);
             builder.Services.AddSingleton<IContractReleaseInteractionService>(state);
             builder.Services.AddSingleton<IContractReleaseExecutionService>(state);
-            builder.Services.AddSingleton<IKnOwlSecurityStore>(state);
 
             var app = builder.Build();
             app.MapKnOwlControlPlaneApi(string.IsNullOrWhiteSpace(fallbackPolicy)
@@ -253,8 +243,7 @@ public sealed class ControlPlaneApiEndpointCoverageTests
         IRuntimeNodeConnectionInteractionService,
         IContractReleaseRepository,
         IContractReleaseInteractionService,
-        IContractReleaseExecutionService,
-        IKnOwlSecurityStore
+        IContractReleaseExecutionService
     {
         public List<SchemaTypeDefinition> SchemaTypes { get; } = [];
         public List<ContractFieldMetadataDefinition> MetadataFields { get; } = [];
@@ -264,11 +253,6 @@ public sealed class ControlPlaneApiEndpointCoverageTests
         public List<RuntimeEnvironment> Environments { get; } = [];
         public List<RuntimeNode> RuntimeNodes { get; } = [];
         public List<ContractRelease> Releases { get; } = [];
-        private readonly List<KnOwlSubject> subjects = [];
-        private readonly List<KnOwlRoleAssignment> roles = [];
-        private readonly List<KnOwlPermissionAssignment> permissions = [];
-        private readonly List<KnOwlExternalGroupRoleAssignment> groupRoles = [];
-
         Task<IReadOnlyList<SchemaTypeDefinition>> ISchemaTypeInteractionService.GetAll(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<SchemaTypeDefinition>>(SchemaTypes);
         Task<IReadOnlyList<SchemaTypeVersion>> ISchemaTypeInteractionService.GetActiveVersions(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<SchemaTypeVersion>>(SchemaTypes.SelectMany(x => x.Versions).Where(x => x.IsActive).ToList());
         Task<SchemaTypeDefinition?> ISchemaTypeInteractionService.GetById(Guid id, bool includeVersions, CancellationToken cancellationToken) => Task.FromResult(SchemaTypes.FirstOrDefault(x => x.Id == id));
@@ -372,21 +356,6 @@ public sealed class ControlPlaneApiEndpointCoverageTests
             return Task.FromResult(CreateExecutionResult(release));
         }
         Task<ContractReleaseExecutionResult> IContractReleaseExecutionService.Execute(Guid releaseId, string initiatedBy, CancellationToken cancellationToken) => Task.FromResult(CreateExecutionResult(Releases.First(x => x.Id == releaseId)));
-
-        Task<IReadOnlyList<KnOwlSubject>> IKnOwlSecurityStore.GetSubjects(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<KnOwlSubject>>(subjects);
-        Task<KnOwlSubject?> IKnOwlSecurityStore.GetSubject(string provider, string subjectId, CancellationToken cancellationToken) => Task.FromResult(subjects.FirstOrDefault(x => x.Provider == provider && x.SubjectId == subjectId));
-        Task<IReadOnlyList<KnOwlRoleAssignment>> IKnOwlSecurityStore.GetRoleAssignments(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<KnOwlRoleAssignment>>(roles);
-        Task<IReadOnlyList<KnOwlRoleAssignment>> IKnOwlSecurityStore.GetRoleAssignments(string provider, string subjectId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<KnOwlRoleAssignment>>(roles.Where(x => x.Provider == provider && x.SubjectId == subjectId).ToList());
-        Task<IReadOnlyList<KnOwlPermissionAssignment>> IKnOwlSecurityStore.GetPermissionAssignments(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<KnOwlPermissionAssignment>>(permissions);
-        Task<IReadOnlyList<KnOwlPermissionAssignment>> IKnOwlSecurityStore.GetPermissionAssignments(string provider, string subjectId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<KnOwlPermissionAssignment>>(permissions.Where(x => x.Provider == provider && x.SubjectId == subjectId).ToList());
-        Task<IReadOnlyList<KnOwlExternalGroupRoleAssignment>> IKnOwlSecurityStore.GetExternalGroupRoleAssignments(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<KnOwlExternalGroupRoleAssignment>>(groupRoles);
-        Task<IReadOnlyList<KnOwlExternalGroupRoleAssignment>> IKnOwlSecurityStore.GetExternalGroupRoleAssignments(string provider, IReadOnlyCollection<string> externalGroupIds, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<KnOwlExternalGroupRoleAssignment>>(groupRoles.Where(x => x.Provider == provider && externalGroupIds.Contains(x.ExternalGroupId)).ToList());
-        Task<bool> IKnOwlSecurityStore.HasEnabledAdmin(CancellationToken cancellationToken) => Task.FromResult(roles.Any(x => x.IsEnabled && x.Role == "Admin"));
-        Task IKnOwlSecurityStore.SynchronizeBootstrapAdmin(KnOwl.Security.Subjects.KnOwlExternalSubject subject, CancellationToken cancellationToken) => Task.CompletedTask;
-        Task<KnOwlSubject> IKnOwlSecurityStore.UpsertSubject(KnOwlSubject subject, CancellationToken cancellationToken) { subjects.Add(subject); return Task.FromResult(subject); }
-        Task<KnOwlRoleAssignment> IKnOwlSecurityStore.AssignRole(KnOwlRoleAssignment assignment, CancellationToken cancellationToken) { roles.Add(assignment); return Task.FromResult(assignment); }
-        Task<KnOwlPermissionAssignment> IKnOwlSecurityStore.AssignPermission(KnOwlPermissionAssignment assignment, CancellationToken cancellationToken) { permissions.Add(assignment); return Task.FromResult(assignment); }
-        Task<KnOwlExternalGroupRoleAssignment> IKnOwlSecurityStore.AssignExternalGroupRole(KnOwlExternalGroupRoleAssignment assignment, CancellationToken cancellationToken) { groupRoles.Add(assignment); return Task.FromResult(assignment); }
 
         private static ContractReleaseExecutionResult CreateExecutionResult(ContractRelease release)
             => new()
