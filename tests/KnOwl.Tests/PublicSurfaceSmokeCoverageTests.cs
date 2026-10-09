@@ -64,8 +64,7 @@ public sealed class PublicSurfaceSmokeCoverageTests
             "KnOwl.Runtime.Bootstrap",
             "KnOwl.Runtime.Storage.EntityFramework",
             "KnOwl.Runtime.WebUI",
-            "KnOwl.Security",
-            "KnOwl.Security.Storage.EntityFramework"
+            "KnOwl.WolfAuth"
         };
 
         foreach (var name in names)

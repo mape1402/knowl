@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WolfAuth.AspNetCore" Version="1.0.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>KnOwl.WolfAuth</PackageId>
+    <Title>KnOwl WolfAuth Integration</Title>
+    <Description>WolfAuth authentication integration helpers for KnOwl hosts.</Description>
+  </PropertyGroup>
+
+</Project>

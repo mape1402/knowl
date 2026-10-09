@@ -11,8 +11,7 @@ using KnOwl.Documentation.Api;
 using KnOwl.Documentation.Application;
 using KnOwl.Documentation.Storage.EntityFramework;
 using KnOwl.Documentation.WebUI;
-using KnOwl.Security;
-using KnOwl.Security.Storage.EntityFramework;
+using KnOwl.WolfAuth;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -20,6 +19,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using WolfAuth.AspNetCore;
 
 namespace KnOwl.ControlPlane.Bootstrap;
 
@@ -51,18 +51,7 @@ public static class KnOwlControlPlaneBootstrapExtensions
         });
         services.AddKnOwlDocumentationWebUI();
         services.AddHealthChecks();
-        services.AddKnOwlSecurity(securityOptions =>
-        {
-            securityOptions.RequireKnownSubject = options.Security.RequireKnownSubject;
-            securityOptions.AllowBootstrapAdminSync = options.Security.AllowBootstrapAdminSync;
-            securityOptions.Subject.Provider = options.Security.Subject.Provider;
-            CopyList(options.Security.Subject.SubjectIdClaimTypes, securityOptions.Subject.SubjectIdClaimTypes);
-            CopyList(options.Security.Subject.DisplayNameClaimTypes, securityOptions.Subject.DisplayNameClaimTypes);
-            CopyList(options.Security.Subject.EmailClaimTypes, securityOptions.Subject.EmailClaimTypes);
-            CopyList(options.Security.Subject.GroupClaimTypes, securityOptions.Subject.GroupClaimTypes);
-            securityOptions.BootstrapAdmins.Clear();
-            securityOptions.BootstrapAdmins.AddRange(options.Security.BootstrapAdmins);
-        });
+        services.AddAuthorization();
         services.AddKnOwlControlPlaneApplication();
         services.AddKnOwlControlPlaneDistributionApplication();
         services.AddKnOwlDocumentationApplication();
@@ -71,8 +60,6 @@ public static class KnOwlControlPlaneBootstrapExtensions
         services.AddKnOwlControlPlaneDistributionStorageEntityFramework();
         services.AddKnOwlDocumentationStorageEntityFramework(
             options.ConfigureDocumentationStorage ?? options.ConfigureStorage ?? ThrowMissingStorageConfiguration("Control Plane documentation"));
-        services.AddKnOwlSecurityStorageEntityFramework(
-            options.ConfigureSecurityStorage ?? options.ConfigureStorage ?? ThrowMissingStorageConfiguration("Control Plane security"));
 
         services.AddSingleton(options);
         return services;
@@ -96,6 +83,12 @@ public static class KnOwlControlPlaneBootstrapExtensions
             app.UseAuthentication();
         }
 
+        if (app.Services.GetService<IKnOwlWolfAuthRegistration>() is not null)
+        {
+            app.UseWolfAuth();
+        }
+
+        app.UseKnOwlWolfAuthLoginGate();
         app.UseAuthorization();
 
         var options = app.Services.GetRequiredService<KnOwlControlPlaneBootstrapOptions>();
@@ -105,6 +98,7 @@ public static class KnOwlControlPlaneBootstrapExtensions
         app.MapHealthChecks("/healthz");
         app.MapHealthChecks("/health/live");
         app.MapHealthChecks("/health/ready");
+        app.MapKnOwlWolfAuthEndpoints();
         app.MapButterMorphDesigner(options.ButterMorphPath);
         app.MapKnOwlControlPlaneApi(options.Authorization);
         app.MapKnOwlControlPlaneContractCatalogEndpoints();
@@ -113,12 +107,6 @@ public static class KnOwlControlPlaneBootstrapExtensions
         app.MapRazorPages().WithStaticAssets();
 
         return app;
-    }
-
-    private static void CopyList(IReadOnlyCollection<string> source, List<string> target)
-    {
-        target.Clear();
-        target.AddRange(source);
     }
 
     private static void CopyThemePalette(
@@ -144,5 +132,5 @@ public static class KnOwlControlPlaneBootstrapExtensions
 
     private static Action<Microsoft.EntityFrameworkCore.DbContextOptionsBuilder> ThrowMissingStorageConfiguration(string storageName)
         => _ => throw new InvalidOperationException(
-            $"KnOwl {storageName} storage requires an EF Core provider configuration. Set ConfigureStorage or ConfigureSecurityStorage in the bootstrap options.");
+            $"KnOwl {storageName} storage requires an EF Core provider configuration. Set ConfigureStorage in the bootstrap options.");
 }

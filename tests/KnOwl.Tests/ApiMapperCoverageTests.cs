@@ -13,7 +13,6 @@ using KnOwl.Runtime.Api;
 using KnOwl.Runtime.Api.Contracts;
 using KnOwl.Runtime.Core;
 using KnOwl.Runtime.Distribution;
-using KnOwl.Security.Storage;
 
 namespace KnOwl.Tests;
 
@@ -237,46 +236,6 @@ public sealed class ApiMapperCoverageTests
 
         Assert.True(response.Succeeded);
         Assert.Equal("Delivered", response.Status);
-    }
-
-    [Fact]
-    public void ControlPlaneMapperMapsSecuritySubject()
-    {
-        var subject = new KnOwlSubject { Provider = "oidc", SubjectId = "user-1", DisplayName = "User", Email = "user@example.test" };
-
-        var response = MapControlPlane<KnOwlSubject, SecuritySubjectResponse>(subject);
-
-        Assert.Equal("user@example.test", response.Email);
-    }
-
-    [Fact]
-    public void ControlPlaneMapperMapsSecurityRoleAssignment()
-    {
-        var assignment = new KnOwlRoleAssignment { Provider = "oidc", SubjectId = "user-1", Role = "Admin" };
-
-        var response = MapControlPlane<KnOwlRoleAssignment, SecurityRoleAssignmentResponse>(assignment);
-
-        Assert.Equal("Admin", response.Role);
-    }
-
-    [Fact]
-    public void ControlPlaneMapperMapsSecurityPermissionAssignment()
-    {
-        var assignment = new KnOwlPermissionAssignment { Provider = "oidc", SubjectId = "user-1", Permission = "contracts.read" };
-
-        var response = MapControlPlane<KnOwlPermissionAssignment, SecurityPermissionAssignmentResponse>(assignment);
-
-        Assert.Equal("contracts.read", response.Permission);
-    }
-
-    [Fact]
-    public void ControlPlaneMapperMapsSecurityExternalGroupRoleAssignment()
-    {
-        var assignment = new KnOwlExternalGroupRoleAssignment { Provider = "oidc", ExternalGroupId = "group-1", Role = "Reader" };
-
-        var response = MapControlPlane<KnOwlExternalGroupRoleAssignment, SecurityExternalGroupRoleAssignmentResponse>(assignment);
-
-        Assert.Equal("group-1", response.ExternalGroupId);
     }
 
     [Fact]

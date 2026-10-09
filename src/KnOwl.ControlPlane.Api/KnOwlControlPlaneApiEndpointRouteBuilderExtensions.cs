@@ -6,11 +6,10 @@ using KnOwl.ControlPlane.Application.Distribution.Artifacts;
 using KnOwl.ControlPlane.Application.Distribution.Catalog;
 using KnOwl.ControlPlane.Application.Distribution.ReleaseBundles;
 using KnOwl.ControlPlane.Application.Distribution.Security;
+using KnOwl.Contracts.Authorization;
 using KnOwl.ControlPlane.Design.Core;
 using KnOwl.ControlPlane.Distribution.Core;
 using KnOwl.ControlPlane.Distribution.Storage;
-using KnOwl.Security.Authorization;
-using KnOwl.Security.Storage;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -50,7 +49,6 @@ public static class KnOwlControlPlaneApiEndpointRouteBuilderExtensions
         MapRuntimeEnvironments(api, authorization);
         MapRuntimeNodes(api, authorization);
         MapReleases(api, authorization);
-        MapSecurity(api, authorization);
 
         return endpoints;
     }
@@ -675,90 +673,11 @@ public static class KnOwlControlPlaneApiEndpointRouteBuilderExtensions
         }).RequireKnOwlPolicy(authorization.ReleasesExecutePolicy);
     }
 
-    private static void MapSecurity(RouteGroupBuilder api, KnOwlApiAuthorizationOptions authorization)
-    {
-        var group = api.MapGroup("/security").WithTags("KnOwl Control Plane Security");
-
-        group.MapGet("/subjects", async ([FromServices] IKnOwlSecurityStore store, CancellationToken cancellationToken)
-            => Results.Ok((await store.GetSubjects(cancellationToken)).Select(x => x.ToResponse())))
-            .RequireKnOwlPolicy(authorization.SecurityManagePolicy);
-
-        group.MapPut("/subjects", async ([FromBody] UpsertSecuritySubjectRequest request, [FromServices] IKnOwlSecurityStore store, CancellationToken cancellationToken) =>
-        {
-            var subject = await store.UpsertSubject(new KnOwlSubject
-            {
-                Provider = request.Provider.Trim(),
-                SubjectId = request.SubjectId.Trim(),
-                DisplayName = NormalizeOptionalText(request.DisplayName),
-                Email = NormalizeOptionalText(request.Email),
-                IsEnabled = request.IsEnabled
-            }, cancellationToken);
-            return Results.Ok(subject.ToResponse());
-        }).RequireKnOwlPolicy(authorization.SecurityManagePolicy);
-
-        group.MapGet("/role-assignments", async ([FromServices] IKnOwlSecurityStore store, CancellationToken cancellationToken)
-            => Results.Ok((await store.GetRoleAssignments(cancellationToken)).Select(x => x.ToResponse())))
-            .RequireKnOwlPolicy(authorization.SecurityManagePolicy);
-
-        group.MapPost("/role-assignments", async ([FromBody] AssignSecurityRoleRequest request, [FromServices] IKnOwlSecurityStore store, CancellationToken cancellationToken) =>
-        {
-            var assignment = await store.AssignRole(new KnOwlRoleAssignment
-            {
-                Provider = request.Provider.Trim(),
-                SubjectId = request.SubjectId.Trim(),
-                Role = request.Role.Trim(),
-                ScopeType = request.ScopeType.Trim(),
-                ScopeId = request.ScopeId.Trim(),
-                IsEnabled = request.IsEnabled
-            }, cancellationToken);
-            return Results.Created($"/api/v1/control-plane/security/role-assignments/{assignment.Id}", assignment.ToResponse());
-        }).RequireKnOwlPolicy(authorization.SecurityManagePolicy);
-
-        group.MapGet("/permission-assignments", async ([FromServices] IKnOwlSecurityStore store, CancellationToken cancellationToken)
-            => Results.Ok((await store.GetPermissionAssignments(cancellationToken)).Select(x => x.ToResponse())))
-            .RequireKnOwlPolicy(authorization.SecurityManagePolicy);
-
-        group.MapPost("/permission-assignments", async ([FromBody] AssignSecurityPermissionRequest request, [FromServices] IKnOwlSecurityStore store, CancellationToken cancellationToken) =>
-        {
-            var assignment = await store.AssignPermission(new KnOwlPermissionAssignment
-            {
-                Provider = request.Provider.Trim(),
-                SubjectId = request.SubjectId.Trim(),
-                Permission = request.Permission.Trim(),
-                ScopeType = request.ScopeType.Trim(),
-                ScopeId = request.ScopeId.Trim(),
-                IsEnabled = request.IsEnabled
-            }, cancellationToken);
-            return Results.Created($"/api/v1/control-plane/security/permission-assignments/{assignment.Id}", assignment.ToResponse());
-        }).RequireKnOwlPolicy(authorization.SecurityManagePolicy);
-
-        group.MapGet("/external-group-role-assignments", async ([FromServices] IKnOwlSecurityStore store, CancellationToken cancellationToken)
-            => Results.Ok((await store.GetExternalGroupRoleAssignments(cancellationToken)).Select(x => x.ToResponse())))
-            .RequireKnOwlPolicy(authorization.SecurityManagePolicy);
-
-        group.MapPost("/external-group-role-assignments", async ([FromBody] AssignSecurityExternalGroupRoleRequest request, [FromServices] IKnOwlSecurityStore store, CancellationToken cancellationToken) =>
-        {
-            var assignment = await store.AssignExternalGroupRole(new KnOwlExternalGroupRoleAssignment
-            {
-                Provider = request.Provider.Trim(),
-                ExternalGroupId = request.ExternalGroupId.Trim(),
-                Role = request.Role.Trim(),
-                ScopeType = request.ScopeType.Trim(),
-                ScopeId = request.ScopeId.Trim(),
-                IsEnabled = request.IsEnabled
-            }, cancellationToken);
-            return Results.Created($"/api/v1/control-plane/security/external-group-role-assignments/{assignment.Id}", assignment.ToResponse());
-        }).RequireKnOwlPolicy(authorization.SecurityManagePolicy);
-    }
-
     private static IResult Conflict(string detail)
         => Results.Problem(detail: detail, statusCode: StatusCodes.Status409Conflict);
 
     private static string? NormalizeOptionalJson(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value;
-
-    private static string? NormalizeOptionalText(string? value)
-        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static RouteHandlerBuilder RequireKnOwlPolicy(this RouteHandlerBuilder builder, string? policy)
         => string.IsNullOrWhiteSpace(policy) ? builder : builder.RequireAuthorization(policy);

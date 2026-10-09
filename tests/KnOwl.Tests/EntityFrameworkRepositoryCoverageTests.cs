@@ -14,11 +14,6 @@ using KnOwl.Runtime.Core;
 using KnOwl.Runtime.Distribution;
 using KnOwl.Runtime.Storage.EntityFramework.Data;
 using KnOwl.Runtime.Storage.EntityFramework.Repositories;
-using KnOwl.Security.Authorization;
-using KnOwl.Security.Storage;
-using KnOwl.Security.Storage.EntityFramework.Data;
-using KnOwl.Security.Storage.EntityFramework.Storage;
-using KnOwl.Security.Subjects;
 using Microsoft.EntityFrameworkCore;
 
 namespace KnOwl.Tests;
@@ -376,33 +371,6 @@ public sealed class EntityFrameworkRepositoryCoverageTests
     }
 
     [Fact]
-    public async Task SecurityStorePersistsSubjectsAssignmentsAndBootstrapAdmin()
-    {
-        await using var db = CreateSecurityContext();
-        var store = new KnOwlSecurityStore(db);
-        var subject = new KnOwlSubject { Provider = "oidc", SubjectId = "user-1", DisplayName = "User", Email = "user@example.test", IsEnabled = true };
-
-        await store.UpsertSubject(subject);
-        await store.UpsertSubject(new KnOwlSubject { Provider = "oidc", SubjectId = "user-1", DisplayName = "User Updated", Email = "updated@example.test", IsEnabled = true });
-        await store.AssignRole(new KnOwlRoleAssignment { Provider = "oidc", SubjectId = "user-1", Role = "Reader", IsEnabled = true });
-        await store.AssignPermission(new KnOwlPermissionAssignment { Provider = "oidc", SubjectId = "user-1", Permission = "contracts.read", IsEnabled = true });
-        await store.AssignExternalGroupRole(new KnOwlExternalGroupRoleAssignment { Provider = "oidc", ExternalGroupId = "group-1", Role = "Admin", IsEnabled = true });
-        await store.SynchronizeBootstrapAdmin(new KnOwlExternalSubject("oidc", "admin", "Admin", "admin@example.test", ["group-1"]));
-        await store.SynchronizeBootstrapAdmin(new KnOwlExternalSubject("oidc", "admin", "Admin", "admin@example.test", ["group-1"]));
-
-        Assert.NotEmpty(await store.GetSubjects());
-        Assert.Equal("updated@example.test", (await store.GetSubject("oidc", "user-1"))!.Email);
-        Assert.NotEmpty(await store.GetRoleAssignments());
-        Assert.Single(await store.GetRoleAssignments("oidc", "user-1"));
-        Assert.NotEmpty(await store.GetPermissionAssignments());
-        Assert.Single(await store.GetPermissionAssignments("oidc", "user-1"));
-        Assert.NotEmpty(await store.GetExternalGroupRoleAssignments());
-        Assert.Single(await store.GetExternalGroupRoleAssignments("oidc", ["group-1"]));
-        Assert.Empty(await store.GetExternalGroupRoleAssignments("oidc", []));
-        Assert.True(await store.HasEnabledAdmin());
-    }
-
-    [Fact]
     public async Task RuntimeArtifactRepositoryPersistsAndQueriesArtifacts()
     {
         await using var db = CreateRuntimeContext();
@@ -495,11 +463,6 @@ public sealed class EntityFrameworkRepositoryCoverageTests
     private static KnOwlDocumentationDbContext CreateDocumentationContext()
         => new(new DbContextOptionsBuilder<KnOwlDocumentationDbContext>()
             .UseInMemoryDatabase($"docs-repo-{Guid.NewGuid():N}")
-            .Options);
-
-    private static KnOwlSecurityDbContext CreateSecurityContext()
-        => new(new DbContextOptionsBuilder<KnOwlSecurityDbContext>()
-            .UseInMemoryDatabase($"security-repo-{Guid.NewGuid():N}")
             .Options);
 
     private static KnOwlRuntimeDbContext CreateRuntimeContext()

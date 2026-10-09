@@ -1,7 +1,13 @@
+using KnOwl.WolfAuth;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using KnOwl.ControlPlane.Bootstrap;
 using KnOwl.ControlPlaneHost.Sample.Design;
 using KnOwl.ControlPlaneHost.Sample.Documentation;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using WolfAuth.AspNetCore;
+using WolfAuth.Microsoft.EntraId;
 
 var builder = WebApplication.CreateBuilder(args);
 var migrationsAssembly = typeof(Program).Assembly.GetName().Name!;
@@ -11,7 +17,45 @@ if (string.IsNullOrWhiteSpace(connectionString))
     throw new InvalidOperationException("ConnectionStrings:KnOwlDb is required.");
 }
 
-builder.Services.AddKnOwlControlPlane(builder.Configuration, options =>
+var entraId = EntraIdSettings.FromConfiguration(builder.Configuration);
+if (entraId.IsConfigured)
+{
+    builder.Services.AddSingleton<IWolfAuthEntraIdProvisioningMapper, WolfAuthEntraIdProvisioningMapper>();
+    builder.Services
+        .AddAuthentication(options =>
+        {
+            options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
+        })
+        .AddCookie(options =>
+        {
+            options.Cookie.Name = "KnOwl.Sample.Auth";
+            options.LoginPath = "/auth/login";
+            options.LogoutPath = "/auth/logout";
+        })
+        .AddOpenIdConnect(options =>
+        {
+            options.Authority = $"https://login.microsoftonline.com/{entraId.TenantId}/v2.0";
+            options.ClientId = entraId.ClientId;
+            options.ClientSecret = entraId.ClientSecret;
+            options.CallbackPath = entraId.CallbackPath;
+            options.ResponseType = OpenIdConnectResponseType.Code;
+            options.SaveTokens = true;
+            options.Scope.Clear();
+            options.Scope.Add("openid");
+            options.Scope.Add("profile");
+            options.Scope.Add("email");
+            options.TokenValidationParameters.NameClaimType = "name";
+            options.TokenValidationParameters.RoleClaimType = "roles";
+        });
+
+    builder.Services.AddWolfAuth(wolf =>
+    {
+        wolf.ClaimsMapping.DefaultProvider = "microsoft-entra-id";
+    });
+}
+
+var knowlServices = builder.Services.AddKnOwlControlPlane(builder.Configuration, options =>
 {
     options.MigrationsAssembly = migrationsAssembly;
     options.Theme.Title = "Sample KnOwl";
@@ -34,6 +78,19 @@ builder.Services.AddKnOwlControlPlane(builder.Configuration, options =>
         sql => sql.MigrationsAssembly(migrationsAssembly));
 });
 
+if (entraId.IsConfigured)
+{
+    knowlServices.UseWolfAuth(options =>
+    {
+        options.ApplicationName = "Sample KnOwl";
+        options.Subtitle = "Sign in with Microsoft Entra ID.";
+        options.LoginButtonText = "Login";
+        options.ChallengeSchemes.Add(OpenIdConnectDefaults.AuthenticationScheme);
+        options.SignOutSchemes.Add(CookieAuthenticationDefaults.AuthenticationScheme);
+        options.SignOutSchemes.Add(OpenIdConnectDefaults.AuthenticationScheme);
+    });
+}
+
 var app = builder.Build();
 
 await SampleDesignSeeder.Initialize(app);
@@ -47,3 +104,27 @@ app.Run();
 /// Control Plane host program marker used by integration tests.
 /// </summary>
 public partial class Program;
+
+internal sealed record EntraIdSettings(
+    string? TenantId,
+    string? ClientId,
+    string? ClientSecret,
+    string CallbackPath)
+{
+    public bool IsConfigured
+        => !string.IsNullOrWhiteSpace(TenantId) &&
+           !string.IsNullOrWhiteSpace(ClientId) &&
+           !string.IsNullOrWhiteSpace(ClientSecret);
+
+    public static EntraIdSettings FromConfiguration(IConfiguration configuration)
+    {
+        var section = configuration.GetSection("EntraId");
+        return new EntraIdSettings(
+            section["TenantId"],
+            section["ClientId"],
+            section["ClientSecret"],
+            string.IsNullOrWhiteSpace(section["CallbackPath"])
+                ? "/signin-oidc"
+                : section["CallbackPath"]!);
+    }
+}

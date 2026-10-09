@@ -13,8 +13,7 @@
     <ProjectReference Include="..\KnOwl.Documentation.Application\KnOwl.Documentation.Application.csproj" />
     <ProjectReference Include="..\KnOwl.Documentation.Storage.EntityFramework\KnOwl.Documentation.Storage.EntityFramework.csproj" />
     <ProjectReference Include="..\KnOwl.Documentation.WebUI\KnOwl.Documentation.WebUI.csproj" />
-    <ProjectReference Include="..\KnOwl.Security\KnOwl.Security.csproj" />
-    <ProjectReference Include="..\KnOwl.Security.Storage.EntityFramework\KnOwl.Security.Storage.EntityFramework.csproj" />
+    <ProjectReference Include="..\KnOwl.WolfAuth\KnOwl.WolfAuth.csproj" />
   </ItemGroup>
 
   <ItemGroup>

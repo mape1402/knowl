@@ -1,6 +1,5 @@
 using KnOwl.Runtime.WebUI;
-using KnOwl.Security;
-using KnOwl.Security.Authorization;
+using KnOwl.Contracts.Authorization;
 using Microsoft.EntityFrameworkCore;
 
 namespace KnOwl.Runtime.Bootstrap;
@@ -21,11 +20,6 @@ public sealed class KnOwlRuntimeBootstrapOptions
     public Action<DbContextOptionsBuilder>? ConfigureStorage { get; set; }
 
     /// <summary>
-    /// Gets or sets the EF Core provider configuration used by security storage. When omitted, the bootstrap uses the Runtime storage configuration.
-    /// </summary>
-    public Action<DbContextOptionsBuilder>? ConfigureSecurityStorage { get; set; }
-
-    /// <summary>
     /// Gets visual theme and branding options used by the Runtime Web UI.
     /// </summary>
     public KnOwlRuntimeThemeOptions Theme { get; } = new();
@@ -38,11 +32,6 @@ public sealed class KnOwlRuntimeBootstrapOptions
         get => Authorization.FallbackPolicy;
         set => Authorization.FallbackPolicy = value;
     }
-
-    /// <summary>
-    /// Gets security options used by provider-agnostic KnOwl authorization.
-    /// </summary>
-    public KnOwlSecurityOptions Security { get; } = new();
 
     /// <summary>
     /// Gets authorization policy names applied to the Runtime REST API.
