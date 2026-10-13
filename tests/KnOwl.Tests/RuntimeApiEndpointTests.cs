@@ -77,7 +77,7 @@ public sealed class RuntimeApiEndpointTests
             DefinitionId = Guid.NewGuid(),
             VersionId = Guid.NewGuid(),
             Name = topic,
-            Topic = topic,
+            ContractKey = topic,
             VersionNumber = version,
             PayloadSchemaJson = "{\"type\":\"object\"}",
             ContentHash = Guid.NewGuid().ToString("N"),

@@ -13,20 +13,20 @@ public interface IControlPlaneContractCatalogService
     Task<IReadOnlyList<ContractArtifact>> GetAll(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gets one deployed artifact by type, topic and exact version number.
+    /// Gets one deployed artifact by type, contract key and exact version number.
     /// </summary>
     Task<ContractArtifact?> GetExact(
         ContractArtifactType artifactType,
-        string topic,
+        string contractKey,
         string versionNumber,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gets the latest deployed artifact by type and topic.
+    /// Gets the latest deployed artifact by type and contract key.
     /// </summary>
     Task<ContractArtifact?> GetLatest(
         ContractArtifactType artifactType,
-        string topic,
+        string contractKey,
         CancellationToken cancellationToken = default);
 
     /// <summary>

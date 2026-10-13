@@ -19,19 +19,19 @@ public sealed class RuntimeContractArtifactRepository(KnOwlRuntimeDbContext db) 
     }
 
     /// <inheritdoc />
-    public async Task<RuntimeContractArtifact?> GetByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default)
+    public async Task<RuntimeContractArtifact?> GetByIdentity(ContractArtifactType artifactType, string contractKey, string versionNumber, CancellationToken cancellationToken = default)
     {
         return await db.RuntimeContractArtifacts
             .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.ArtifactType == artifactType && x.Topic == topic && x.VersionNumber == versionNumber, cancellationToken);
+            .FirstOrDefaultAsync(x => x.ArtifactType == artifactType && x.ContractKey == contractKey && x.VersionNumber == versionNumber, cancellationToken);
     }
 
     /// <inheritdoc />
-    public async Task<RuntimeContractArtifact?> GetLatest(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken = default)
+    public async Task<RuntimeContractArtifact?> GetLatest(ContractArtifactType artifactType, string contractKey, CancellationToken cancellationToken = default)
     {
         return await db.RuntimeContractArtifacts
             .AsNoTracking()
-            .Where(x => x.ArtifactType == artifactType && x.Topic == topic)
+            .Where(x => x.ArtifactType == artifactType && x.ContractKey == contractKey)
             .OrderByDescending(x => x.DeployedAtUtc)
             .FirstOrDefaultAsync(cancellationToken);
     }

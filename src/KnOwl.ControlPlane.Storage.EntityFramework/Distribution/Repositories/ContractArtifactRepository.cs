@@ -57,32 +57,32 @@ public sealed class ContractArtifactRepository(KnOwlDbContext db) : IContractArt
     }
 
     /// <inheritdoc />
-    public async Task<ContractArtifact?> GetByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default)
+    public async Task<ContractArtifact?> GetByIdentity(ContractArtifactType artifactType, string contractKey, string versionNumber, CancellationToken cancellationToken = default)
     {
         return await db.ContractArtifacts
             .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.ArtifactType == artifactType && x.Topic == topic && x.VersionNumber == versionNumber, cancellationToken);
+            .FirstOrDefaultAsync(x => x.ArtifactType == artifactType && x.ContractKey == contractKey && x.VersionNumber == versionNumber, cancellationToken);
     }
 
     /// <inheritdoc />
-    public async Task<ContractArtifact?> GetDeployedByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default)
+    public async Task<ContractArtifact?> GetDeployedByIdentity(ContractArtifactType artifactType, string contractKey, string versionNumber, CancellationToken cancellationToken = default)
     {
         return await db.ContractArtifacts
             .AsNoTracking()
             .FirstOrDefaultAsync(
                 x => x.SourceStatus == DeployedStatus &&
                     x.ArtifactType == artifactType &&
-                    x.Topic == topic &&
+                    x.ContractKey == contractKey &&
                     x.VersionNumber == versionNumber,
                 cancellationToken);
     }
 
     /// <inheritdoc />
-    public async Task<ContractArtifact?> GetLatestDeployed(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken = default)
+    public async Task<ContractArtifact?> GetLatestDeployed(ContractArtifactType artifactType, string contractKey, CancellationToken cancellationToken = default)
     {
         return await db.ContractArtifacts
             .AsNoTracking()
-            .Where(x => x.SourceStatus == DeployedStatus && x.ArtifactType == artifactType && x.Topic == topic)
+            .Where(x => x.SourceStatus == DeployedStatus && x.ArtifactType == artifactType && x.ContractKey == contractKey)
             .OrderByDescending(x => x.CreatedAtUtc)
             .FirstOrDefaultAsync(cancellationToken);
     }

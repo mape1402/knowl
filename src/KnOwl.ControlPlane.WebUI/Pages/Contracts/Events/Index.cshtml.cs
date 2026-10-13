@@ -31,7 +31,7 @@ public class IndexModel(IEventInteractionService events) : PageModel
 
     private bool MatchesSearch(EventDefinition item)
         => Contains(item.Name)
-            || Contains(item.Topic)
+            || Contains(item.Key)
             || Contains(item.Description)
             || Contains(item.IsActive ? "Active" : "Inactive")
             || item.Versions.Any(version =>

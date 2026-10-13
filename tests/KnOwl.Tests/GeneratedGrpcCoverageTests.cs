@@ -15,14 +15,14 @@ public sealed class GeneratedGrpcCoverageTests
         var exact = new RuntimeContractExactRequest
         {
             ArtifactType = "Command",
-            Topic = "orders.submit",
+            ContractKey = "orders.submit",
             VersionNumber = "1.2.3"
         };
 
         var latest = new RuntimeContractLatestRequest
         {
             ArtifactType = "Event",
-            Topic = "orders.submitted"
+            ContractKey = "orders.submitted"
         };
 
         var response = new RuntimeContractResponse
@@ -35,7 +35,7 @@ public sealed class GeneratedGrpcCoverageTests
             DefinitionId = Guid.NewGuid().ToString("N"),
             VersionId = Guid.NewGuid().ToString("N"),
             Name = "Submit Order",
-            Topic = "orders.submit",
+            ContractKey = "orders.submit",
             VersionNumber = "1.2.3",
             Description = "Submit an order.",
             PayloadSchemaJson = "{\"type\":\"object\"}",
@@ -48,7 +48,7 @@ public sealed class GeneratedGrpcCoverageTests
         AssertMessageRoundTrips(response, RuntimeContractResponse.Parser);
 
         Assert.False(exact.Equals(new RuntimeContractExactRequest(exact) { VersionNumber = "9.9.9" }));
-        Assert.False(latest.Equals(new RuntimeContractLatestRequest(latest) { Topic = "changed" }));
+        Assert.False(latest.Equals(new RuntimeContractLatestRequest(latest) { ContractKey = "changed" }));
         Assert.False(response.Equals(new RuntimeContractResponse(response) { Found = false }));
         Assert.NotNull(KnowlRuntimeContractsReflection.Descriptor);
         Assert.NotNull(RuntimeContracts.Descriptor);
@@ -60,13 +60,13 @@ public sealed class GeneratedGrpcCoverageTests
         var exact = new RuntimeContractExactRequest
         {
             ArtifactType = "Command",
-            Topic = "orders.submit",
+            ContractKey = "orders.submit",
             VersionNumber = "1.2.3"
         };
         var latest = new RuntimeContractLatestRequest
         {
             ArtifactType = "Event",
-            Topic = "orders.submitted"
+            ContractKey = "orders.submitted"
         };
         var response = new RuntimeContractResponse
         {
@@ -78,7 +78,7 @@ public sealed class GeneratedGrpcCoverageTests
             DefinitionId = "definition",
             VersionId = "version",
             Name = "Submit",
-            Topic = "orders.submit",
+            ContractKey = "orders.submit",
             VersionNumber = "1.2.3",
             Description = "Description",
             PayloadSchemaJson = "{}",
@@ -89,13 +89,13 @@ public sealed class GeneratedGrpcCoverageTests
         AssertGeneratedMessageBranches(exact, clone =>
         {
             clone.ArtifactType = string.Empty;
-            clone.Topic = string.Empty;
+            clone.ContractKey = string.Empty;
             clone.VersionNumber = string.Empty;
         });
         AssertGeneratedMessageBranches(latest, clone =>
         {
             clone.ArtifactType = string.Empty;
-            clone.Topic = string.Empty;
+            clone.ContractKey = string.Empty;
         });
         AssertGeneratedMessageBranches(response, clone =>
         {
@@ -107,7 +107,7 @@ public sealed class GeneratedGrpcCoverageTests
             clone.DefinitionId = string.Empty;
             clone.VersionId = string.Empty;
             clone.Name = string.Empty;
-            clone.Topic = string.Empty;
+            clone.ContractKey = string.Empty;
             clone.VersionNumber = string.Empty;
             clone.Description = string.Empty;
             clone.PayloadSchemaJson = string.Empty;
@@ -133,7 +133,7 @@ public sealed class GeneratedGrpcCoverageTests
         Assert.NotEmpty(mergedLatest.ToByteArray());
         Assert.NotEmpty(mergedResponse.ToByteArray());
         Assert.Throws<ArgumentNullException>(() => exact.ArtifactType = null!);
-        Assert.Throws<ArgumentNullException>(() => latest.Topic = null!);
+        Assert.Throws<ArgumentNullException>(() => latest.ContractKey = null!);
         Assert.Throws<ArgumentNullException>(() => response.DeployedAtUtc = null!);
     }
 
@@ -172,7 +172,7 @@ public sealed class GeneratedGrpcCoverageTests
             DefinitionId = Guid.NewGuid(),
             VersionId = Guid.NewGuid(),
             Name = "Submit Order",
-            Topic = "orders.submit",
+            ContractKey = "orders.submit",
             VersionNumber = "1.2.3",
             Description = null,
             PayloadSchemaJson = """{"type":"object"}""",
@@ -186,13 +186,13 @@ public sealed class GeneratedGrpcCoverageTests
         var exact = await service.GetExact(new RuntimeContractExactRequest
         {
             ArtifactType = "command",
-            Topic = artifact.Topic,
+            ContractKey = artifact.ContractKey,
             VersionNumber = artifact.VersionNumber
         }, context);
         var missing = await service.GetLatest(new RuntimeContractLatestRequest
         {
             ArtifactType = "event",
-            Topic = "missing"
+            ContractKey = "missing"
         }, context);
 
         Assert.True(exact.Found);
@@ -261,7 +261,7 @@ public sealed class GeneratedGrpcCoverageTests
             {
                 Found = true,
                 ArtifactType = request.ArtifactType,
-                Topic = request.Topic,
+                ContractKey = request.ContractKey,
                 VersionNumber = request.VersionNumber
             });
         }
@@ -272,7 +272,7 @@ public sealed class GeneratedGrpcCoverageTests
             {
                 Found = true,
                 ArtifactType = request.ArtifactType,
-                Topic = request.Topic
+                ContractKey = request.ContractKey
             });
         }
     }
@@ -299,10 +299,10 @@ public sealed class GeneratedGrpcCoverageTests
             => Task.FromResult<IReadOnlyList<RuntimeContractArtifact>>([artifact]);
 
         public Task<RuntimeContractArtifact?> GetExact(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default)
-            => Task.FromResult<RuntimeContractArtifact?>(artifact.ArtifactType == artifactType && artifact.Topic == topic && artifact.VersionNumber == versionNumber ? artifact : null);
+            => Task.FromResult<RuntimeContractArtifact?>(artifact.ArtifactType == artifactType && artifact.ContractKey == topic && artifact.VersionNumber == versionNumber ? artifact : null);
 
         public Task<RuntimeContractArtifact?> GetLatest(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken = default)
-            => Task.FromResult<RuntimeContractArtifact?>(artifact.ArtifactType == artifactType && artifact.Topic == topic ? artifact : null);
+            => Task.FromResult<RuntimeContractArtifact?>(artifact.ArtifactType == artifactType && artifact.ContractKey == topic ? artifact : null);
 
         public Task<RuntimeContractArtifact?> GetEvent(string eventKey, string versionNumber, CancellationToken cancellationToken = default)
             => Task.FromResult<RuntimeContractArtifact?>(null);

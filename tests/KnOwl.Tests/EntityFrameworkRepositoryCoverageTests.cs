@@ -26,12 +26,12 @@ public sealed class EntityFrameworkRepositoryCoverageTests
         await using var db = CreateControlPlaneContext();
         var repository = new EventRepository(db);
         var now = DateTime.UtcNow;
-        var definition = new EventDefinition { Name = "Customer Created", Topic = "customer.created", Description = "Created" };
+        var definition = new EventDefinition { Name = "Customer Created", Key = "customer.created", Description = "Created" };
 
         await repository.Create(definition);
         await repository.AddVersion(definition.Id, new EventVersion { VersionNumber = "1.0.0", PayloadSchemaJson = "{}", Status = ContractVersionStatus.Draft });
         db.ChangeTracker.Clear();
-        await repository.UpdateDefinition(definition.Id, "Customer Updated", "customer.updated", null, now);
+        await repository.UpdateDefinition(definition.Id, "Customer Updated", null, now);
         var version = Assert.Single((await repository.GetById(definition.Id, includeVersions: true))!.Versions);
         db.ChangeTracker.Clear();
         await repository.UpdateDraftVersion(version.Id, """{"type":"object"}""", "Draft", now);
@@ -45,7 +45,7 @@ public sealed class EntityFrameworkRepositoryCoverageTests
         Assert.NotEmpty(await repository.GetAllWithVersions());
         Assert.NotNull(await repository.GetVersionById(version.Id));
         Assert.True(await repository.VersionExists(definition.Id, "1.0.0"));
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => repository.UpdateDefinition(Guid.NewGuid(), "x", "x", null, now));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => repository.UpdateDefinition(Guid.NewGuid(), "x", null, now));
         await Assert.ThrowsAsync<KeyNotFoundException>(() => repository.UpdateVersionStatus(Guid.NewGuid(), ContractVersionStatus.InReview, now));
         await Assert.ThrowsAsync<KeyNotFoundException>(() => repository.UpdateDraftVersion(Guid.NewGuid(), "{}", "Missing", now));
         await Assert.ThrowsAsync<InvalidOperationException>(() => repository.UpdateDraftVersion(version.Id, "{}", "Not draft", now));
@@ -58,12 +58,12 @@ public sealed class EntityFrameworkRepositoryCoverageTests
         await using var db = CreateControlPlaneContext();
         var repository = new CommandRepository(db);
         var now = DateTime.UtcNow;
-        var command = new CommandDefinition { Name = "Create Customer", Topic = "customer.create", Description = "Create" };
+        var command = new CommandDefinition { Name = "Create Customer", Key = "customer.create", Description = "Create" };
 
         await repository.Create(command);
         await repository.AddVersion(command.Id, new CommandVersion { VersionNumber = "1.0.0", PayloadSchemaJson = "{}", Status = ContractVersionStatus.Draft });
         db.ChangeTracker.Clear();
-        await repository.UpdateDefinition(command.Id, "Create Customer V2", "customer.create.v2", "Updated", now);
+        await repository.UpdateDefinition(command.Id, "Create Customer V2", "Updated", now);
         var version = Assert.Single((await repository.GetById(command.Id, includeVersions: true))!.Versions);
         db.ChangeTracker.Clear();
         await repository.UpdateDraftVersion(version.Id, """{"request":true}""", """{"reply":true}""", "Draft", now);
@@ -163,9 +163,9 @@ public sealed class EntityFrameworkRepositoryCoverageTests
         Assert.NotNull(await repository.GetById(artifact.Id));
         Assert.Single(await repository.GetByIds([artifact.Id]));
         Assert.NotNull(await repository.GetBySourceVersion(artifact.ArtifactType, artifact.VersionId));
-        Assert.NotNull(await repository.GetByIdentity(artifact.ArtifactType, artifact.Topic, artifact.VersionNumber));
-        Assert.NotNull(await repository.GetDeployedByIdentity(artifact.ArtifactType, artifact.Topic, artifact.VersionNumber));
-        Assert.NotNull(await repository.GetLatestDeployed(artifact.ArtifactType, artifact.Topic));
+        Assert.NotNull(await repository.GetByIdentity(artifact.ArtifactType, artifact.ContractKey, artifact.VersionNumber));
+        Assert.NotNull(await repository.GetDeployedByIdentity(artifact.ArtifactType, artifact.ContractKey, artifact.VersionNumber));
+        Assert.NotNull(await repository.GetLatestDeployed(artifact.ArtifactType, artifact.ContractKey));
     }
 
     [Fact]
@@ -241,7 +241,7 @@ public sealed class EntityFrameworkRepositoryCoverageTests
         var hydratedRelease = await releaseRepository.GetById(graph.Release.Id, includeItems: true, includeTargets: true);
         var hydratedTarget = Assert.Single(hydratedRelease!.Targets);
 
-        Assert.Equal(graph.Artifact.Topic, hydratedRelease.Items.Single().Artifact!.Topic);
+        Assert.Equal(graph.Artifact.ContractKey, hydratedRelease.Items.Single().Artifact!.ContractKey);
         Assert.Equal(graph.Environment.Id, hydratedTarget.RuntimeNode!.Environment!.Id);
         Assert.NotEmpty(hydratedTarget.Attempts);
         Assert.NotEmpty(await releaseRepository.GetAll());
@@ -382,8 +382,8 @@ public sealed class EntityFrameworkRepositoryCoverageTests
         await repository.Create(artifact);
 
         Assert.Equal(2, (await repository.GetAll()).Count);
-        Assert.Equal(artifact.Id, (await repository.GetByIdentity(artifact.ArtifactType, artifact.Topic, artifact.VersionNumber))!.Id);
-        Assert.Equal(artifact.Id, (await repository.GetLatest(artifact.ArtifactType, artifact.Topic))!.Id);
+        Assert.Equal(artifact.Id, (await repository.GetByIdentity(artifact.ArtifactType, artifact.ContractKey, artifact.VersionNumber))!.Id);
+        Assert.Equal(artifact.Id, (await repository.GetLatest(artifact.ArtifactType, artifact.ContractKey))!.Id);
     }
 
     [Fact]
@@ -477,7 +477,7 @@ public sealed class EntityFrameworkRepositoryCoverageTests
             DefinitionId = Guid.NewGuid(),
             VersionId = Guid.NewGuid(),
             Name = topic,
-            Topic = topic,
+            ContractKey = topic,
             VersionNumber = "1.0.0",
             PayloadSchemaJson = "{}",
             ContentHash = Guid.NewGuid().ToString("N"),
@@ -510,7 +510,7 @@ public sealed class EntityFrameworkRepositoryCoverageTests
             DefinitionId = Guid.NewGuid(),
             VersionId = Guid.NewGuid(),
             Name = topic,
-            Topic = topic,
+            ContractKey = topic,
             VersionNumber = versionNumber,
             PayloadSchemaJson = "{}",
             ContentHash = Guid.NewGuid().ToString("N"),

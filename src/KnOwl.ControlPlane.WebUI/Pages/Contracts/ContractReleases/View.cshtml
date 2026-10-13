@@ -86,7 +86,7 @@
             <input type="hidden" name="id" value="@Model.Release.Id" />
             <label class="od-search-field" for="release-detail-search">
                 <span>Search release details</span>
-                <input id="release-detail-search" name="search" value="@Model.Search" class="form-control" placeholder="Contract, topic, version, runtime node, status" />
+                <input id="release-detail-search" name="search" value="@Model.Search" class="form-control" placeholder="Contract, contractKey, version, runtime node, status" />
             </label>
             <button type="submit" class="btn btn-secondary"><i class="bi bi-search"></i> Search</button>
             @if (!string.IsNullOrWhiteSpace(Model.Search))
@@ -114,7 +114,7 @@
                         <div>
                             <span class="knowl-status knowl-status-approved">@contractGroup.ContractKind</span>
                             <h2>@contractGroup.ContractName</h2>
-                            <p>@contractGroup.Topic @contractGroup.VersionNumber</p>
+                            <p>@contractGroup.ContractKey @contractGroup.VersionNumber</p>
                         </div>
                         <div class="release-contract-tags">
                             @foreach (var item in groupItems.OrderBy(x => x.Artifact?.ArtifactType))

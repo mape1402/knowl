@@ -339,8 +339,8 @@ Creating a command through the API captures both schemas in the first version:
 POST /api/v1/control-plane/commands
 
 {
+  "key": "inventories.reserve",
   "name": "Reserve Inventory",
-  "topic": "inventories.reserve",
   "description": "Reserve stock before checkout.",
   "versionNumber": "1.0.0",
   "requestDefinitionJson": "{\"type\":\"object\",\"properties\":{\"sku\":{\"type\":\"string\"}}}",

@@ -33,7 +33,7 @@ internal sealed class ContractArtifactBuilder(
             DefinitionId = version.EventDefinitionId,
             VersionId = version.Id,
             Name = definition.Name,
-            Topic = definition.Topic,
+            ContractKey = definition.Key,
             VersionNumber = version.VersionNumber,
             Description = definition.Description,
             PayloadSchemaJson = version.PayloadSchemaJson,
@@ -63,7 +63,7 @@ internal sealed class ContractArtifactBuilder(
             DefinitionId = version.CommandDefinitionId,
             VersionId = version.Id,
             Name = definition.Name,
-            Topic = definition.Topic,
+            ContractKey = definition.Key,
             VersionNumber = version.VersionNumber,
             Description = definition.Description,
             PayloadSchemaJson = CommandArtifactPayloadDocument.Compose(version.PayloadSchemaJson, version.ReplyPayloadSchemaJson),
@@ -89,10 +89,10 @@ internal sealed class ContractArtifactBuilder(
             return existingSource;
         }
 
-        var existingIdentity = await artifacts.GetByIdentity(artifact.ArtifactType, artifact.Topic, artifact.VersionNumber, cancellationToken);
+        var existingIdentity = await artifacts.GetByIdentity(artifact.ArtifactType, artifact.ContractKey, artifact.VersionNumber, cancellationToken);
         if (existingIdentity is not null && !string.Equals(existingIdentity.ContentHash, artifact.ContentHash, StringComparison.Ordinal))
         {
-            throw new InvalidOperationException($"Artifact '{artifact.ArtifactType}:{artifact.Topic}@{artifact.VersionNumber}' already exists with a different hash.");
+            throw new InvalidOperationException($"Artifact '{artifact.ArtifactType}:{artifact.ContractKey}@{artifact.VersionNumber}' already exists with a different hash.");
         }
 
         if (existingIdentity is not null)
@@ -132,7 +132,7 @@ internal sealed class ContractArtifactBuilder(
             artifact.ArtifactType,
             artifact.DefinitionId,
             artifact.VersionId,
-            artifact.Topic.Trim(),
+            artifact.ContractKey.Trim(),
             artifact.VersionNumber.Trim(),
             artifact.PayloadSchemaJson.Trim());
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(canonical));

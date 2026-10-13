@@ -83,7 +83,7 @@ public sealed class ControlPlaneContractCatalogEndpointTests
             DefinitionId = Guid.NewGuid(),
             VersionId = Guid.NewGuid(),
             Name = topic,
-            Topic = topic,
+            ContractKey = topic,
             VersionNumber = version,
             PayloadSchemaJson = "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"}}}",
             ContentHash = Guid.NewGuid().ToString("N"),

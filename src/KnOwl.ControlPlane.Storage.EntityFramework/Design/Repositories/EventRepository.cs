@@ -63,13 +63,12 @@ public sealed class EventRepository(KnOwlDbContext db) : IEventRepository
     }
 
     /// <inheritdoc />
-    public async Task UpdateDefinition(Guid id, string name, string topic, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+    public async Task UpdateDefinition(Guid id, string name, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
     {
         var entity = await db.Events.FirstOrDefaultAsync(x => x.Id == id, cancellationToken)
             ?? throw new KeyNotFoundException($"Event '{id}' was not found.");
 
         entity.Name = name;
-        entity.Topic = topic;
         entity.Description = description;
         entity.UpdatedAtUtc = updatedAtUtc;
         await db.SaveChangesAsync(cancellationToken);

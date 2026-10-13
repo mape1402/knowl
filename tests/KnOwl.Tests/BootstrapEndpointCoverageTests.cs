@@ -245,10 +245,10 @@ public sealed class BootstrapEndpointCoverageTests
         Task<RuntimeArtifactDeploymentResult> IRuntimeContractDeploymentService.DeployArtifact(RuntimeArtifactDeliveryPackage package, string sourceKey, CancellationToken cancellationToken)
             => Task.FromResult(new RuntimeArtifactDeploymentResult
             {
-                Accepted = package.Topic != "reject",
+                Accepted = package.ContractKey != "reject",
                 RuntimeArtifactId = "runtime-artifact",
-                Status = package.Topic == "reject" ? "Rejected" : "Ready",
-                Message = package.Topic == "reject" ? "Rejected" : "Accepted"
+                Status = package.ContractKey == "reject" ? "Rejected" : "Ready",
+                Message = package.ContractKey == "reject" ? "Rejected" : "Accepted"
             });
 
         Task<IReadOnlyCollection<ControlPlaneDistributionSource>> IControlPlaneArtifactPullService.GetSources(CancellationToken cancellationToken)
@@ -316,16 +316,16 @@ public sealed class BootstrapEndpointCoverageTests
             => Task.FromResult<IReadOnlyList<RuntimeContractArtifact>>([eventArtifact, commandArtifact]);
 
         Task<RuntimeContractArtifact?> IRuntimeContractCatalogService.GetExact(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken)
-            => Task.FromResult<RuntimeContractArtifact?>(eventArtifact.ArtifactType == artifactType && eventArtifact.Topic == topic ? eventArtifact : null);
+            => Task.FromResult<RuntimeContractArtifact?>(eventArtifact.ArtifactType == artifactType && eventArtifact.ContractKey == topic ? eventArtifact : null);
 
         Task<RuntimeContractArtifact?> IRuntimeContractCatalogService.GetLatest(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken)
-            => Task.FromResult<RuntimeContractArtifact?>(eventArtifact.ArtifactType == artifactType && eventArtifact.Topic == topic ? eventArtifact : null);
+            => Task.FromResult<RuntimeContractArtifact?>(eventArtifact.ArtifactType == artifactType && eventArtifact.ContractKey == topic ? eventArtifact : null);
 
         Task<RuntimeContractArtifact?> IRuntimeContractCatalogService.GetEvent(string eventKey, string versionNumber, CancellationToken cancellationToken)
-            => Task.FromResult<RuntimeContractArtifact?>(eventKey == eventArtifact.Topic ? eventArtifact : null);
+            => Task.FromResult<RuntimeContractArtifact?>(eventKey == eventArtifact.ContractKey ? eventArtifact : null);
 
         Task<CommandContractArtifacts<RuntimeContractArtifact>?> IRuntimeContractCatalogService.GetCommand(string commandKey, string versionNumber, CancellationToken cancellationToken)
-            => Task.FromResult<CommandContractArtifacts<RuntimeContractArtifact>?>(commandKey == commandArtifact.Topic ? new(commandKey, versionNumber, commandArtifact, null) : null);
+            => Task.FromResult<CommandContractArtifacts<RuntimeContractArtifact>?>(commandKey == commandArtifact.ContractKey ? new(commandKey, versionNumber, commandArtifact, null) : null);
     }
 
     private sealed class ControlPlaneDeliveryBootstrapState :
@@ -408,7 +408,7 @@ public sealed class BootstrapEndpointCoverageTests
             ArtifactType = topic.Contains("command", StringComparison.OrdinalIgnoreCase) ? ContractArtifactType.Command : ContractArtifactType.Event,
             DefinitionId = Guid.NewGuid(),
             VersionId = Guid.NewGuid(),
-            Topic = topic,
+            ContractKey = topic,
             VersionNumber = "1.0.0",
             Name = topic,
             PayloadSchemaJson = "{}",
@@ -425,7 +425,7 @@ public sealed class BootstrapEndpointCoverageTests
             DefinitionId = Guid.NewGuid(),
             VersionId = Guid.NewGuid(),
             Name = topic,
-            Topic = topic,
+            ContractKey = topic,
             VersionNumber = "1.0.0",
             PayloadSchemaJson = "{}",
             ContentHash = "hash"

@@ -28,7 +28,7 @@
         </label>
         <label class="runtime-filter-search">
             <span>Search</span>
-            <input name="query" value="@Model.Query" placeholder="Topic, name, version or hash" />
+            <input name="query" value="@Model.Query" placeholder="Key, name, version or hash" />
         </label>
         <button class="btn btn-primary btn-sm" type="submit">Apply</button>
         <a class="btn btn-secondary btn-sm" asp-page="/Artifacts/Index">Clear</a>
@@ -54,7 +54,7 @@ else
                 <div class="od-item-top">
                     <div>
                         <h2 class="od-item-title">@artifact.Name</h2>
-                        <p class="od-item-meta">@artifact.Topic</p>
+                        <p class="od-item-meta">@artifact.ContractKey</p>
                     </div>
                     <span class="type-badge">@artifact.ArtifactType</span>
                 </div>

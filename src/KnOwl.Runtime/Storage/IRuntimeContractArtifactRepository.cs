@@ -16,12 +16,12 @@ public interface IRuntimeContractArtifactRepository
     /// <summary>
     /// Gets a runtime artifact by runtime identity.
     /// </summary>
-    Task<RuntimeContractArtifact?> GetByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default);
+    Task<RuntimeContractArtifact?> GetByIdentity(ContractArtifactType artifactType, string contractKey, string versionNumber, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gets the latest deployed runtime artifact for a contract topic.
+    /// Gets the latest deployed runtime artifact for a contract key.
     /// </summary>
-    Task<RuntimeContractArtifact?> GetLatest(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken = default);
+    Task<RuntimeContractArtifact?> GetLatest(ContractArtifactType artifactType, string contractKey, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Persists a runtime contract artifact.

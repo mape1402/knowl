@@ -78,7 +78,7 @@ Required artifact metadata:
 - Artifact type: `event` or `command`
 - Definition id
 - Version id
-- Key/name/topic
+- Key/name
 - Version number
 - Description
 - Payload schema snapshot JSON

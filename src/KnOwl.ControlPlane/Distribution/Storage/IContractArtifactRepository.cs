@@ -36,17 +36,17 @@ public interface IContractArtifactRepository
     /// <summary>
     /// Gets a contract artifact by runtime identity.
     /// </summary>
-    Task<ContractArtifact?> GetByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default);
+    Task<ContractArtifact?> GetByIdentity(ContractArtifactType artifactType, string contractKey, string versionNumber, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets a deployed contract artifact by runtime identity.
     /// </summary>
-    Task<ContractArtifact?> GetDeployedByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default);
+    Task<ContractArtifact?> GetDeployedByIdentity(ContractArtifactType artifactType, string contractKey, string versionNumber, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gets the latest deployed artifact for a contract topic.
+    /// Gets the latest deployed artifact for a contract key.
     /// </summary>
-    Task<ContractArtifact?> GetLatestDeployed(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken = default);
+    Task<ContractArtifact?> GetLatestDeployed(ContractArtifactType artifactType, string contractKey, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Persists a new immutable contract artifact.

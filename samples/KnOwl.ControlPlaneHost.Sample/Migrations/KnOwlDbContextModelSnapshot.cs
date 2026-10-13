@@ -17,7 +17,7 @@ namespace KnOwl.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.7")
+                .HasAnnotation("ProductVersion", "10.0.3")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -37,6 +37,11 @@ namespace KnOwl.Migrations
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("ContractKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
@@ -61,11 +66,6 @@ namespace KnOwl.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)");
 
-                    b.Property<string>("Topic")
-                        .IsRequired()
-                        .HasMaxLength(70)
-                        .HasColumnType("nvarchar(70)");
-
                     b.Property<Guid>("VersionId")
                         .HasColumnType("uniqueidentifier");
 
@@ -79,7 +79,7 @@ namespace KnOwl.Migrations
                     b.HasIndex("ArtifactType", "VersionId")
                         .IsUnique();
 
-                    b.HasIndex("ArtifactType", "Topic", "VersionNumber")
+                    b.HasIndex("ArtifactType", "ContractKey", "VersionNumber")
                         .IsUnique();
 
                     b.ToTable("ContractArtifacts", (string)null);
@@ -102,15 +102,15 @@ namespace KnOwl.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("Topic")
-                        .IsRequired()
-                        .HasMaxLength(70)
-                        .HasColumnType("nvarchar(70)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("datetime2");
@@ -121,7 +121,7 @@ namespace KnOwl.Migrations
 
                     b.HasIndex("IsActive");
 
-                    b.HasIndex("Topic");
+                    b.HasIndex("Key");
 
                     b.ToTable("Commands", (string)null);
                 });
@@ -287,15 +287,15 @@ namespace KnOwl.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("Topic")
-                        .IsRequired()
-                        .HasMaxLength(70)
-                        .HasColumnType("nvarchar(70)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("datetime2");
@@ -306,7 +306,7 @@ namespace KnOwl.Migrations
 
                     b.HasIndex("IsActive");
 
-                    b.HasIndex("Topic");
+                    b.HasIndex("Key");
 
                     b.ToTable("Events", (string)null);
                 });
@@ -1226,6 +1226,11 @@ namespace KnOwl.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
 
+                    b.Property<string>("ContractKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<Guid>("DefinitionId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1250,11 +1255,6 @@ namespace KnOwl.Migrations
                     b.Property<Guid>("SourceReleaseId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("Topic")
-                        .IsRequired()
-                        .HasMaxLength(70)
-                        .HasColumnType("nvarchar(70)");
-
                     b.Property<Guid>("VersionId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1267,7 +1267,7 @@ namespace KnOwl.Migrations
 
                     b.HasIndex("SourceReleaseId");
 
-                    b.HasIndex("ArtifactType", "Topic", "VersionNumber")
+                    b.HasIndex("ArtifactType", "ContractKey", "VersionNumber")
                         .IsUnique();
 
                     b.ToTable("RuntimeContractArtifacts", (string)null);

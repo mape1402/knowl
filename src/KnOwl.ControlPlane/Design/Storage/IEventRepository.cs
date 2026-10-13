@@ -35,7 +35,7 @@ public interface IEventRepository
     /// <summary>
     /// Updates global event definition data without changing version payloads.
     /// </summary>
-    Task UpdateDefinition(Guid id, string name, string topic, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default);
+    Task UpdateDefinition(Guid id, string name, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Adds a new version to an existing event definition.

@@ -45,10 +45,10 @@ public sealed class ViewModel(IRuntimeContractCatalogService catalog) : PageMode
 
         PrettyPayloadSchemaJson = FormatJson(Artifact.PayloadSchemaJson);
         var typeSegment = Artifact.ArtifactType.ToString().ToLowerInvariant();
-        var topic = Uri.EscapeDataString(Artifact.Topic);
+        var contractKey = Uri.EscapeDataString(Artifact.ContractKey);
         var version = Uri.EscapeDataString(Artifact.VersionNumber);
-        ExactEndpoint = $"/runtime/contracts/{typeSegment}/{topic}/versions/{version}";
-        LatestEndpoint = $"/runtime/contracts/{typeSegment}/{topic}/latest";
+        ExactEndpoint = $"/runtime/contracts/{typeSegment}/{contractKey}/versions/{version}";
+        LatestEndpoint = $"/runtime/contracts/{typeSegment}/{contractKey}/latest";
 
         return Page();
     }

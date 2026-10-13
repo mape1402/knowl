@@ -61,7 +61,7 @@ public sealed class IndexModel(IRuntimeContractCatalogService catalog) : PageMod
         {
             var term = Query.Trim();
             query = query.Where(x =>
-                Contains(x.Topic, term)
+                Contains(x.ContractKey, term)
                 || Contains(x.Name, term)
                 || Contains(x.VersionNumber, term)
                 || Contains(x.ContentHash, term));
@@ -112,7 +112,7 @@ public sealed class IndexModel(IRuntimeContractCatalogService catalog) : PageMod
             artifact.Id,
             displayType,
             displayType == "Command" ? NormalizeCommandName(artifact.Name) : artifact.Name,
-            artifact.Topic,
+            artifact.ContractKey,
             artifact.VersionNumber,
             artifact.Description ?? string.Empty,
             artifact.ContentHash,
@@ -136,7 +136,7 @@ public sealed class IndexModel(IRuntimeContractCatalogService catalog) : PageMod
     }
 
     private static string ArtifactIdentity(RuntimeContractArtifact artifact)
-        => $"{artifact.DefinitionId:N}:{artifact.VersionId:N}:{artifact.Topic}:{artifact.VersionNumber}";
+        => $"{artifact.DefinitionId:N}:{artifact.VersionId:N}:{artifact.ContractKey}:{artifact.VersionNumber}";
 
     private static bool TryNormalizeDisplayType(string? value, out string displayType)
     {
@@ -167,7 +167,7 @@ public sealed record RuntimeArtifactListItem(
     Guid Id,
     string ArtifactType,
     string Name,
-    string Topic,
+    string ContractKey,
     string VersionNumber,
     string Description,
     string ContentHash,

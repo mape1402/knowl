@@ -31,7 +31,7 @@ public class IndexModel(ICommandInteractionService commands) : PageModel
 
     private bool MatchesSearch(CommandDefinition item)
         => Contains(item.Name)
-            || Contains(item.Topic)
+            || Contains(item.Key)
             || Contains(item.Description)
             || Contains(item.IsActive ? "Active" : "Inactive")
             || item.Versions.Any(version =>

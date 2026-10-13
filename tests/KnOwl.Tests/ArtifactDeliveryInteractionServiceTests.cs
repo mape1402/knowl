@@ -31,7 +31,7 @@ public sealed class ArtifactDeliveryInteractionServiceTests
         var package = Assert.Single(packages);
         Assert.Equal(target.Id, package.ReleaseTargetId);
         Assert.Equal(target.ArtifactId, package.ArtifactId);
-        Assert.Equal("customer.created", package.Topic);
+        Assert.Equal("customer.created", package.ContractKey);
     }
 
     [Fact]
@@ -149,7 +149,7 @@ public sealed class ArtifactDeliveryInteractionServiceTests
         Assert.Equal(ContractReleaseStatus.Completed, releases.Status);
         Assert.Equal("Bearer", handler.Request!.Headers.Authorization!.Scheme);
         Assert.EndsWith("/runtime/artifacts/deploy", handler.Request.RequestUri!.AbsoluteUri, StringComparison.Ordinal);
-        Assert.Contains(target.Artifact!.Topic, await handler.ReadBody());
+        Assert.Contains(target.Artifact!.ContractKey, await handler.ReadBody());
         Assert.Contains(targets.Attempts, x => x.Action == "Push" && x.Succeeded && x.InitiatedBy == "push-user");
     }
 
@@ -449,7 +449,7 @@ public sealed class ArtifactDeliveryInteractionServiceTests
             DefinitionId = Guid.NewGuid(),
             VersionId = Guid.NewGuid(),
             Name = "Customer Created",
-            Topic = "customer.created",
+            ContractKey = "customer.created",
             VersionNumber = "1.0.0",
             PayloadSchemaJson = "{}",
             ContentHash = "hash-a",

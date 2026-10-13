@@ -13,17 +13,17 @@ internal sealed class ControlPlaneContractCatalogService(IContractArtifactReposi
     /// <inheritdoc />
     public Task<ContractArtifact?> GetExact(
         ContractArtifactType artifactType,
-        string topic,
+        string contractKey,
         string versionNumber,
         CancellationToken cancellationToken = default)
-        => artifacts.GetDeployedByIdentity(artifactType, topic, versionNumber, cancellationToken);
+        => artifacts.GetDeployedByIdentity(artifactType, contractKey, versionNumber, cancellationToken);
 
     /// <inheritdoc />
     public Task<ContractArtifact?> GetLatest(
         ContractArtifactType artifactType,
-        string topic,
+        string contractKey,
         CancellationToken cancellationToken = default)
-        => artifacts.GetLatestDeployed(artifactType, topic, cancellationToken);
+        => artifacts.GetLatestDeployed(artifactType, contractKey, cancellationToken);
 
     /// <inheritdoc />
     public Task<ContractArtifact?> GetEvent(
@@ -62,7 +62,7 @@ internal sealed class ControlPlaneContractCatalogService(IContractArtifactReposi
             ? null
             : CreateCommandPart(command, ContractArtifactType.CommandReply, "Reply", payload.ReplyPayloadSchemaJson);
 
-        return new CommandContractArtifacts<ContractArtifact>(command.Topic, command.VersionNumber, request, reply);
+        return new CommandContractArtifacts<ContractArtifact>(command.ContractKey, command.VersionNumber, request, reply);
     }
 
     private static ContractArtifact CreateCommandPart(
@@ -77,7 +77,7 @@ internal sealed class ControlPlaneContractCatalogService(IContractArtifactReposi
             DefinitionId = command.DefinitionId,
             VersionId = command.VersionId,
             Name = $"{command.Name} {partName}",
-            Topic = command.Topic,
+            ContractKey = command.ContractKey,
             VersionNumber = command.VersionNumber,
             Description = command.Description,
             PayloadSchemaJson = payloadSchemaJson,

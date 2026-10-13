@@ -34,7 +34,7 @@ public class VersionModel(
             if (targetStatus == ContractVersionStatus.Deployed)
             {
                 var artifact = await artifactBuilder.BuildEventArtifact(versionId, cancellationToken);
-                StatusMessage = $"Version transitioned to {targetStatus}. Artifact generated: {artifact.Topic}@{artifact.VersionNumber}.";
+                StatusMessage = $"Version transitioned to {targetStatus}. Artifact generated: {artifact.ContractKey}@{artifact.VersionNumber}.";
             }
             else
             {

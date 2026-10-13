@@ -141,7 +141,7 @@ public sealed class SqlServerStorageIntegrationTests
             DefinitionId = Guid.NewGuid(),
             VersionId = Guid.NewGuid(),
             Name = "Customer Created",
-            Topic = "customer.created",
+            ContractKey = "customer.created",
             VersionNumber = "1.0.0",
             PayloadSchemaJson = "{\"type\":\"object\"}",
             ContentHash = "hash-a",

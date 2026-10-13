@@ -26,7 +26,6 @@ public class EditModel(ICommandInteractionService commands) : PageModel
         Input = new CommandInput
         {
             Name = entity.Name,
-            Topic = entity.Topic,
             Description = entity.Description
         };
 
@@ -49,7 +48,6 @@ public class EditModel(ICommandInteractionService commands) : PageModel
         await commands.UpdateDefinition(
             Id,
             Input.Name.Trim(),
-            Input.Topic?.Trim() ?? string.Empty,
             string.IsNullOrWhiteSpace(Input.Description) ? null : Input.Description.Trim(),
             DateTime.UtcNow,
             cancellationToken);
@@ -62,10 +60,6 @@ public class EditModel(ICommandInteractionService commands) : PageModel
         [MaxLength(200)]
         [Display(Name = "Command Name")]
         public string Name { get; set; } = string.Empty;
-
-        [MaxLength(70)]
-        [Display(Name = "Topic (optional)")]
-        public string? Topic { get; set; }
 
         [Display(Name = "Description")]
         public string? Description { get; set; }

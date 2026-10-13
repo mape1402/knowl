@@ -25,7 +25,7 @@ public sealed class ContractArtifactBuilderTests
                 VersionNumber = "1.0.0",
                 Status = ContractVersionStatus.Approved,
                 PayloadSchemaJson = "{\"properties\":{},\"$defs\":{}}",
-                EventDefinition = new EventDefinition { Name = "Customer Registered", Topic = "customer.registered" }
+                EventDefinition = new EventDefinition { Name = "Customer Registered", Key = "customer.registered" }
             }
         };
         ArtifactRepository artifacts = new();
@@ -37,7 +37,7 @@ public sealed class ContractArtifactBuilderTests
 
         Assert.Equal(ContractArtifactType.Event, artifact.ArtifactType);
         Assert.Equal(versionId, artifact.VersionId);
-        Assert.Equal("customer.registered", artifact.Topic);
+        Assert.Equal("customer.registered", artifact.ContractKey);
         Assert.Equal("1.0.0", artifact.VersionNumber);
         Assert.False(string.IsNullOrWhiteSpace(artifact.ContentHash));
         Assert.Single(artifacts.Items);
@@ -56,7 +56,7 @@ public sealed class ContractArtifactBuilderTests
                 VersionNumber = "1.0.0",
                 Status = ContractVersionStatus.Approved,
                 PayloadSchemaJson = "{\"properties\":{},\"$defs\":{}}",
-                EventDefinition = new EventDefinition { Name = "Customer Registered", Topic = "customer.registered" }
+                EventDefinition = new EventDefinition { Name = "Customer Registered", Key = "customer.registered" }
             }
         };
         ArtifactRepository artifacts = new();
@@ -84,7 +84,7 @@ public sealed class ContractArtifactBuilderTests
                 VersionNumber = "1.0.0",
                 Status = ContractVersionStatus.Draft,
                 PayloadSchemaJson = "{\"properties\":{},\"$defs\":{}}",
-                CommandDefinition = new CommandDefinition { Name = "Register Customer", Topic = "customer.register" }
+                CommandDefinition = new CommandDefinition { Name = "Register Customer", Key = "customer.register" }
             }
         };
 
@@ -151,7 +151,7 @@ public sealed class ContractArtifactBuilderTests
         {
             ArtifactType = ContractArtifactType.Event,
             VersionId = sourceConflictVersion.Id,
-            Topic = "customer.created",
+            ContractKey = "customer.created",
             VersionNumber = "1.0.0",
             ContentHash = "different"
         });
@@ -171,7 +171,7 @@ public sealed class ContractArtifactBuilderTests
         {
             ArtifactType = ContractArtifactType.Event,
             VersionId = Guid.NewGuid(),
-            Topic = "customer.created",
+            ContractKey = "customer.created",
             VersionNumber = "1.0.0",
             ContentHash = "different"
         });
@@ -196,7 +196,7 @@ public sealed class ContractArtifactBuilderTests
                 Status = ContractVersionStatus.Approved,
                 PayloadSchemaJson = "{\"type\":\"object\",\"properties\":{\"customerId\":{\"type\":\"string\"}}}",
                 ReplyPayloadSchemaJson = "{\"type\":\"object\",\"properties\":{\"accepted\":{\"type\":\"boolean\"}}}",
-                CommandDefinition = new CommandDefinition { Name = "Register Customer", Topic = "customer.register" }
+                CommandDefinition = new CommandDefinition { Name = "Register Customer", Key = "customer.register" }
             }
         };
         ArtifactRepository artifacts = new();
@@ -209,7 +209,7 @@ public sealed class ContractArtifactBuilderTests
         var artifact = Assert.Single(created);
         Assert.Equal(ContractArtifactType.Command, artifact.ArtifactType);
         Assert.Equal("Register Customer", artifact.Name);
-        Assert.Equal("customer.register", artifact.Topic);
+        Assert.Equal("customer.register", artifact.ContractKey);
         var payload = CommandArtifactPayloadDocument.Read(artifact.PayloadSchemaJson);
         Assert.Contains("customerId", payload.RequestPayloadSchemaJson, StringComparison.Ordinal);
         Assert.Contains("accepted", payload.ReplyPayloadSchemaJson!, StringComparison.Ordinal);
@@ -255,7 +255,7 @@ public sealed class ContractArtifactBuilderTests
             VersionNumber = versionNumber,
             Status = ContractVersionStatus.Approved,
             PayloadSchemaJson = "{}",
-            EventDefinition = new EventDefinition { Name = topic, Topic = topic }
+            EventDefinition = new EventDefinition { Name = topic, Key = topic }
         };
 
     private static ServiceProvider CreateProvider(IEventRepository events, ICommandRepository commands, IContractArtifactRepository artifacts)
@@ -279,9 +279,9 @@ public sealed class ContractArtifactBuilderTests
         public Task<ContractArtifact?> GetById(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(Items.FirstOrDefault(x => x.Id == id));
         public Task<IReadOnlyList<ContractArtifact>> GetByIds(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ContractArtifact>>(Items.Where(x => ids.Contains(x.Id)).ToList());
         public Task<ContractArtifact?> GetBySourceVersion(ContractArtifactType artifactType, Guid versionId, CancellationToken cancellationToken = default) => Task.FromResult(Items.FirstOrDefault(x => x.ArtifactType == artifactType && x.VersionId == versionId));
-        public Task<ContractArtifact?> GetByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(Items.FirstOrDefault(x => x.ArtifactType == artifactType && x.Topic == topic && x.VersionNumber == versionNumber));
-        public Task<ContractArtifact?> GetDeployedByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(Items.FirstOrDefault(x => IsDeployed(x) && x.ArtifactType == artifactType && x.Topic == topic && x.VersionNumber == versionNumber));
-        public Task<ContractArtifact?> GetLatestDeployed(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken = default) => Task.FromResult(Items.Where(x => IsDeployed(x) && x.ArtifactType == artifactType && x.Topic == topic).OrderByDescending(x => x.CreatedAtUtc).FirstOrDefault());
+        public Task<ContractArtifact?> GetByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(Items.FirstOrDefault(x => x.ArtifactType == artifactType && x.ContractKey == topic && x.VersionNumber == versionNumber));
+        public Task<ContractArtifact?> GetDeployedByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(Items.FirstOrDefault(x => IsDeployed(x) && x.ArtifactType == artifactType && x.ContractKey == topic && x.VersionNumber == versionNumber));
+        public Task<ContractArtifact?> GetLatestDeployed(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken = default) => Task.FromResult(Items.Where(x => IsDeployed(x) && x.ArtifactType == artifactType && x.ContractKey == topic).OrderByDescending(x => x.CreatedAtUtc).FirstOrDefault());
 
         public Task Create(ContractArtifact artifact, CancellationToken cancellationToken = default)
         {
@@ -301,7 +301,7 @@ public sealed class ContractArtifactBuilderTests
         public Task<bool> VersionExists(Guid eventId, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<EventVersion?> GetVersionById(Guid versionId, CancellationToken cancellationToken = default) => Task.FromResult(Version);
         public Task Create(EventDefinition eventDefinition, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task UpdateDefinition(Guid id, string name, string topic, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpdateDefinition(Guid id, string name, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task AddVersion(Guid eventId, EventVersion version, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task UpdateVersionStatus(Guid versionId, ContractVersionStatus status, DateTime changedAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task Delete(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -315,7 +315,7 @@ public sealed class ContractArtifactBuilderTests
         public Task<bool> VersionExists(Guid commandId, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<CommandVersion?> GetVersionById(Guid versionId, CancellationToken cancellationToken = default) => Task.FromResult(Version);
         public Task Create(CommandDefinition commandDefinition, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task UpdateDefinition(Guid id, string name, string topic, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpdateDefinition(Guid id, string name, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task AddVersion(Guid commandId, CommandVersion version, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task UpdateVersionStatus(Guid versionId, ContractVersionStatus status, DateTime changedAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task Delete(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;

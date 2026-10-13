@@ -20,7 +20,7 @@ public sealed class ContractReleaseTargetRepository(KnOwlDbContext db) : IContra
         return targets
             .OrderBy(x => x.RuntimeNode?.Environment?.Name ?? x.RuntimeNode?.EnvironmentName)
             .ThenBy(x => x.RuntimeNode?.Name)
-            .ThenBy(x => x.Artifact?.Topic)
+            .ThenBy(x => x.Artifact?.ContractKey)
             .ToArray();
     }
 

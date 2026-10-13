@@ -249,7 +249,7 @@ internal sealed class ArtifactDeliveryInteractionService(
             EnvironmentKey = target.RuntimeNode?.Environment?.Code ?? target.RuntimeNode?.EnvironmentName ?? string.Empty,
             DefinitionId = artifact.DefinitionId,
             VersionId = artifact.VersionId,
-            Topic = artifact.Topic,
+            ContractKey = artifact.ContractKey,
             VersionNumber = artifact.VersionNumber,
             Name = artifact.Name,
             Description = artifact.Description,

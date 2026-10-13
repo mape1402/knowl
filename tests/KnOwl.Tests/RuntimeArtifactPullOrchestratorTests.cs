@@ -231,7 +231,7 @@ public sealed class RuntimeArtifactPullOrchestratorTests
             RuntimeNodeId = Guid.NewGuid(),
             ArtifactId = Guid.NewGuid(),
             ArtifactType = ContractArtifactType.Event,
-            Topic = topic,
+            ContractKey = topic,
             VersionNumber = "1.0.0",
             Name = topic,
             PayloadSchemaJson = "{}",

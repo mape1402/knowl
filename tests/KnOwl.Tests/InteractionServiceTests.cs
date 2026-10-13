@@ -11,7 +11,7 @@ public sealed class InteractionServiceTests
     public async Task EventServiceDelegatesToRepository()
     {
         var eventId = Guid.NewGuid();
-        EventDefinition expected = new() { Id = eventId, Name = "Customer Registered", Topic = "customers.registered" };
+        EventDefinition expected = new() { Id = eventId, Name = "Customer Registered", Key = "customers.registered" };
         EventVersion version = new() { Id = Guid.NewGuid(), EventDefinitionId = eventId, VersionNumber = "1.0.0", Status = ContractVersionStatus.Draft };
         FakeEventRepository repository = new() { Entity = expected, Version = version, VersionExistsResult = true };
 
@@ -26,7 +26,7 @@ public sealed class InteractionServiceTests
         var versionResult = await service.GetVersionById(version.Id);
         var versionExists = await service.VersionExists(eventId, "1.0.0");
         await service.Create(expected);
-        await service.UpdateDefinition(eventId, "Updated", "updated", "Description", DateTime.UtcNow);
+        await service.UpdateDefinition(eventId, "Updated", "Description", DateTime.UtcNow);
         await service.AddVersion(eventId, version);
         await service.UpdateDraftVersion(version.Id, "{}", "Comment", DateTime.UtcNow);
         await service.Delete(eventId);
@@ -74,7 +74,7 @@ public sealed class InteractionServiceTests
     public async Task CommandServiceDelegatesAndValidatesDraftUpdates()
     {
         var commandId = Guid.NewGuid();
-        CommandDefinition command = new() { Id = commandId, Name = "Create Customer", Topic = "customer.create" };
+        CommandDefinition command = new() { Id = commandId, Name = "Create Customer", Key = "customer.create" };
         CommandVersion draft = new() { Id = Guid.NewGuid(), CommandDefinitionId = commandId, VersionNumber = "1.0.0", Status = ContractVersionStatus.Draft };
         FakeCommandRepository repository = new() { Entity = command, Version = draft, VersionExistsResult = true };
 
@@ -89,7 +89,7 @@ public sealed class InteractionServiceTests
         var byVersion = await service.GetVersionById(draft.Id);
         var exists = await service.VersionExists(commandId, "1.0.0");
         await service.Create(command);
-        await service.UpdateDefinition(commandId, "Updated", "updated", "Description", DateTime.UtcNow);
+        await service.UpdateDefinition(commandId, "Updated", "Description", DateTime.UtcNow);
         await service.AddVersion(commandId, draft);
         await service.UpdateDraftVersion(draft.Id, "{}", null, "Comment", DateTime.UtcNow);
         await service.Delete(commandId);
@@ -231,7 +231,7 @@ public sealed class InteractionServiceTests
             return Task.CompletedTask;
         }
 
-        public Task UpdateDefinition(Guid id, string name, string topic, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+        public Task UpdateDefinition(Guid id, string name, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
         {
             UpdateDefinitionCalled = true;
             return Task.CompletedTask;
@@ -279,7 +279,7 @@ public sealed class InteractionServiceTests
             return Task.CompletedTask;
         }
 
-        public Task UpdateDefinition(Guid id, string name, string topic, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+        public Task UpdateDefinition(Guid id, string name, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
         {
             UpdateDefinitionCalled = true;
             return Task.CompletedTask;

@@ -158,10 +158,10 @@ public sealed class RuntimeAndDocumentationApiEndpointCoverageTests
         public List<RuntimeDesignNode> Nodes { get; } = [];
 
         Task<IReadOnlyList<RuntimeContractArtifact>> IRuntimeContractCatalogService.GetAll(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<RuntimeContractArtifact>>([eventArtifact, commandArtifact]);
-        Task<RuntimeContractArtifact?> IRuntimeContractCatalogService.GetExact(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken) => Task.FromResult<RuntimeContractArtifact?>(artifactType == eventArtifact.ArtifactType && topic == eventArtifact.Topic ? eventArtifact : null);
-        Task<RuntimeContractArtifact?> IRuntimeContractCatalogService.GetLatest(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken) => Task.FromResult<RuntimeContractArtifact?>(artifactType == eventArtifact.ArtifactType && topic == eventArtifact.Topic ? eventArtifact : null);
-        Task<RuntimeContractArtifact?> IRuntimeContractCatalogService.GetEvent(string eventKey, string versionNumber, CancellationToken cancellationToken) => Task.FromResult<RuntimeContractArtifact?>(eventKey == eventArtifact.Topic ? eventArtifact : null);
-        Task<CommandContractArtifacts<RuntimeContractArtifact>?> IRuntimeContractCatalogService.GetCommand(string commandKey, string versionNumber, CancellationToken cancellationToken) => Task.FromResult<CommandContractArtifacts<RuntimeContractArtifact>?>(commandKey == commandArtifact.Topic ? new(commandKey, versionNumber, commandArtifact, null) : null);
+        Task<RuntimeContractArtifact?> IRuntimeContractCatalogService.GetExact(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken) => Task.FromResult<RuntimeContractArtifact?>(artifactType == eventArtifact.ArtifactType && topic == eventArtifact.ContractKey ? eventArtifact : null);
+        Task<RuntimeContractArtifact?> IRuntimeContractCatalogService.GetLatest(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken) => Task.FromResult<RuntimeContractArtifact?>(artifactType == eventArtifact.ArtifactType && topic == eventArtifact.ContractKey ? eventArtifact : null);
+        Task<RuntimeContractArtifact?> IRuntimeContractCatalogService.GetEvent(string eventKey, string versionNumber, CancellationToken cancellationToken) => Task.FromResult<RuntimeContractArtifact?>(eventKey == eventArtifact.ContractKey ? eventArtifact : null);
+        Task<CommandContractArtifacts<RuntimeContractArtifact>?> IRuntimeContractCatalogService.GetCommand(string commandKey, string versionNumber, CancellationToken cancellationToken) => Task.FromResult<CommandContractArtifacts<RuntimeContractArtifact>?>(commandKey == commandArtifact.ContractKey ? new(commandKey, versionNumber, commandArtifact, null) : null);
 
         Task<IReadOnlyList<RuntimeDesignNode>> IRuntimeDesignNodeRepository.GetAll(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<RuntimeDesignNode>>(Nodes);
         Task<RuntimeDesignNode?> IRuntimeDesignNodeRepository.GetById(Guid id, CancellationToken cancellationToken) => Task.FromResult(Nodes.FirstOrDefault(x => x.Id == id));
@@ -202,7 +202,7 @@ public sealed class RuntimeAndDocumentationApiEndpointCoverageTests
                 DefinitionId = Guid.NewGuid(),
                 VersionId = Guid.NewGuid(),
                 Name = topic,
-                Topic = topic,
+                ContractKey = topic,
                 VersionNumber = "1.0.0",
                 PayloadSchemaJson = "{}",
                 ContentHash = Guid.NewGuid().ToString("N")
@@ -218,7 +218,7 @@ public sealed class RuntimeAndDocumentationApiEndpointCoverageTests
                 ArtifactType = ContractArtifactType.Event,
                 DefinitionId = Guid.NewGuid(),
                 VersionId = Guid.NewGuid(),
-                Topic = "customer.created",
+                ContractKey = "customer.created",
                 VersionNumber = "1.0.0",
                 Name = "Customer Created",
                 PayloadSchemaJson = "{}",

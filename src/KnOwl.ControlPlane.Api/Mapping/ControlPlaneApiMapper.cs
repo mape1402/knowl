@@ -36,8 +36,8 @@ internal static class ControlPlaneApiMapper
     public static EventDefinitionResponse ToResponse(this EventDefinition value)
         => new(
             value.Id,
+            value.Key,
             value.Name,
-            value.Topic,
             value.Description,
             value.IsActive,
             value.Versions.OrderBy(x => x.VersionNumber).Select(x => x.ToResponse()).ToArray());
@@ -48,8 +48,8 @@ internal static class ControlPlaneApiMapper
     public static CommandDefinitionResponse ToResponse(this CommandDefinition value)
         => new(
             value.Id,
+            value.Key,
             value.Name,
-            value.Topic,
             value.Description,
             value.IsActive,
             value.Versions.OrderBy(x => x.VersionNumber).Select(x => x.ToResponse()).ToArray());
@@ -71,8 +71,8 @@ internal static class ControlPlaneApiMapper
             value.ArtifactType,
             value.DefinitionId,
             value.VersionId,
+            value.ContractKey,
             value.Name,
-            value.Topic,
             value.VersionNumber,
             value.Description,
             value.PayloadSchemaJson,

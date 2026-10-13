@@ -21,7 +21,7 @@ else
     <div class="od-page-head">
         <div>
             <h1 class="od-page-title">@Model.Artifact.Name</h1>
-            <p class="od-page-subtitle">@Model.Artifact.ArtifactType artifact · @Model.Artifact.Topic</p>
+            <p class="od-page-subtitle">@Model.Artifact.ArtifactType artifact · @Model.Artifact.ContractKey</p>
         </div>
         <div class="event-list-actions">
             <a class="btn btn-secondary btn-sm" asp-page="/Artifacts/Index">Back</a>
@@ -31,8 +31,8 @@ else
     <section class="od-panel artifact-detail">
         <div class="detail-grid">
             <div>
-                <span>Topic</span>
-                <code>@Model.Artifact.Topic</code>
+                <span>Key</span>
+                <code>@Model.Artifact.ContractKey</code>
             </div>
             <div>
                 <span>Version</span>

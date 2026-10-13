@@ -448,12 +448,12 @@ public sealed class WebUiRouteRenderingCoverageTests
             metadata.Versions.Add(new ContractFieldMetadataVersion { ContractFieldMetadataDefinitionId = metadata.Id, VersionNumber = "1.0.0", DefinitionJson = """{"scope":["events","commands"],"dataType":"string","required":true,"allowedValues":["public","confidential"]}""", IsActive = true, CreatedAtUtc = now, UpdatedAtUtc = now });
             MetadataFields.Add(metadata);
 
-            var eventDefinition = new EventDefinition { Name = "Customer Created", Topic = "customer.created", Description = "Customer lifecycle event.", CreatedAtUtc = now, UpdatedAtUtc = now };
+            var eventDefinition = new EventDefinition { Name = "Customer Created", Key = "customer.created", Description = "Customer lifecycle event.", CreatedAtUtc = now, UpdatedAtUtc = now };
             var eventVersion = new EventVersion { EventDefinition = eventDefinition, EventDefinitionId = eventDefinition.Id, VersionNumber = "1.0.0", PayloadSchemaJson = """{"type":"object","properties":{"customerId":{"type":"string"}}}""", Comment = "Initial", Status = ContractVersionStatus.Deployed, CreatedAtUtc = now, UpdatedAtUtc = now, DeployedAtUtc = now };
             eventDefinition.Versions.Add(eventVersion);
             Events.Add(eventDefinition);
 
-            var command = new CommandDefinition { Name = "Register Customer", Topic = "customer.register", Description = "Registers a customer.", CreatedAtUtc = now, UpdatedAtUtc = now };
+            var command = new CommandDefinition { Name = "Register Customer", Key = "customer.register", Description = "Registers a customer.", CreatedAtUtc = now, UpdatedAtUtc = now };
             var commandVersion = new CommandVersion { CommandDefinition = command, CommandDefinitionId = command.Id, VersionNumber = "1.0.0", PayloadSchemaJson = """{"type":"object"}""", ReplyPayloadSchemaJson = """{"type":"object","properties":{"accepted":{"type":"boolean"}}}""", Comment = "Initial", Status = ContractVersionStatus.Approved, CreatedAtUtc = now, UpdatedAtUtc = now, ApprovedAtUtc = now };
             command.Versions.Add(commandVersion);
             Commands.Add(command);
@@ -488,8 +488,8 @@ public sealed class WebUiRouteRenderingCoverageTests
             environment.RuntimeNodes.Add(runtime);
             RuntimeNodes.Add(runtime);
 
-            var eventArtifact = CreateArtifact(ContractArtifactType.Event, eventDefinition.Id, eventVersion.Id, eventDefinition.Name, eventDefinition.Topic, eventVersion.VersionNumber, eventDefinition.Description, eventVersion.PayloadSchemaJson);
-            var commandArtifact = CreateArtifact(ContractArtifactType.Command, command.Id, commandVersion.Id, command.Name, command.Topic, commandVersion.VersionNumber, command.Description, CommandArtifactPayloadDocument.Compose(commandVersion.PayloadSchemaJson, commandVersion.ReplyPayloadSchemaJson));
+            var eventArtifact = CreateArtifact(ContractArtifactType.Event, eventDefinition.Id, eventVersion.Id, eventDefinition.Name, eventDefinition.Key, eventVersion.VersionNumber, eventDefinition.Description, eventVersion.PayloadSchemaJson);
+            var commandArtifact = CreateArtifact(ContractArtifactType.Command, command.Id, commandVersion.Id, command.Name, command.Key, commandVersion.VersionNumber, command.Description, CommandArtifactPayloadDocument.Compose(commandVersion.PayloadSchemaJson, commandVersion.ReplyPayloadSchemaJson));
             Artifacts.Add(eventArtifact);
             Artifacts.Add(commandArtifact);
 
@@ -581,7 +581,7 @@ public sealed class WebUiRouteRenderingCoverageTests
         Task<EventVersion?> IEventInteractionService.GetVersionById(Guid versionId, CancellationToken cancellationToken) => Task.FromResult(Events.SelectMany(x => x.Versions).FirstOrDefault(x => x.Id == versionId));
         Task<bool> IEventInteractionService.VersionExists(Guid eventId, string versionNumber, CancellationToken cancellationToken) => Task.FromResult(false);
         Task IEventInteractionService.Create(EventDefinition eventDefinition, CancellationToken cancellationToken) => Task.CompletedTask;
-        Task IEventInteractionService.UpdateDefinition(Guid id, string name, string topic, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken) => Task.CompletedTask;
+        Task IEventInteractionService.UpdateDefinition(Guid id, string name, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken) => Task.CompletedTask;
         Task IEventInteractionService.AddVersion(Guid eventId, EventVersion version, CancellationToken cancellationToken) => Task.CompletedTask;
         Task IEventInteractionService.Delete(Guid id, CancellationToken cancellationToken) => Task.CompletedTask;
 
@@ -590,7 +590,7 @@ public sealed class WebUiRouteRenderingCoverageTests
         Task<CommandVersion?> ICommandInteractionService.GetVersionById(Guid versionId, CancellationToken cancellationToken) => Task.FromResult(Commands.SelectMany(x => x.Versions).FirstOrDefault(x => x.Id == versionId));
         Task<bool> ICommandInteractionService.VersionExists(Guid commandId, string versionNumber, CancellationToken cancellationToken) => Task.FromResult(false);
         Task ICommandInteractionService.Create(CommandDefinition commandDefinition, CancellationToken cancellationToken) => Task.CompletedTask;
-        Task ICommandInteractionService.UpdateDefinition(Guid id, string name, string topic, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken) => Task.CompletedTask;
+        Task ICommandInteractionService.UpdateDefinition(Guid id, string name, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken) => Task.CompletedTask;
         Task ICommandInteractionService.AddVersion(Guid commandId, CommandVersion version, CancellationToken cancellationToken) => Task.CompletedTask;
         Task ICommandInteractionService.Delete(Guid id, CancellationToken cancellationToken) => Task.CompletedTask;
 
@@ -603,9 +603,9 @@ public sealed class WebUiRouteRenderingCoverageTests
         Task<ContractArtifact?> IContractArtifactRepository.GetById(Guid id, CancellationToken cancellationToken) => Task.FromResult(Artifacts.FirstOrDefault(x => x.Id == id));
         Task<IReadOnlyList<ContractArtifact>> IContractArtifactRepository.GetByIds(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<ContractArtifact>>(Artifacts.Where(x => ids.Contains(x.Id)).ToArray());
         Task<ContractArtifact?> IContractArtifactRepository.GetBySourceVersion(ContractArtifactType artifactType, Guid versionId, CancellationToken cancellationToken) => Task.FromResult(Artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.VersionId == versionId));
-        Task<ContractArtifact?> IContractArtifactRepository.GetByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken) => Task.FromResult(Artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.Topic == topic && x.VersionNumber == versionNumber));
-        Task<ContractArtifact?> IContractArtifactRepository.GetDeployedByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken) => Task.FromResult(Artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.Topic == topic && x.VersionNumber == versionNumber));
-        Task<ContractArtifact?> IContractArtifactRepository.GetLatestDeployed(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken) => Task.FromResult(Artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.Topic == topic));
+        Task<ContractArtifact?> IContractArtifactRepository.GetByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken) => Task.FromResult(Artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.ContractKey == topic && x.VersionNumber == versionNumber));
+        Task<ContractArtifact?> IContractArtifactRepository.GetDeployedByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken) => Task.FromResult(Artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.ContractKey == topic && x.VersionNumber == versionNumber));
+        Task<ContractArtifact?> IContractArtifactRepository.GetLatestDeployed(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken) => Task.FromResult(Artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.ContractKey == topic));
         Task IContractArtifactRepository.Create(ContractArtifact artifact, CancellationToken cancellationToken) => Task.CompletedTask;
         Task<ContractArtifact> IContractArtifactBuilder.BuildEventArtifact(Guid versionId, CancellationToken cancellationToken) => Task.FromResult(Artifacts.First(x => x.ArtifactType == ContractArtifactType.Event));
         Task<IReadOnlyList<ContractArtifact>> IContractArtifactBuilder.BuildCommandArtifacts(Guid versionId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<ContractArtifact>>([Artifacts.First(x => x.ArtifactType == ContractArtifactType.Command)]);
@@ -695,7 +695,7 @@ public sealed class WebUiRouteRenderingCoverageTests
                 DefinitionId = definitionId,
                 VersionId = versionId,
                 Name = name,
-                Topic = topic,
+                ContractKey = topic,
                 VersionNumber = version,
                 Description = description,
                 PayloadSchemaJson = schema,
@@ -738,12 +738,12 @@ public sealed class WebUiRouteRenderingCoverageTests
         public List<RuntimeDesignNode> Nodes { get; } = [];
 
         Task<IReadOnlyList<RuntimeContractArtifact>> IRuntimeContractCatalogService.GetAll(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<RuntimeContractArtifact>>(Artifacts);
-        Task<RuntimeContractArtifact?> IRuntimeContractCatalogService.GetExact(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken) => Task.FromResult(Artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.Topic == topic && x.VersionNumber == versionNumber));
-        Task<RuntimeContractArtifact?> IRuntimeContractCatalogService.GetLatest(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken) => Task.FromResult(Artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.Topic == topic));
-        Task<RuntimeContractArtifact?> IRuntimeContractCatalogService.GetEvent(string eventKey, string versionNumber, CancellationToken cancellationToken) => Task.FromResult(Artifacts.FirstOrDefault(x => x.ArtifactType == ContractArtifactType.Event && x.Topic == eventKey && x.VersionNumber == versionNumber));
+        Task<RuntimeContractArtifact?> IRuntimeContractCatalogService.GetExact(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken) => Task.FromResult(Artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.ContractKey == topic && x.VersionNumber == versionNumber));
+        Task<RuntimeContractArtifact?> IRuntimeContractCatalogService.GetLatest(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken) => Task.FromResult(Artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.ContractKey == topic));
+        Task<RuntimeContractArtifact?> IRuntimeContractCatalogService.GetEvent(string eventKey, string versionNumber, CancellationToken cancellationToken) => Task.FromResult(Artifacts.FirstOrDefault(x => x.ArtifactType == ContractArtifactType.Event && x.ContractKey == eventKey && x.VersionNumber == versionNumber));
         Task<CommandContractArtifacts<RuntimeContractArtifact>?> IRuntimeContractCatalogService.GetCommand(string commandKey, string versionNumber, CancellationToken cancellationToken)
         {
-            var command = Artifacts.FirstOrDefault(x => x.ArtifactType == ContractArtifactType.Command && x.Topic == commandKey && x.VersionNumber == versionNumber);
+            var command = Artifacts.FirstOrDefault(x => x.ArtifactType == ContractArtifactType.Command && x.ContractKey == commandKey && x.VersionNumber == versionNumber);
             return Task.FromResult(command is null ? null : new CommandContractArtifacts<RuntimeContractArtifact>(commandKey, versionNumber, command, null));
         }
 
@@ -767,7 +767,7 @@ public sealed class WebUiRouteRenderingCoverageTests
                 DefinitionId = Guid.NewGuid(),
                 VersionId = Guid.NewGuid(),
                 Name = name,
-                Topic = topic,
+                ContractKey = topic,
                 VersionNumber = "1.0.0",
                 Description = $"{name} artifact.",
                 PayloadSchemaJson = """{"type":"object","properties":{"id":{"type":"string"}}}""",

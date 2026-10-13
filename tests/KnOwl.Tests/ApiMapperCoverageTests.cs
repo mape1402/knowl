@@ -99,7 +99,7 @@ public sealed class ApiMapperCoverageTests
 
         Assert.Equal(@event.Id, response.Id);
         Assert.Equal("Customer Created", response.Name);
-        Assert.Equal("customer.created", response.Topic);
+        Assert.Equal("customer.created", response.Key);
     }
 
     [Fact]
@@ -132,7 +132,7 @@ public sealed class ApiMapperCoverageTests
 
         Assert.Equal(command.Id, response.Id);
         Assert.Equal("Create Customer", response.Name);
-        Assert.Equal("customer.create", response.Topic);
+        Assert.Equal("customer.create", response.Key);
     }
 
     [Fact]
@@ -165,7 +165,7 @@ public sealed class ApiMapperCoverageTests
 
         Assert.Equal(artifact.Id, response.Id);
         Assert.Equal(ContractArtifactType.Command, response.ArtifactType);
-        Assert.Equal("customer.create", response.Topic);
+        Assert.Equal("customer.create", response.ContractKey);
     }
 
     [Fact]
@@ -246,7 +246,7 @@ public sealed class ApiMapperCoverageTests
         var response = MapRuntime<RuntimeContractArtifact, RuntimeArtifactResponse>(artifact);
 
         Assert.Equal(artifact.SourceArtifactId, response.SourceArtifactId);
-        Assert.Equal("customer.created", response.Topic);
+        Assert.Equal("customer.created", response.ContractKey);
     }
 
     [Fact]
@@ -345,7 +345,7 @@ public sealed class ApiMapperCoverageTests
         {
             Id = Guid.NewGuid(),
             Name = "Customer Created",
-            Topic = "customer.created",
+            Key = "customer.created",
             Description = "Event",
             Versions =
             [
@@ -359,7 +359,7 @@ public sealed class ApiMapperCoverageTests
         {
             Id = Guid.NewGuid(),
             Name = "Create Customer",
-            Topic = "customer.create",
+            Key = "customer.create",
             Description = "Command",
             Versions =
             [
@@ -376,7 +376,7 @@ public sealed class ApiMapperCoverageTests
             DefinitionId = Guid.NewGuid(),
             VersionId = Guid.NewGuid(),
             Name = "Create Customer",
-            Topic = "customer.create",
+            ContractKey = "customer.create",
             VersionNumber = "1.0.0",
             Description = "Artifact",
             PayloadSchemaJson = "{}",
@@ -450,7 +450,7 @@ public sealed class ApiMapperCoverageTests
             DefinitionId = Guid.NewGuid(),
             VersionId = Guid.NewGuid(),
             Name = "Customer Created",
-            Topic = "customer.created",
+            ContractKey = "customer.created",
             VersionNumber = "1.0.0",
             Description = "Runtime artifact",
             PayloadSchemaJson = "{}",

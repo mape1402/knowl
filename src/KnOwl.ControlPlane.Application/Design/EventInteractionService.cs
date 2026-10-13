@@ -27,8 +27,8 @@ internal sealed class EventInteractionService(IEventRepository repository) : IEv
         => repository.Create(eventDefinition, cancellationToken);
 
     /// <inheritdoc />
-    public Task UpdateDefinition(Guid id, string name, string topic, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
-        => repository.UpdateDefinition(id, name, topic, description, updatedAtUtc, cancellationToken);
+    public Task UpdateDefinition(Guid id, string name, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+        => repository.UpdateDefinition(id, name, description, updatedAtUtc, cancellationToken);
 
     /// <inheritdoc />
     public Task AddVersion(Guid eventId, EventVersion version, CancellationToken cancellationToken = default)

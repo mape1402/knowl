@@ -87,8 +87,8 @@ public sealed record UpsertMetadataFieldVersionRequest(
 
 public sealed record EventDefinitionResponse(
     Guid Id,
+    string Key,
     string Name,
-    string Topic,
     string? Description,
     bool IsActive,
     IReadOnlyList<EventVersionResponse> Versions);
@@ -103,8 +103,8 @@ public sealed record EventVersionResponse(
     DateTime UpdatedAtUtc);
 
 public sealed record CreateEventRequest(
+    string Key,
     string Name,
-    string Topic,
     string? Description,
     string VersionNumber,
     string PayloadSchemaJson,
@@ -112,7 +112,6 @@ public sealed record CreateEventRequest(
 
 public sealed record UpdateEventRequest(
     string Name,
-    string Topic,
     string? Description);
 
 public sealed record CreateEventVersionRequest(
@@ -122,8 +121,8 @@ public sealed record CreateEventVersionRequest(
 
 public sealed record CommandDefinitionResponse(
     Guid Id,
+    string Key,
     string Name,
-    string Topic,
     string? Description,
     bool IsActive,
     IReadOnlyList<CommandVersionResponse> Versions);
@@ -139,8 +138,8 @@ public sealed record CommandVersionResponse(
     DateTime UpdatedAtUtc);
 
 public sealed record CreateCommandRequest(
+    string Key,
     string Name,
-    string Topic,
     string? Description,
     string VersionNumber,
     string RequestDefinitionJson,
@@ -149,7 +148,6 @@ public sealed record CreateCommandRequest(
 
 public sealed record UpdateCommandRequest(
     string Name,
-    string Topic,
     string? Description);
 
 public sealed record CreateCommandVersionRequest(
@@ -165,8 +163,8 @@ public sealed record ContractArtifactResponse(
     ContractArtifactType ArtifactType,
     Guid DefinitionId,
     Guid VersionId,
+    string ContractKey,
     string Name,
-    string Topic,
     string VersionNumber,
     string? Description,
     string PayloadSchemaJson,

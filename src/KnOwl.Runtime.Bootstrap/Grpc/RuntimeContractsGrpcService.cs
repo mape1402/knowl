@@ -18,7 +18,7 @@ public sealed class RuntimeContractsGrpcService(IRuntimeContractCatalogService c
             throw new RpcException(new Status(StatusCode.InvalidArgument, $"Artifact type '{request.ArtifactType}' is not supported."));
         }
 
-        var artifact = await catalog.GetExact(artifactType, request.Topic, request.VersionNumber, context.CancellationToken);
+        var artifact = await catalog.GetExact(artifactType, request.ContractKey, request.VersionNumber, context.CancellationToken);
         return ToResponse(artifact);
     }
 
@@ -30,7 +30,7 @@ public sealed class RuntimeContractsGrpcService(IRuntimeContractCatalogService c
             throw new RpcException(new Status(StatusCode.InvalidArgument, $"Artifact type '{request.ArtifactType}' is not supported."));
         }
 
-        var artifact = await catalog.GetLatest(artifactType, request.Topic, context.CancellationToken);
+        var artifact = await catalog.GetLatest(artifactType, request.ContractKey, context.CancellationToken);
         return ToResponse(artifact);
     }
 
@@ -51,7 +51,7 @@ public sealed class RuntimeContractsGrpcService(IRuntimeContractCatalogService c
             DefinitionId = artifact.DefinitionId.ToString("N"),
             VersionId = artifact.VersionId.ToString("N"),
             Name = artifact.Name,
-            Topic = artifact.Topic,
+            ContractKey = artifact.ContractKey,
             VersionNumber = artifact.VersionNumber,
             Description = artifact.Description ?? string.Empty,
             PayloadSchemaJson = artifact.PayloadSchemaJson,

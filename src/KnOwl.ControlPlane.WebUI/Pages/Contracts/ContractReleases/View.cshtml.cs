@@ -60,7 +60,7 @@ public class ViewModel(
             {
                 DefinitionId = item.Artifact?.DefinitionId ?? Guid.Empty,
                 VersionId = item.Artifact?.VersionId ?? Guid.Empty,
-                Topic = item.Artifact?.Topic ?? string.Empty,
+                ContractKey = item.Artifact?.ContractKey ?? string.Empty,
                 VersionNumber = item.Artifact?.VersionNumber ?? string.Empty
             })
             .Select(group =>
@@ -76,14 +76,14 @@ public class ViewModel(
                 return new ReleaseDetailArtifactGroup(
                     group.Key.DefinitionId,
                     group.Key.VersionId,
-                    group.Key.Topic,
+                    group.Key.ContractKey,
                     group.Key.VersionNumber,
                     ContractGroupName(groupItems),
                     groupItems.Any(x => x.Artifact?.ArtifactType.ToString().StartsWith("Command", StringComparison.OrdinalIgnoreCase) == true) ? "Command" : "Event",
                     groupItems,
                     groupTargets);
             })
-            .OrderBy(group => group.Topic)
+            .OrderBy(group => group.ContractKey)
             .ThenBy(group => group.VersionNumber)
             .ToArray();
     }
@@ -127,12 +127,12 @@ public class ViewModel(
     private bool MatchesSearch(ReleaseDetailArtifactGroup group)
         => Contains(group.ContractKind)
             || Contains(group.ContractName)
-            || Contains(group.Topic)
+            || Contains(group.ContractKey)
             || Contains(group.VersionNumber)
             || group.Items.Any(item =>
                 Contains(item.Artifact?.ArtifactType.ToString())
                 || Contains(item.Artifact?.Name)
-                || Contains(item.Artifact?.Topic)
+                || Contains(item.Artifact?.ContractKey)
                 || Contains(item.Artifact?.VersionNumber)
                 || Contains(item.Artifact?.ContentHash)
                 || Contains(item.Artifact?.SourceStatus))
@@ -161,7 +161,7 @@ public class ViewModel(
 public sealed record ReleaseDetailArtifactGroup(
     Guid DefinitionId,
     Guid VersionId,
-    string Topic,
+    string ContractKey,
     string VersionNumber,
     string ContractName,
     string ContractKind,

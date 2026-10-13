@@ -14,17 +14,17 @@ internal sealed class RuntimeContractCatalogService(IRuntimeContractArtifactRepo
     /// <inheritdoc />
     public Task<RuntimeContractArtifact?> GetExact(
         ContractArtifactType artifactType,
-        string topic,
+        string contractKey,
         string versionNumber,
         CancellationToken cancellationToken = default)
-        => runtimeArtifacts.GetByIdentity(artifactType, topic, versionNumber, cancellationToken);
+        => runtimeArtifacts.GetByIdentity(artifactType, contractKey, versionNumber, cancellationToken);
 
     /// <inheritdoc />
     public Task<RuntimeContractArtifact?> GetLatest(
         ContractArtifactType artifactType,
-        string topic,
+        string contractKey,
         CancellationToken cancellationToken = default)
-        => runtimeArtifacts.GetLatest(artifactType, topic, cancellationToken);
+        => runtimeArtifacts.GetLatest(artifactType, contractKey, cancellationToken);
 
     /// <inheritdoc />
     public Task<RuntimeContractArtifact?> GetEvent(
@@ -63,7 +63,7 @@ internal sealed class RuntimeContractCatalogService(IRuntimeContractArtifactRepo
             ? null
             : CreateCommandPart(command, ContractArtifactType.CommandReply, "Reply", payload.ReplyPayloadSchemaJson);
 
-        return new CommandContractArtifacts<RuntimeContractArtifact>(command.Topic, command.VersionNumber, request, reply);
+        return new CommandContractArtifacts<RuntimeContractArtifact>(command.ContractKey, command.VersionNumber, request, reply);
     }
 
     private static RuntimeContractArtifact CreateCommandPart(
@@ -80,7 +80,7 @@ internal sealed class RuntimeContractCatalogService(IRuntimeContractArtifactRepo
             DefinitionId = command.DefinitionId,
             VersionId = command.VersionId,
             Name = $"{command.Name} {partName}",
-            Topic = command.Topic,
+            ContractKey = command.ContractKey,
             VersionNumber = command.VersionNumber,
             Description = command.Description,
             PayloadSchemaJson = payloadSchemaJson,
