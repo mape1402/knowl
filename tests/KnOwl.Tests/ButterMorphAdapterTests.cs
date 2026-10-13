@@ -1,10 +1,13 @@
 using System.Reflection;
 using System.Text.Json;
+using ButterMorph.Language;
 using ButterMorph.Web.Razor;
+using KnOwl.Contracts.Artifacts;
 using KnOwl.ControlPlane.Application;
 using KnOwl.ControlPlane.WebUI.ButterMorph;
 using KnOwl.ControlPlane.WebUI.ContractMetadata;
 using KnOwl.ControlPlane.Design.Core;
+using KnOwl.ControlPlane.Distribution.Storage;
 using ButterMorph.SchemaDesign;
 using Microsoft.Extensions.DependencyInjection;
 using KnOwlSchemaTypeDefinition = KnOwl.ControlPlane.Design.Core.SchemaTypeDefinition;
@@ -35,6 +38,21 @@ public sealed class ButterMorphAdapterTests
         Assert.Equal(id, commandRequestEditId);
         Assert.Equal(id, commandReplyEditId);
         Assert.False(KnOwlButterMorphContext.TryReadGuid(eventVersionKey, "command-version:new:", out _));
+    }
+
+    [Fact]
+    public void ContextKeysExposeReadOnlyViewerTargets()
+    {
+        var id = Guid.NewGuid();
+
+        Assert.True(KnOwlButterMorphContext.TryReadGuid(KnOwlButterMorphContext.ViewEventVersion(id), "event-version:view:", out var eventVersionId));
+        Assert.True(KnOwlButterMorphContext.TryReadGuid(KnOwlButterMorphContext.ViewCommandVersionRequest(id), "command-version-request:view:", out var requestVersionId));
+        Assert.True(KnOwlButterMorphContext.TryReadGuid(KnOwlButterMorphContext.ViewCommandVersionReply(id), "command-version-reply:view:", out var replyVersionId));
+
+        Assert.Equal(id, eventVersionId);
+        Assert.Equal(id, requestVersionId);
+        Assert.Equal(id, replyVersionId);
+        Assert.Equal($"artifact:view:reply:{id}", KnOwlButterMorphContext.ViewArtifact(id, "reply"));
     }
 
     [Fact]
@@ -1461,6 +1479,177 @@ public sealed class ButterMorphAdapterTests
     }
 
     [Fact]
+    public void MapperReadsPayloadDefinitionsForSchemaViewer()
+    {
+        var json = JsonSerializer.Serialize(new PayloadSchemaDefinition
+        {
+            Key = "customer-created",
+            Name = "Customer Created",
+            Version = "1.0.0",
+            Type = "object"
+        });
+
+        Assert.True(KnOwlButterMorphDefinitionMapper.TryReadPayloadDefinition(json, out var definition));
+        Assert.Equal("customer-created", definition!.Key);
+        Assert.False(KnOwlButterMorphDefinitionMapper.TryReadPayloadDefinition("{", out _));
+    }
+
+    [Fact]
+    public void LanguageTypeMappingHostSerializesDocumentsAndBundles()
+    {
+        ButterMorphLanguageTypeMappingDocument document = new()
+        {
+            Key = " CSharp Main ",
+            Name = " C# Main ",
+            Description = " Main mappings ",
+            Language = " CSharp "
+        };
+        ButterMorphLanguageTypeBundle bundle = new()
+        {
+            AssemblyId = " Sample.Contracts ",
+            AssemblyKey = "",
+            AssemblyDescription = " Shared DTOs ",
+            AssemblyVersion = "",
+            LanguageKey = ""
+        };
+
+        var mappingEntity = KnOwlLanguageTypeMappingHost.ToEntity(document);
+        var bundleEntity = KnOwlLanguageTypeMappingHost.ToEntity(bundle);
+        var persistedDocument = KnOwlLanguageTypeMappingHost.ReadMappingDocument(mappingEntity);
+        var persistedBundle = KnOwlLanguageTypeMappingHost.ReadBundle(bundleEntity);
+
+        Assert.Equal("csharp-main", mappingEntity.Key);
+        Assert.Equal("csharp", mappingEntity.LanguageKey);
+        Assert.Equal("csharp-main", persistedDocument!.Key);
+        Assert.Equal("sample-contracts", bundleEntity.AssemblyKey);
+        Assert.Equal("1.0.0", persistedBundle!.AssemblyVersion);
+        Assert.Null(KnOwlLanguageTypeMappingHost.ReadMappingDocument(new LanguageTypeMappingDefinition { DocumentJson = "{" }));
+        Assert.Null(KnOwlLanguageTypeMappingHost.ReadBundle(new LanguageTypeBundleDefinition { BundleJson = "{" }));
+    }
+
+    [Fact]
+    public async Task LanguageTypeMappingHostLoadsCatalogDocumentsAndBundles()
+    {
+        KnOwlSchemaTypeDefinition schemaType = new()
+        {
+            Id = Guid.NewGuid(),
+            Key = "customer-reference",
+            Name = "Customer Reference",
+            Description = "Customer lookup",
+            IsSystem = false
+        };
+        SchemaTypeVersion version = new()
+        {
+            Id = Guid.NewGuid(),
+            VersionNumber = "1.2.0",
+            Comment = "Current",
+            SchemaTypeDefinition = schemaType
+        };
+        var mapping = KnOwlLanguageTypeMappingHost.ToEntity(new ButterMorphLanguageTypeMappingDocument
+        {
+            Key = "csharp-main",
+            Name = "C# Main",
+            Language = "csharp"
+        });
+        var bundle = KnOwlLanguageTypeMappingHost.ToEntity(new ButterMorphLanguageTypeBundle
+        {
+            AssemblyId = "Contracts",
+            AssemblyKey = "Contracts",
+            AssemblyVersion = "1.0.0",
+            LanguageKey = "csharp"
+        });
+        var host = new KnOwlLanguageTypeMappingHost(
+            new SchemaTypeInteractionStub { ActiveVersions = [version] },
+            new LanguageTypeMappingInteractionStub([mapping]),
+            new LanguageTypeBundleInteractionStub([bundle]));
+
+        var result = await host.Load(new ButterMorphLanguageTypeMappingLoadRequest
+        {
+            ContextKey = "csharp-main",
+            LanguageKey = "csharp"
+        });
+
+        Assert.Equal("csharp-main", result.ActiveDocumentKey);
+        Assert.Single(result.Documents);
+        Assert.Single(result.Profiles);
+        Assert.Single(result.Bundles);
+        var catalogItem = Assert.Single(result.ButterMorphTypes);
+        Assert.Equal("customer-reference", catalogItem.Key);
+        Assert.Equal("1.2.0", catalogItem.Version);
+    }
+
+    [Fact]
+    public async Task LanguageTypeMappingHostSavesDocumentsThroughApplicationService()
+    {
+        LanguageTypeMappingInteractionStub mappings = new();
+        var host = new KnOwlLanguageTypeMappingHost(
+            new SchemaTypeInteractionStub(),
+            mappings,
+            new LanguageTypeBundleInteractionStub());
+
+        var result = await host.SaveProfile(new ButterMorphLanguageTypeMappingSaveRequest
+        {
+            Document = new ButterMorphLanguageTypeMappingDocument
+            {
+                Key = " Custom Map ",
+                Name = "Custom Map",
+                Language = " CSharp "
+            }
+        });
+
+        Assert.True(result.Succeeded);
+        var saved = Assert.Single(mappings.Upserted);
+        Assert.Equal("custom-map", saved.Key);
+        Assert.Equal("csharp", saved.LanguageKey);
+        Assert.Equal("custom-map", result.Document!.Key);
+    }
+
+    [Fact]
+    public async Task PayloadSchemaViewerHostLoadsEventCommandAndArtifactSchemas()
+    {
+        var eventVersionId = Guid.NewGuid();
+        var commandVersionId = Guid.NewGuid();
+        var artifactId = Guid.NewGuid();
+        var eventJson = """{"key":"event-schema","name":"Event","version":"1.0.0","type":"object"}""";
+        var requestJson = """{"key":"request-schema","name":"Request","version":"1.0.0","type":"object"}""";
+        var replyJson = """{"key":"reply-schema","name":"Reply","version":"1.0.0","type":"object"}""";
+        ContractArtifact artifact = new()
+        {
+            Id = artifactId,
+            ArtifactType = ContractArtifactType.Command,
+            PayloadSchemaJson = CommandArtifactPayloadDocument.Compose(requestJson, replyJson)
+        };
+        var host = new KnOwlPayloadSchemaViewerHost(
+            new EventInteractionStub { Version = new EventVersion { Id = eventVersionId, PayloadSchemaJson = eventJson } },
+            new CommandInteractionStub { Version = new CommandVersion { Id = commandVersionId, PayloadSchemaJson = requestJson, ReplyPayloadSchemaJson = replyJson } },
+            new ContractArtifactRepositoryStub([artifact]));
+
+        var eventResult = await host.Load(new ButterMorphPayloadSchemaViewerLoadRequest { ContextKey = KnOwlButterMorphContext.ViewEventVersion(eventVersionId) });
+        var commandRequestResult = await host.Load(new ButterMorphPayloadSchemaViewerLoadRequest { ContextKey = KnOwlButterMorphContext.ViewCommandVersionRequest(commandVersionId) });
+        var commandReplyResult = await host.Load(new ButterMorphPayloadSchemaViewerLoadRequest { ContextKey = KnOwlButterMorphContext.ViewCommandVersionReply(commandVersionId) });
+        var artifactReplyResult = await host.Load(new ButterMorphPayloadSchemaViewerLoadRequest { ContextKey = KnOwlButterMorphContext.ViewArtifact(artifactId, "reply") });
+
+        Assert.Equal("event-schema", eventResult.Definition!.Key);
+        Assert.Equal("request-schema", commandRequestResult.Definition!.Key);
+        Assert.Equal("reply-schema", commandReplyResult.Definition!.Key);
+        Assert.Equal("reply-schema", artifactReplyResult.Definition!.Key);
+    }
+
+    [Fact]
+    public async Task PayloadSchemaViewerHostReturnsMessageForUnknownContext()
+    {
+        var host = new KnOwlPayloadSchemaViewerHost(
+            new EventInteractionStub(),
+            new CommandInteractionStub(),
+            new ContractArtifactRepositoryStub());
+
+        var result = await host.Load(new ButterMorphPayloadSchemaViewerLoadRequest { ContextKey = "unknown" });
+
+        Assert.Equal("{}", result.JsonSchema);
+        Assert.Contains("not recognized", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void ButterMorphDesignerRegistrationCopiesLightAndDarkThemePalettes()
     {
         ServiceCollection services = new();
@@ -1468,6 +1657,9 @@ public sealed class ButterMorphAdapterTests
         services.AddSingleton<ICommandInteractionService>(new CommandInteractionStub());
         services.AddSingleton<ISchemaTypeInteractionService>(new SchemaTypeInteractionStub());
         services.AddSingleton<IContractFieldMetadataInteractionService>(new MetadataInteractionStub());
+        services.AddSingleton<ILanguageTypeMappingInteractionService>(new LanguageTypeMappingInteractionStub());
+        services.AddSingleton<ILanguageTypeBundleInteractionService>(new LanguageTypeBundleInteractionStub());
+        services.AddSingleton<IContractArtifactRepository>(new ContractArtifactRepositoryStub());
 
         var theme = new KnOwl.ControlPlane.WebUI.KnOwlControlPlaneThemeOptions
         {
@@ -1487,6 +1679,8 @@ public sealed class ButterMorphAdapterTests
         Assert.IsType<KnOwlSchemaTypeDesignerHost>(provider.GetRequiredService<IButterMorphSchemaTypeDesignerHost>());
         Assert.IsType<KnOwlFieldMetadataDesignerHost>(provider.GetRequiredService<IButterMorphFieldMetadataDesignerHost>());
         Assert.IsType<KnOwlPayloadSchemaDesignerHost>(provider.GetRequiredService<IButterMorphPayloadSchemaDesignerHost>());
+        Assert.IsType<KnOwlPayloadSchemaViewerHost>(provider.GetRequiredService<IButterMorphPayloadSchemaViewerHost>());
+        Assert.IsType<KnOwlLanguageTypeMappingHost>(provider.GetRequiredService<IButterMorphLanguageTypeMappingHost>());
         Assert.Equal(ButterMorphDesignerThemeMode.Dark, designerTheme.DefaultMode);
         Assert.Equal("#123456", designerTheme.Light.PrimaryColor);
         Assert.Equal("#abcdef", designerTheme.Dark.PrimaryHoverColor);
@@ -1748,7 +1942,87 @@ public sealed class ButterMorphAdapterTests
 
         public Task UpsertVersion(Guid metadataFieldId, ContractFieldMetadataVersion version, CancellationToken cancellationToken = default) { UpsertedVersions.Add(version); return Task.CompletedTask; }
         public Task SetVersionActive(Guid metadataFieldId, Guid versionId, bool isActive, DateTime updatedAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
-    }}
+    }
+
+    private sealed class LanguageTypeMappingInteractionStub(IReadOnlyList<LanguageTypeMappingDefinition>? active = null) : ILanguageTypeMappingInteractionService
+    {
+        private readonly List<LanguageTypeMappingDefinition> _items = [.. active ?? []];
+        public List<LanguageTypeMappingDefinition> Upserted { get; } = [];
+
+        public Task<IReadOnlyList<LanguageTypeMappingDefinition>> GetAll(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<LanguageTypeMappingDefinition>>(_items);
+        public Task<IReadOnlyList<LanguageTypeMappingDefinition>> GetActive(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<LanguageTypeMappingDefinition>>(_items.Where(x => x.IsActive).ToArray());
+        public Task<LanguageTypeMappingDefinition?> GetById(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(_items.FirstOrDefault(x => x.Id == id));
+        public Task<LanguageTypeMappingDefinition?> GetByKey(string key, CancellationToken cancellationToken = default) => Task.FromResult(_items.FirstOrDefault(x => x.Key == key));
+        public Task Upsert(LanguageTypeMappingDefinition mapping, CancellationToken cancellationToken = default)
+        {
+            Upserted.Add(mapping);
+            _items.RemoveAll(x => x.Key == mapping.Key);
+            _items.Add(mapping);
+            return Task.CompletedTask;
+        }
+
+        public Task SetActive(Guid id, bool isActive, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+        {
+            var item = _items.FirstOrDefault(x => x.Id == id);
+            if (item is not null)
+            {
+                item.IsActive = isActive;
+                item.UpdatedAtUtc = updatedAtUtc;
+            }
+
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class LanguageTypeBundleInteractionStub(IReadOnlyList<LanguageTypeBundleDefinition>? active = null) : ILanguageTypeBundleInteractionService
+    {
+        private readonly List<LanguageTypeBundleDefinition> _items = [.. active ?? []];
+        public List<LanguageTypeBundleDefinition> Upserted { get; } = [];
+
+        public Task<IReadOnlyList<LanguageTypeBundleDefinition>> GetAll(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<LanguageTypeBundleDefinition>>(_items);
+        public Task<IReadOnlyList<LanguageTypeBundleDefinition>> GetActive(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<LanguageTypeBundleDefinition>>(_items.Where(x => x.IsActive).ToArray());
+        public Task<LanguageTypeBundleDefinition?> GetById(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(_items.FirstOrDefault(x => x.Id == id));
+        public Task<LanguageTypeBundleDefinition?> GetByAssemblyId(string assemblyId, CancellationToken cancellationToken = default) => Task.FromResult(_items.FirstOrDefault(x => x.AssemblyId == assemblyId));
+        public Task Upsert(LanguageTypeBundleDefinition bundle, CancellationToken cancellationToken = default)
+        {
+            Upserted.Add(bundle);
+            _items.RemoveAll(x => x.AssemblyId == bundle.AssemblyId);
+            _items.Add(bundle);
+            return Task.CompletedTask;
+        }
+
+        public Task SetActive(Guid id, bool isActive, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+        {
+            var item = _items.FirstOrDefault(x => x.Id == id);
+            if (item is not null)
+            {
+                item.IsActive = isActive;
+                item.UpdatedAtUtc = updatedAtUtc;
+            }
+
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class ContractArtifactRepositoryStub(IReadOnlyList<ContractArtifact>? artifacts = null) : IContractArtifactRepository
+    {
+        private readonly List<ContractArtifact> _artifacts = [.. artifacts ?? []];
+
+        public Task<IReadOnlyList<ContractArtifact>> GetAll(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ContractArtifact>>(_artifacts);
+        public Task<IReadOnlyList<ContractArtifact>> GetDeployed(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ContractArtifact>>(_artifacts);
+        public Task<ContractArtifact?> GetById(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(_artifacts.FirstOrDefault(x => x.Id == id));
+        public Task<IReadOnlyList<ContractArtifact>> GetByIds(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ContractArtifact>>(_artifacts.Where(x => ids.Contains(x.Id)).ToArray());
+        public Task<ContractArtifact?> GetBySourceVersion(ContractArtifactType artifactType, Guid versionId, CancellationToken cancellationToken = default) => Task.FromResult(_artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.VersionId == versionId));
+        public Task<ContractArtifact?> GetByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(_artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.Topic == topic && x.VersionNumber == versionNumber));
+        public Task<ContractArtifact?> GetDeployedByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(_artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.Topic == topic && x.VersionNumber == versionNumber));
+        public Task<ContractArtifact?> GetLatestDeployed(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken = default) => Task.FromResult(_artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.Topic == topic));
+        public Task Create(ContractArtifact artifact, CancellationToken cancellationToken = default)
+        {
+            _artifacts.Add(artifact);
+            return Task.CompletedTask;
+        }
+    }
+}
 
 
 

@@ -19,6 +19,8 @@ public class MenuService : IMenuService
         var contracts = new MenuItem { Text = "Async Contracts", Icon = "arrow-left-right" };
         contracts.Add("Custom Fields", "/contracts/metadatafields", "ui-checks")
                  .Add("Data Types", "/contracts/types", "tag")
+                 .Add("Type Bundles", "/contracts/typebundles", "collection")
+                 .Add("Type Mappings", "/contracts/typemappings", "braces-asterisk")
                  .Add("Events", "/contracts/events", "broadcast")
                  .Add("Commands", "/contracts/commands", "terminal");
         Items.Add(contracts);

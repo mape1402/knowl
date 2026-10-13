@@ -1,8 +1,12 @@
 @page "{id:guid}/versions/{versionId:guid}"
 @model KnOwl.ControlPlane.WebUI.Pages.Contracts.Events.VersionModel
 @using KnOwl.ControlPlane.Design.Core
+@using KnOwl.ControlPlane.WebUI.ButterMorph
 @{
     ViewData["Title"] = "Event Version";
+    var viewerUrl = Model.Version is null
+        ? string.Empty
+        : $"/buttermorph/payload-schema/viewer?context={KnOwlButterMorphContext.ViewEventVersion(Model.Version.Id)}&popup=true";
 
     string StatusClass(ContractVersionStatus status) => status switch
     {
@@ -99,7 +103,15 @@
         </section>
 
         <details class="contract-schema-details mt-3" open>
-            <summary>Payload schema</summary>
+            <summary>
+                <span>Payload schema</span>
+                <button type="button"
+                        class="btn btn-outline-secondary btn-sm"
+                        data-buttermorph-url="@viewerUrl"
+                        data-buttermorph-title="Event schema">
+                    View
+                </button>
+            </summary>
             <pre class="contract-json-output">@Model.FormattedPayloadSchemaJson</pre>
         </details>
     }

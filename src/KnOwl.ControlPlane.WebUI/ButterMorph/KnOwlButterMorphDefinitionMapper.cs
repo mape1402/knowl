@@ -161,6 +161,28 @@ public static class KnOwlButterMorphDefinitionMapper
     }
 
     /// <summary>
+    /// Reads a persisted payload schema definition when the JSON was captured from ButterMorph.
+    /// </summary>
+    public static bool TryReadPayloadDefinition(string? json, out PayloadSchemaDefinition? definition)
+    {
+        definition = null;
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return false;
+        }
+
+        try
+        {
+            definition = JsonSerializer.Deserialize<PayloadSchemaDefinition>(json, JsonOptions);
+            return definition is not null;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Converts ButterMorph metadata scopes into KnOwl section keys.
     /// </summary>
     public static IReadOnlyCollection<string> ToKnOwlScopes(IReadOnlyCollection<string> butterMorphScopes)

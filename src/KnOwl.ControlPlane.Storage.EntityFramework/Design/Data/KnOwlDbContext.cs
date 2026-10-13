@@ -52,6 +52,14 @@ public class KnOwlDbContext : DbContext
     /// </summary>
     public DbSet<ContractFieldMetadataVersion> ContractFieldMetadataVersions => Set<ContractFieldMetadataVersion>();
     /// <summary>
+    /// Host-owned ButterMorph language type mapping documents.
+    /// </summary>
+    public DbSet<LanguageTypeMappingDefinition> LanguageTypeMappings => Set<LanguageTypeMappingDefinition>();
+    /// <summary>
+    /// Host-owned ButterMorph language type bundle metadata.
+    /// </summary>
+    public DbSet<LanguageTypeBundleDefinition> LanguageTypeBundles => Set<LanguageTypeBundleDefinition>();
+    /// <summary>
     /// Immutable event and command artifacts generated for distribution.
     /// </summary>
     public DbSet<ContractArtifact> ContractArtifacts => Set<ContractArtifact>();
@@ -199,6 +207,33 @@ public class KnOwlDbContext : DbContext
                 .WithMany(x => x.Versions)
                 .HasForeignKey(x => x.ContractFieldMetadataDefinitionId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<LanguageTypeMappingDefinition>(entity =>
+        {
+            entity.ToTable("LanguageTypeMappings");
+            entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.Key).IsUnique();
+            entity.HasIndex(x => new { x.LanguageKey, x.IsActive });
+            entity.Property(x => x.Key).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.LanguageKey).HasMaxLength(64).IsRequired();
+            entity.Property(x => x.DocumentJson).IsRequired();
+            entity.Property(x => x.IsActive).HasDefaultValue(true);
+        });
+
+        modelBuilder.Entity<LanguageTypeBundleDefinition>(entity =>
+        {
+            entity.ToTable("LanguageTypeBundles");
+            entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.AssemblyId).IsUnique();
+            entity.HasIndex(x => new { x.LanguageKey, x.IsActive });
+            entity.Property(x => x.AssemblyId).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.AssemblyKey).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.AssemblyVersion).HasMaxLength(64).IsRequired();
+            entity.Property(x => x.LanguageKey).HasMaxLength(64).IsRequired();
+            entity.Property(x => x.BundleJson).IsRequired();
+            entity.Property(x => x.IsActive).HasDefaultValue(true);
         });
 
         modelBuilder.Entity<ContractArtifact>(entity =>

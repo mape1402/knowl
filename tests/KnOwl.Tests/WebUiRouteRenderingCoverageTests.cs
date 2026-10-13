@@ -72,6 +72,8 @@ public sealed class WebUiRouteRenderingCoverageTests
             $"/Contracts/MetadataFields/Version/{field.Id}/versions/{fieldVersion.Id}",
             "/Contracts/MetadataFields/New",
             $"/Contracts/MetadataFields/Edit/{field.Id}",
+            "/Contracts/TypeMappings",
+            "/Contracts/TypeBundles",
             "/Contracts/Events",
             $"/Contracts/Events/View?id={eventDefinition.Id}",
             $"/Contracts/Events/Version/{eventDefinition.Id}/versions/{eventVersion.Id}",
@@ -290,6 +292,8 @@ public sealed class WebUiRouteRenderingCoverageTests
             builder.Services.AddSingleton<IContractVersionPromotionService>(state);
             builder.Services.AddSingleton<IContractArtifactRepository>(state);
             builder.Services.AddSingleton<IContractArtifactBuilder>(state);
+            builder.Services.AddSingleton<ILanguageTypeMappingInteractionService>(state);
+            builder.Services.AddSingleton<ILanguageTypeBundleInteractionService>(state);
             builder.Services.AddSingleton<IRuntimeEnvironmentRepository>(state);
             builder.Services.AddSingleton<IRuntimeNodeRepository>(state);
             builder.Services.AddSingleton<IRuntimeNodeConnectionInteractionService>(state);
@@ -424,6 +428,8 @@ public sealed class WebUiRouteRenderingCoverageTests
         IContractVersionPromotionService,
         IContractArtifactRepository,
         IContractArtifactBuilder,
+        ILanguageTypeMappingInteractionService,
+        ILanguageTypeBundleInteractionService,
         IRuntimeEnvironmentRepository,
         IRuntimeNodeRepository,
         IRuntimeNodeConnectionInteractionService,
@@ -543,6 +549,8 @@ public sealed class WebUiRouteRenderingCoverageTests
         public List<EventDefinition> Events { get; } = [];
         public List<CommandDefinition> Commands { get; } = [];
         public List<ContractArtifact> Artifacts { get; } = [];
+        public List<LanguageTypeMappingDefinition> LanguageTypeMappings { get; } = [];
+        public List<LanguageTypeBundleDefinition> LanguageTypeBundles { get; } = [];
         public List<RuntimeEnvironment> Environments { get; } = [];
         public List<RuntimeNode> RuntimeNodes { get; } = [];
         public List<ContractRelease> Releases { get; } = [];
@@ -602,6 +610,50 @@ public sealed class WebUiRouteRenderingCoverageTests
         Task<ContractArtifact> IContractArtifactBuilder.BuildEventArtifact(Guid versionId, CancellationToken cancellationToken) => Task.FromResult(Artifacts.First(x => x.ArtifactType == ContractArtifactType.Event));
         Task<IReadOnlyList<ContractArtifact>> IContractArtifactBuilder.BuildCommandArtifacts(Guid versionId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<ContractArtifact>>([Artifacts.First(x => x.ArtifactType == ContractArtifactType.Command)]);
         Task<ContractArtifact> IContractArtifactBuilder.BuildCommandArtifact(Guid versionId, CancellationToken cancellationToken) => Task.FromResult(Artifacts.First(x => x.ArtifactType == ContractArtifactType.Command));
+
+        Task<IReadOnlyList<LanguageTypeMappingDefinition>> ILanguageTypeMappingInteractionService.GetAll(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<LanguageTypeMappingDefinition>>(LanguageTypeMappings);
+        Task<IReadOnlyList<LanguageTypeMappingDefinition>> ILanguageTypeMappingInteractionService.GetActive(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<LanguageTypeMappingDefinition>>(LanguageTypeMappings.Where(x => x.IsActive).ToArray());
+        Task<LanguageTypeMappingDefinition?> ILanguageTypeMappingInteractionService.GetById(Guid id, CancellationToken cancellationToken) => Task.FromResult(LanguageTypeMappings.FirstOrDefault(x => x.Id == id));
+        Task<LanguageTypeMappingDefinition?> ILanguageTypeMappingInteractionService.GetByKey(string key, CancellationToken cancellationToken) => Task.FromResult(LanguageTypeMappings.FirstOrDefault(x => x.Key == key));
+        Task ILanguageTypeMappingInteractionService.Upsert(LanguageTypeMappingDefinition mapping, CancellationToken cancellationToken)
+        {
+            LanguageTypeMappings.RemoveAll(x => x.Key == mapping.Key);
+            LanguageTypeMappings.Add(mapping);
+            return Task.CompletedTask;
+        }
+        Task ILanguageTypeMappingInteractionService.SetActive(Guid id, bool isActive, DateTime updatedAtUtc, CancellationToken cancellationToken)
+        {
+            var mapping = LanguageTypeMappings.FirstOrDefault(x => x.Id == id);
+            if (mapping is not null)
+            {
+                mapping.IsActive = isActive;
+                mapping.UpdatedAtUtc = updatedAtUtc;
+            }
+
+            return Task.CompletedTask;
+        }
+
+        Task<IReadOnlyList<LanguageTypeBundleDefinition>> ILanguageTypeBundleInteractionService.GetAll(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<LanguageTypeBundleDefinition>>(LanguageTypeBundles);
+        Task<IReadOnlyList<LanguageTypeBundleDefinition>> ILanguageTypeBundleInteractionService.GetActive(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<LanguageTypeBundleDefinition>>(LanguageTypeBundles.Where(x => x.IsActive).ToArray());
+        Task<LanguageTypeBundleDefinition?> ILanguageTypeBundleInteractionService.GetById(Guid id, CancellationToken cancellationToken) => Task.FromResult(LanguageTypeBundles.FirstOrDefault(x => x.Id == id));
+        Task<LanguageTypeBundleDefinition?> ILanguageTypeBundleInteractionService.GetByAssemblyId(string assemblyId, CancellationToken cancellationToken) => Task.FromResult(LanguageTypeBundles.FirstOrDefault(x => x.AssemblyId == assemblyId));
+        Task ILanguageTypeBundleInteractionService.Upsert(LanguageTypeBundleDefinition bundle, CancellationToken cancellationToken)
+        {
+            LanguageTypeBundles.RemoveAll(x => x.AssemblyId == bundle.AssemblyId);
+            LanguageTypeBundles.Add(bundle);
+            return Task.CompletedTask;
+        }
+        Task ILanguageTypeBundleInteractionService.SetActive(Guid id, bool isActive, DateTime updatedAtUtc, CancellationToken cancellationToken)
+        {
+            var bundle = LanguageTypeBundles.FirstOrDefault(x => x.Id == id);
+            if (bundle is not null)
+            {
+                bundle.IsActive = isActive;
+                bundle.UpdatedAtUtc = updatedAtUtc;
+            }
+
+            return Task.CompletedTask;
+        }
 
         Task<IReadOnlyList<RuntimeEnvironment>> IRuntimeEnvironmentRepository.GetAll(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<RuntimeEnvironment>>(Environments);
         Task<IReadOnlyList<RuntimeEnvironment>> IRuntimeEnvironmentRepository.GetEnabled(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<RuntimeEnvironment>>(Environments.Where(x => x.IsEnabled).ToArray());

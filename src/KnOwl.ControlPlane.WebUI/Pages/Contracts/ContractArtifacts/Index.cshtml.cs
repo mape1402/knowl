@@ -1,6 +1,7 @@
 using KnOwl.Contracts.Artifacts;
 using KnOwl.ControlPlane.Distribution.Core;
 using KnOwl.ControlPlane.Distribution.Storage;
+using KnOwl.ControlPlane.WebUI.ButterMorph;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -206,25 +207,24 @@ public class IndexModel(IContractArtifactRepository artifacts) : PageModel
             var payload = CommandArtifactPayloadDocument.Read(artifact.PayloadSchemaJson);
             List<ContractArtifactDetail> details =
             [
-                CreateArtifactDetail(artifact, "Request", ContractArtifactType.CommandRequest, payload.RequestPayloadSchemaJson)
+                CreateArtifactDetail(artifact, "Request", ContractArtifactType.CommandRequest)
             ];
 
             if (!string.IsNullOrWhiteSpace(payload.ReplyPayloadSchemaJson))
             {
-                details.Add(CreateArtifactDetail(artifact, "Reply", ContractArtifactType.CommandReply, payload.ReplyPayloadSchemaJson));
+                details.Add(CreateArtifactDetail(artifact, "Reply", ContractArtifactType.CommandReply));
             }
 
             return details;
         }
 
-        return [CreateArtifactDetail(artifact, GetArtifactPartLabel(artifact.ArtifactType), artifact.ArtifactType, artifact.PayloadSchemaJson)];
+        return [CreateArtifactDetail(artifact, GetArtifactPartLabel(artifact.ArtifactType), artifact.ArtifactType)];
     }
 
     private static ContractArtifactDetail CreateArtifactDetail(
         ContractArtifact artifact,
         string label,
-        ContractArtifactType artifactType,
-        string payloadSchemaJson)
+        ContractArtifactType artifactType)
         => new(
             artifact.Id,
             label,
@@ -235,7 +235,7 @@ public class IndexModel(IContractArtifactRepository artifacts) : PageModel
             artifact.ContentHash,
             artifact.SourceStatus,
             artifact.CreatedAtUtc,
-            payloadSchemaJson);
+            $"/buttermorph/payload-schema/viewer?context={KnOwlButterMorphContext.ViewArtifact(artifact.Id, label.ToLowerInvariant())}&popup=true");
 
     private static bool HasReply(IReadOnlyList<ContractArtifact> artifacts)
         => artifacts.Any(x => x.ArtifactType == ContractArtifactType.CommandReply)
@@ -388,4 +388,4 @@ public sealed record ContractArtifactDetail(
     string ContentHash,
     string SourceStatus,
     DateTime CreatedAtUtc,
-    string PayloadSchemaJson);
+    string ViewerUrl);

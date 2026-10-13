@@ -3547,9 +3547,18 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
 .contract-schema-details summary,
 .contract-version-schema-board summary {
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
     padding: 0.55rem 0.75rem;
     color: var(--knowl-text, #1f1433);
     font-weight: 650;
+}
+
+.contract-schema-details summary .btn,
+.contract-version-schema-board summary .btn {
+    flex: 0 0 auto;
 }
 
 .contract-schema-details .contract-json-output,
@@ -3728,10 +3737,6 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
     display: flex;
     flex-direction: column;
     gap: 0.85rem;
-}
-
-.od-artifact-detail-card .contract-json-output {
-    margin-top: 0.45rem;
 }
 
 .od-artifact-schema-section {
