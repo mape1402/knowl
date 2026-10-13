@@ -18,6 +18,8 @@ public sealed class ControlPlaneDistributionWebUiMarkupTests
         Assert.Contains("od-runtime-node-card", runtimeNodes);
         Assert.Contains("od-grid od-artifact-group-grid", artifacts);
         Assert.Contains("od-grid od-artifact-grid", artifacts);
+        Assert.Contains("od-artifact-summary-card", artifacts);
+        Assert.DoesNotContain("contract-json-output", artifacts);
         Assert.Contains("release-board", releases);
         Assert.Contains("release-card", releases);
     }
@@ -30,6 +32,8 @@ public sealed class ControlPlaneDistributionWebUiMarkupTests
         Assert.Contains(".od-item-card > *", css);
         Assert.Contains(".od-grid.od-artifact-group-grid:not(.od-versions-grid):not(.od-runtime-node-grid) > .od-item-card", css);
         Assert.Contains(".od-card-footer > span", css);
+        Assert.Contains(".od-artifact-summary-card", css);
+        Assert.Contains(".od-artifact-meta-strip", css);
         Assert.Contains(".od-runtime-node-card .od-runtime-card-summary > div", css);
         Assert.Contains(".release-board", css);
         Assert.Contains("grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));", css);

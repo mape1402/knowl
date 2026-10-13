@@ -78,7 +78,7 @@
             <div class="od-grid od-artifact-group-grid">
                 @foreach (var group in Model.Groups)
                 {
-                    <a class="od-item-card od-orch-card text-decoration-none"
+                    <a class="od-item-card od-orch-card od-artifact-summary-card text-decoration-none"
                        asp-page="/Contracts/ContractArtifacts/Index"
                        asp-route-groupKey="@group.Key">
                         <div class="od-item-top">
@@ -115,7 +115,7 @@ else
                 @foreach (var artifact in Model.SelectedArtifacts)
                 {
                     <button type="button"
-                            class="od-item-card od-artifact-card-button js-open-artifact-detail"
+                            class="od-item-card od-artifact-card-button od-artifact-summary-card js-open-artifact-detail"
                             data-artifact-key="@artifact.Key">
                         <div class="od-item-top">
                             <div>
@@ -192,7 +192,7 @@ else
                             <h3 class="od-section-title">${escapeHtml(part.label)}</h3>
                             <p class="od-item-meta">Payload schema</p>
                         </div>
-                        <div class="d-flex align-items-center gap-2">
+                        <div class="od-artifact-schema-action">
                             <span class="od-item-meta">Hash ${escapeHtml((part.contentHash || '').slice(0, 12) || '-')}</span>
                             <button type="button" class="btn btn-outline-secondary btn-sm js-view-artifact-schema" data-viewer-url="${escapeHtml(part.viewerUrl || '')}" data-viewer-title="${escapeHtml(part.label || 'Schema')} schema">View</button>
                         </div>
