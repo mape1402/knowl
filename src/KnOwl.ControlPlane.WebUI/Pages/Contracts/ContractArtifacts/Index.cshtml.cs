@@ -63,7 +63,7 @@ public class IndexModel(IContractArtifactRepository artifacts) : PageModel
                 artifact.Key,
                 artifact.ContractKind,
                 artifact.Name,
-                artifact.Topic,
+                artifact.ContractKey,
                 artifact.VersionNumber,
                 artifact.SourceStatus,
                 artifact.CreatedAtUtc,
@@ -77,7 +77,7 @@ public class IndexModel(IContractArtifactRepository artifacts) : PageModel
                 version.Key,
                 version.VersionNumber,
                 version.Name,
-                version.Topic,
+                version.ContractKey,
                 version.CreatedAtUtc,
                 version.Artifacts
                     .SelectMany(BuildArtifactDetails)
@@ -92,7 +92,7 @@ public class IndexModel(IContractArtifactRepository artifacts) : PageModel
             {
                 Kind = GetContractKind(x.ArtifactType),
                 x.DefinitionId,
-                x.Topic
+                x.ContractKey
             })
             .Select(group =>
             {
@@ -106,7 +106,7 @@ public class IndexModel(IContractArtifactRepository artifacts) : PageModel
                     group.Key.Kind,
                     group.Key.DefinitionId,
                     NormalizeDisplayName(primary.Name, group.Key.Kind),
-                    group.Key.Topic,
+                    group.Key.ContractKey,
                     primary.Description,
                     versionCount,
                     CountLogicalArtifacts(ordered),
@@ -136,7 +136,7 @@ public class IndexModel(IContractArtifactRepository artifacts) : PageModel
                 return new ContractArtifactVersionGroup(
                     group.Key.VersionId.ToString("N"),
                     NormalizeDisplayName(primary.Name, GetContractKind(primary.ArtifactType)),
-                    primary.Topic,
+                    primary.ContractKey,
                     group.Key.VersionNumber,
                     ordered.Max(x => x.CreatedAtUtc),
                     ordered.Any(x => x.ArtifactType == ContractArtifactType.Event),
@@ -156,7 +156,7 @@ public class IndexModel(IContractArtifactRepository artifacts) : PageModel
                 Kind = GetContractKind(x.ArtifactType),
                 x.DefinitionId,
                 x.VersionId,
-                x.Topic,
+                x.ContractKey,
                 x.VersionNumber
             })
             .Select(group =>
@@ -175,7 +175,7 @@ public class IndexModel(IContractArtifactRepository artifacts) : PageModel
                     $"{group.Key.Kind}:{group.Key.VersionId:N}",
                     group.Key.Kind,
                     NormalizeDisplayName(primary.Name, group.Key.Kind),
-                    group.Key.Topic,
+                    group.Key.ContractKey,
                     group.Key.VersionNumber,
                     primary.SourceStatus,
                     ordered.Max(x => x.CreatedAtUtc),
@@ -230,7 +230,7 @@ public class IndexModel(IContractArtifactRepository artifacts) : PageModel
             label,
             artifactType.ToString(),
             artifact.Name,
-            artifact.Topic,
+            artifact.ContractKey,
             artifact.VersionNumber,
             artifact.ContentHash,
             artifact.SourceStatus,
@@ -290,7 +290,7 @@ public class IndexModel(IContractArtifactRepository artifacts) : PageModel
     private bool MatchesGroupSearch(ContractArtifactGroup group)
         => Contains(group.ContractKind)
             || Contains(group.Name)
-            || Contains(group.Topic)
+            || Contains(group.ContractKey)
             || Contains(group.Description)
             || Contains(group.LatestVersion)
             || group.Artifacts.Any(MatchesSourceArtifactSearch);
@@ -298,7 +298,7 @@ public class IndexModel(IContractArtifactRepository artifacts) : PageModel
     private bool MatchesArtifactSearch(ContractArtifactCard artifact)
         => Contains(artifact.ContractKind)
             || Contains(artifact.Name)
-            || Contains(artifact.Topic)
+            || Contains(artifact.ContractKey)
             || Contains(artifact.VersionNumber)
             || Contains(artifact.SourceStatus)
             || Contains(artifact.SchemaSummary)
@@ -307,7 +307,7 @@ public class IndexModel(IContractArtifactRepository artifacts) : PageModel
     private bool MatchesSourceArtifactSearch(ContractArtifact artifact)
         => Contains(artifact.ArtifactType.ToString())
             || Contains(artifact.Name)
-            || Contains(artifact.Topic)
+            || Contains(artifact.ContractKey)
             || Contains(artifact.VersionNumber)
             || Contains(artifact.Description)
             || Contains(artifact.SourceStatus)
@@ -327,7 +327,7 @@ public sealed record ContractArtifactGroup(
     string ContractKind,
     Guid DefinitionId,
     string Name,
-    string Topic,
+    string ContractKey,
     string? Description,
     int VersionCount,
     int ArtifactCount,
@@ -340,7 +340,7 @@ public sealed record ContractArtifactGroup(
 public sealed record ContractArtifactVersionGroup(
     string Key,
     string Name,
-    string Topic,
+    string ContractKey,
     string VersionNumber,
     DateTime CreatedAtUtc,
     bool HasEvent,
@@ -352,7 +352,7 @@ public sealed record ContractArtifactVersionDetail(
     string Key,
     string VersionNumber,
     string Name,
-    string Topic,
+    string ContractKey,
     DateTime CreatedAtUtc,
     IReadOnlyList<ContractArtifactDetail> Artifacts);
 
@@ -360,7 +360,7 @@ public sealed record ContractArtifactCard(
     string Key,
     string ContractKind,
     string Name,
-    string Topic,
+    string ContractKey,
     string VersionNumber,
     string SourceStatus,
     DateTime CreatedAtUtc,
@@ -371,7 +371,7 @@ public sealed record ContractArtifactBundleDetail(
     string Key,
     string ContractKind,
     string Name,
-    string Topic,
+    string ContractKey,
     string VersionNumber,
     string SourceStatus,
     DateTime CreatedAtUtc,
@@ -383,7 +383,7 @@ public sealed record ContractArtifactDetail(
     string Label,
     string ArtifactType,
     string Name,
-    string Topic,
+    string ContractKey,
     string VersionNumber,
     string ContentHash,
     string SourceStatus,

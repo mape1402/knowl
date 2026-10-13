@@ -34,7 +34,7 @@ internal sealed class ContractReleaseInteractionService(
         }
 
         var duplicate = selectedArtifacts
-            .GroupBy(x => $"{x.ArtifactType}:{x.Topic}:{x.VersionNumber}", StringComparer.OrdinalIgnoreCase)
+            .GroupBy(x => $"{x.ArtifactType}:{x.ContractKey}:{x.VersionNumber}", StringComparer.OrdinalIgnoreCase)
             .FirstOrDefault(x => x.Count() > 1);
         if (duplicate is not null)
         {

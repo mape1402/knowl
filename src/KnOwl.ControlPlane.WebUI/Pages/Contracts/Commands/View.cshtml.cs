@@ -70,7 +70,7 @@ public class ViewModel(
             if (targetStatus == ContractVersionStatus.Deployed)
             {
                 var artifact = await artifactBuilder.BuildCommandArtifact(versionId, cancellationToken);
-                StatusMessage = $"Version transitioned to {targetStatus}. Artifact generated: {artifact.Topic}@{artifact.VersionNumber}.";
+                StatusMessage = $"Version transitioned to {targetStatus}. Artifact generated: {artifact.ContractKey}@{artifact.VersionNumber}.";
             }
             else
             {

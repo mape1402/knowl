@@ -21,6 +21,7 @@
     <Project Path="src/KnOwl.WolfAuth/KnOwl.WolfAuth.csproj" />
   </Folder>
   <Folder Name="/samples/">
+    <Project Path="samples/KnOwl.ButterMorph.SampleTypes/KnOwl.ButterMorph.SampleTypes.csproj" />
     <Project Path="samples/KnOwl.ControlPlaneHost.Sample/KnOwl.ControlPlaneHost.Sample.csproj" />
     <Project Path="samples/KnOwl.ControlPlaneHost.Mongo.Sample/KnOwl.ControlPlaneHost.Mongo.Sample.csproj" />
     <Project Path="samples/KnOwl.RuntimeHost.Mongo.Sample/KnOwl.RuntimeHost.Mongo.Sample.csproj" />

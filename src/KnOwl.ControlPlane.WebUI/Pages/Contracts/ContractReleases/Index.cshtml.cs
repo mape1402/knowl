@@ -117,7 +117,7 @@ public class IndexModel(
     internal static IReadOnlyList<ReleaseContractOption> BuildReleaseOptions(IReadOnlyList<ContractArtifact> sourceArtifacts)
     {
         return sourceArtifacts
-            .GroupBy(x => new { x.DefinitionId, x.VersionId, x.Topic, x.VersionNumber })
+            .GroupBy(x => new { x.DefinitionId, x.VersionId, x.ContractKey, x.VersionNumber })
             .Select(group =>
             {
                 var orderedArtifacts = group
@@ -141,7 +141,7 @@ public class IndexModel(
                     primary.VersionId,
                     label,
                     NormalizeDisplayName(primary.Name, isCommand),
-                    group.Key.Topic,
+                    group.Key.ContractKey,
                     group.Key.VersionNumber,
                     details,
                     orderedArtifacts.Max(x => x.CreatedAtUtc),
@@ -188,7 +188,7 @@ public class IndexModel(
             || release.Artifacts.Any(artifact =>
                 Contains(artifact.ArtifactType)
                 || Contains(artifact.Name)
-                || Contains(artifact.Topic)
+                || Contains(artifact.ContractKey)
                 || Contains(artifact.VersionNumber)
                 || Contains(artifact.ContentHash)
                 || artifact.Targets.Any(target =>
@@ -231,7 +231,7 @@ public sealed record ReleaseContractOption(
     Guid VersionId,
     string ContractType,
     string Name,
-    string Topic,
+    string ContractKey,
     string VersionNumber,
     string Details,
     DateTime CreatedAtUtc,
@@ -270,7 +270,7 @@ public sealed record ReleaseCard(
                     item.ArtifactId,
                     item.Artifact?.ArtifactType.ToString() ?? "Artifact",
                     item.Artifact?.Name ?? "Unknown artifact",
-                    item.Artifact?.Topic ?? string.Empty,
+                    item.Artifact?.ContractKey ?? string.Empty,
                     item.Artifact?.VersionNumber ?? string.Empty,
                     item.Artifact?.ContentHash ?? string.Empty,
                     artifactTargets);
@@ -334,7 +334,7 @@ public sealed record ReleaseArtifactCard(
     Guid ArtifactId,
     string ArtifactType,
     string Name,
-    string Topic,
+    string ContractKey,
     string VersionNumber,
     string ContentHash,
     IReadOnlyList<ReleaseTargetCard> Targets);
@@ -369,7 +369,7 @@ public sealed record ReleaseTargetCard(
             target.RuntimeNode?.DistributionMode.ToString() ?? string.Empty,
             target.Artifact is null
                 ? target.ArtifactId.ToString("N")
-                : $"{target.Artifact.Topic}@{target.Artifact.VersionNumber}",
+                : $"{target.Artifact.ContractKey}@{target.Artifact.VersionNumber}",
             target.Status.ToString(),
             target.ActivationStatus.ToString(),
             target.Status == ContractReleaseTargetStatus.Activated,

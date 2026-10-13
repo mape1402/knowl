@@ -50,7 +50,7 @@ public sealed class ControlPlanePageModelFlowCoverageTests
     [Fact]
     public async Task EventNewVersionStartsAtOneWhenEventHasNoVersions()
     {
-        var eventWithoutVersions = new EventDefinition { Id = Guid.NewGuid(), Name = "Empty Event", Topic = "empty.event" };
+        var eventWithoutVersions = new EventDefinition { Id = Guid.NewGuid(), Name = "Empty Event", Key = "empty.event" };
         var model = new EventNewVersionModel(
             new EventServiceFake([eventWithoutVersions]),
             new SchemaTypeServiceFake(),
@@ -547,7 +547,7 @@ public sealed class ControlPlanePageModelFlowCoverageTests
 
         Assert.IsType<NotFoundResult>(await eventEdit.OnGetAsync(Guid.NewGuid(), CancellationToken.None));
         Assert.IsType<PageResult>(await eventEdit.OnGetAsync(eventDefinition.Id, CancellationToken.None));
-        Assert.Equal(eventDefinition.Topic, eventEdit.Input.Topic);
+        Assert.Equal(eventDefinition.Name, eventEdit.Input.Name);
 
         eventEdit.ModelState.AddModelError("Input.Name", "bad");
         Assert.IsType<PageResult>(await eventEdit.OnPostAsync(CancellationToken.None));
@@ -560,13 +560,11 @@ public sealed class ControlPlanePageModelFlowCoverageTests
             Input = new EventEditModel.EventInput
             {
                 Name = " Updated Event ",
-                Topic = " events.updated ",
                 Description = " "
             }
         };
         Assert.IsType<RedirectToPageResult>(await eventSuccess.OnPostAsync(CancellationToken.None));
         Assert.Equal("Updated Event", events.LastUpdatedName);
-        Assert.Equal("events.updated", events.LastUpdatedTopic);
         Assert.Null(events.LastUpdatedDescription);
     }
 
@@ -579,7 +577,7 @@ public sealed class ControlPlanePageModelFlowCoverageTests
 
         Assert.IsType<NotFoundResult>(await commandEdit.OnGetAsync(Guid.NewGuid(), CancellationToken.None));
         Assert.IsType<PageResult>(await commandEdit.OnGetAsync(command.Id, CancellationToken.None));
-        Assert.Equal(command.Topic, commandEdit.Input.Topic);
+        Assert.Equal(command.Name, commandEdit.Input.Name);
 
         commandEdit.ModelState.AddModelError("Input.Name", "bad");
         Assert.IsType<PageResult>(await commandEdit.OnPostAsync(CancellationToken.None));
@@ -592,13 +590,11 @@ public sealed class ControlPlanePageModelFlowCoverageTests
             Input = new CommandEditModel.CommandInput
             {
                 Name = " Updated Command ",
-                Topic = null,
                 Description = " Command description "
             }
         };
         Assert.IsType<RedirectToPageResult>(await commandSuccess.OnPostAsync(CancellationToken.None));
         Assert.Equal("Updated Command", commands.LastUpdatedName);
-        Assert.Equal(string.Empty, commands.LastUpdatedTopic);
         Assert.Equal("Command description", commands.LastUpdatedDescription);
     }
 
@@ -785,7 +781,7 @@ public sealed class ControlPlanePageModelFlowCoverageTests
         var entity = new EventDefinition
         {
             Name = "Customer Created",
-            Topic = "events.customer.created",
+            Key = "events.customer.created",
             Description = "Event description"
         };
         entity.Versions.Add(new EventVersion
@@ -814,7 +810,7 @@ public sealed class ControlPlanePageModelFlowCoverageTests
         var entity = new CommandDefinition
         {
             Name = "Register Customer",
-            Topic = "commands.customer.register",
+            Key = "commands.customer.register",
             Description = "Command description"
         };
         entity.Versions.Add(new CommandVersion
@@ -899,7 +895,7 @@ public sealed class ControlPlanePageModelFlowCoverageTests
                 DefinitionId = Guid.NewGuid(),
                 VersionId = versionId,
                 Name = name,
-                Topic = topic,
+                ContractKey = topic,
                 VersionNumber = "1.0.0",
                 PayloadSchemaJson = "{}",
                 ContentHash = "hash",
@@ -912,7 +908,6 @@ public sealed class ControlPlanePageModelFlowCoverageTests
         private readonly List<EventDefinition> events = seed?.ToList() ?? [];
 
         public string? LastUpdatedName { get; private set; }
-        public string? LastUpdatedTopic { get; private set; }
         public string? LastUpdatedDescription { get; private set; }
         public Guid? LastDeletedId { get; private set; }
 
@@ -934,10 +929,9 @@ public sealed class ControlPlanePageModelFlowCoverageTests
             return Task.CompletedTask;
         }
 
-        public Task UpdateDefinition(Guid id, string name, string topic, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+        public Task UpdateDefinition(Guid id, string name, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
         {
             LastUpdatedName = name;
-            LastUpdatedTopic = topic;
             LastUpdatedDescription = description;
             return Task.CompletedTask;
         }
@@ -960,7 +954,6 @@ public sealed class ControlPlanePageModelFlowCoverageTests
         private readonly List<CommandDefinition> commands = seed?.ToList() ?? [];
 
         public string? LastUpdatedName { get; private set; }
-        public string? LastUpdatedTopic { get; private set; }
         public string? LastUpdatedDescription { get; private set; }
         public Guid? LastDeletedId { get; private set; }
 
@@ -982,10 +975,9 @@ public sealed class ControlPlanePageModelFlowCoverageTests
             return Task.CompletedTask;
         }
 
-        public Task UpdateDefinition(Guid id, string name, string topic, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+        public Task UpdateDefinition(Guid id, string name, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
         {
             LastUpdatedName = name;
-            LastUpdatedTopic = topic;
             LastUpdatedDescription = description;
             return Task.CompletedTask;
         }

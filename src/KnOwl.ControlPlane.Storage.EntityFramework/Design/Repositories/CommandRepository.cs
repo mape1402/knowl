@@ -63,13 +63,12 @@ public sealed class CommandRepository(KnOwlDbContext db) : ICommandRepository
     }
 
     /// <inheritdoc />
-    public async Task UpdateDefinition(Guid id, string name, string topic, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+    public async Task UpdateDefinition(Guid id, string name, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
     {
         var entity = await db.Commands.FirstOrDefaultAsync(x => x.Id == id, cancellationToken)
             ?? throw new KeyNotFoundException($"Command '{id}' was not found.");
 
         entity.Name = name;
-        entity.Topic = topic;
         entity.Description = description;
         entity.UpdatedAtUtc = updatedAtUtc;
         await db.SaveChangesAsync(cancellationToken);

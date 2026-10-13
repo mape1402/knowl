@@ -106,9 +106,10 @@ public class KnOwlDbContext : DbContext
         {
             entity.ToTable("Events");
             entity.HasKey(x => x.Id);
-            entity.HasIndex(x => x.Topic);
+            entity.HasIndex(x => x.Key);
             entity.HasIndex(x => x.IsActive);
             entity.HasIndex(x => x.CreatedAtUtc);
+            entity.Property(x => x.Key).HasMaxLength(100).IsRequired();
             entity.Property(x => x.IsActive).HasDefaultValue(true);
         });
 
@@ -134,9 +135,10 @@ public class KnOwlDbContext : DbContext
         {
             entity.ToTable("Commands");
             entity.HasKey(x => x.Id);
-            entity.HasIndex(x => x.Topic);
+            entity.HasIndex(x => x.Key);
             entity.HasIndex(x => x.IsActive);
             entity.HasIndex(x => x.CreatedAtUtc);
+            entity.Property(x => x.Key).HasMaxLength(100).IsRequired();
             entity.Property(x => x.IsActive).HasDefaultValue(true);
         });
 
@@ -241,13 +243,13 @@ public class KnOwlDbContext : DbContext
             entity.ToTable("ContractArtifacts");
             entity.HasKey(x => x.Id);
             entity.HasIndex(x => new { x.ArtifactType, x.VersionId }).IsUnique();
-            entity.HasIndex(x => new { x.ArtifactType, x.Topic, x.VersionNumber }).IsUnique();
+            entity.HasIndex(x => new { x.ArtifactType, x.ContractKey, x.VersionNumber }).IsUnique();
             entity.Property(x => x.ArtifactType)
                 .HasConversion<string>()
                 .HasMaxLength(32)
                 .IsRequired();
             entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
-            entity.Property(x => x.Topic).HasMaxLength(70).IsRequired();
+            entity.Property(x => x.ContractKey).HasMaxLength(100).IsRequired();
             entity.Property(x => x.VersionNumber).HasMaxLength(13).IsRequired();
             entity.Property(x => x.PayloadSchemaJson).IsRequired();
             entity.Property(x => x.ContentHash).HasMaxLength(128).IsRequired();
@@ -408,14 +410,14 @@ public class KnOwlDbContext : DbContext
         {
             entity.ToTable("RuntimeContractArtifacts");
             entity.HasKey(x => x.Id);
-            entity.HasIndex(x => new { x.ArtifactType, x.Topic, x.VersionNumber }).IsUnique();
+            entity.HasIndex(x => new { x.ArtifactType, x.ContractKey, x.VersionNumber }).IsUnique();
             entity.HasIndex(x => x.SourceReleaseId);
             entity.Property(x => x.ArtifactType)
                 .HasConversion<string>()
                 .HasMaxLength(32)
                 .IsRequired();
             entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
-            entity.Property(x => x.Topic).HasMaxLength(70).IsRequired();
+            entity.Property(x => x.ContractKey).HasMaxLength(100).IsRequired();
             entity.Property(x => x.VersionNumber).HasMaxLength(13).IsRequired();
             entity.Property(x => x.PayloadSchemaJson).IsRequired();
             entity.Property(x => x.ContentHash).HasMaxLength(128).IsRequired();

@@ -1639,7 +1639,7 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
     color: var(--knowl-text, #1a1a2e);
 }
 
-.event-list-topic {
+.event-list-key {
     margin: 0;
     color: var(--knowl-primary, #7c3aed);
     font-family: ui-monospace, "Cascadia Mono", "Segoe UI Mono", "SFMono-Regular", Menlo, Consolas, monospace;
@@ -1699,7 +1699,7 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
     padding: 0.15rem 0.4rem;
 }
 
-.compact-contract-list .event-list-topic {
+.compact-contract-list .event-list-key {
     margin: 0;
     font-size: 0.75rem;
     white-space: nowrap;
@@ -1717,7 +1717,7 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
     white-space: nowrap;
 }
 
-.compact-contract-list .event-list-card > p:not(.event-list-topic) {
+.compact-contract-list .event-list-card > p:not(.event-list-key) {
     display: none;
 }
 
@@ -2351,7 +2351,7 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
 
 .od-artifact-group-grid,
 .od-artifact-grid {
-    --od-card-min-width: 300px;
+    --od-card-min-width: 292px;
 }
 
 .od-documentation-grid {
@@ -2445,20 +2445,29 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
 
 .od-list-shell > .od-grid.od-artifact-group-grid:not(.od-versions-grid):not(.od-runtime-node-grid) > .od-item-card,
 .od-list-shell > .od-grid.od-artifact-grid:not(.od-versions-grid):not(.od-runtime-node-grid) > .od-item-card {
-    height: 162px;
+    height: 128px;
 }
 
 .od-artifact-summary-card {
-    display: grid;
-    gap: 0.55rem;
-    grid-template-rows: 3.25rem minmax(0, 1fr) 2.1rem;
-    min-height: 162px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.42rem;
+    min-height: 128px;
     overflow: hidden;
+    padding: 0.72rem 0.78rem;
 }
 
 .od-artifact-summary-card .od-item-top {
-    min-height: 0;
+    align-items: flex-start;
+    min-height: 2.55rem;
     overflow: hidden;
+}
+
+.od-artifact-summary-card .od-item-title {
+    flex: 1 1 auto;
+    font-size: 0.9rem;
+    line-height: 1.22;
+    min-width: 0;
 }
 
 .od-artifact-summary-card .od-status {
@@ -2468,14 +2477,17 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
 
 .od-artifact-summary-card .od-item-description {
     align-self: start;
-    max-height: none !important;
-    min-height: 0 !important;
+    -webkit-line-clamp: 1;
+    line-height: 1.25;
+    max-height: 1.25rem !important;
+    min-height: 1.25rem !important;
 }
 
 .od-artifact-summary-card .od-card-footer {
     margin-top: 0;
-    min-height: 2.1rem;
+    min-height: 1.7rem;
     overflow: hidden;
+    padding-top: 0.45rem;
 }
 
 .od-list-shell > .od-grid:not(.od-versions-grid):not(.od-runtime-node-grid) .od-item-title {
@@ -3827,13 +3839,13 @@ a:hover          { text-decoration: underline; color: var(--knowl-primary-hover,
     padding: 0.48rem 0.55rem;
 }
 
-.od-artifact-meta-topic {
+.od-artifact-meta-key {
     grid-column: auto;
     max-width: 100%;
 }
 
 @media (min-width: 700px) {
-    .od-artifact-meta-topic {
+    .od-artifact-meta-key {
         grid-column: span 2;
     }
 }

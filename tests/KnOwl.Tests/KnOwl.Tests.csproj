@@ -43,6 +43,7 @@
     <ProjectReference Include="..\..\src\KnOwl.Runtime.WebUI\KnOwl.Runtime.WebUI.csproj" />
     <ProjectReference Include="..\..\src\KnOwl.WolfAuth\KnOwl.WolfAuth.csproj" />
     <ProjectReference Include="..\..\samples\KnOwl.ControlPlaneHost.Sample\KnOwl.ControlPlaneHost.Sample.csproj" />
+    <ProjectReference Include="..\..\samples\KnOwl.ButterMorph.SampleTypes\KnOwl.ButterMorph.SampleTypes.csproj" />
     <ProjectReference Include="..\..\samples\KnOwl.RuntimeHost.Sample\KnOwl.RuntimeHost.Sample.csproj" />
   </ItemGroup>
 

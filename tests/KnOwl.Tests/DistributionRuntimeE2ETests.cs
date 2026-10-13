@@ -271,7 +271,7 @@ public sealed class DistributionRuntimeE2ETests
             DefinitionId = Guid.NewGuid(),
             VersionId = Guid.NewGuid(),
             Name = "Customer Created",
-            Topic = "customer.created",
+            ContractKey = "customer.created",
             VersionNumber = "1.0.0",
             PayloadSchemaJson = "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"required\":true}}}",
             ContentHash = "hash-e2e",
@@ -345,7 +345,7 @@ public sealed class DistributionRuntimeE2ETests
             DefinitionId = Guid.NewGuid(),
             VersionId = Guid.NewGuid(),
             Name = "Register Customer",
-            Topic = "customer.register",
+            ContractKey = "customer.register",
             VersionNumber = "1.0.0",
             PayloadSchemaJson = CommandArtifactPayloadDocument.Compose(
                 "{\"type\":\"object\",\"properties\":{\"customerId\":{\"type\":\"string\",\"required\":true}}}",

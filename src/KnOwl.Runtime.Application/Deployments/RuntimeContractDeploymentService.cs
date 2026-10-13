@@ -15,9 +15,9 @@ internal sealed class RuntimeContractDeploymentService(IRuntimeContractArtifactR
     {
         ArgumentNullException.ThrowIfNull(package);
 
-        if (string.IsNullOrWhiteSpace(package.Topic))
+        if (string.IsNullOrWhiteSpace(package.ContractKey))
         {
-            return Rejected("Artifact topic is required.");
+            return Rejected("Artifact contract key is required.");
         }
 
         if (string.IsNullOrWhiteSpace(package.VersionNumber))
@@ -30,12 +30,12 @@ internal sealed class RuntimeContractDeploymentService(IRuntimeContractArtifactR
             return Rejected("Artifact content hash is required.");
         }
 
-        var existing = await runtimeArtifacts.GetByIdentity(package.ArtifactType, package.Topic, package.VersionNumber, cancellationToken);
+        var existing = await runtimeArtifacts.GetByIdentity(package.ArtifactType, package.ContractKey, package.VersionNumber, cancellationToken);
         if (existing is not null)
         {
             if (!string.Equals(existing.ContentHash, package.ContentHash, StringComparison.Ordinal))
             {
-                return Rejected($"Runtime artifact '{package.ArtifactType}:{package.Topic}@{package.VersionNumber}' already exists with a different hash.");
+                return Rejected($"Runtime artifact '{package.ArtifactType}:{package.ContractKey}@{package.VersionNumber}' already exists with a different hash.");
             }
 
             return new RuntimeArtifactDeploymentResult
@@ -43,7 +43,7 @@ internal sealed class RuntimeContractDeploymentService(IRuntimeContractArtifactR
                 Accepted = true,
                 RuntimeArtifactId = existing.Id.ToString("N"),
                 Status = "Ready",
-                Message = $"Artifact '{package.Topic}' v{package.VersionNumber} is already ready."
+                Message = $"Artifact '{package.ContractKey}' v{package.VersionNumber} is already ready."
             };
         }
 
@@ -56,7 +56,7 @@ internal sealed class RuntimeContractDeploymentService(IRuntimeContractArtifactR
             DefinitionId = package.DefinitionId,
             VersionId = package.VersionId,
             Name = package.Name,
-            Topic = package.Topic,
+            ContractKey = package.ContractKey,
             VersionNumber = package.VersionNumber,
             Description = package.Description,
             PayloadSchemaJson = package.PayloadSchemaJson,
@@ -70,7 +70,7 @@ internal sealed class RuntimeContractDeploymentService(IRuntimeContractArtifactR
             Accepted = true,
             RuntimeArtifactId = artifact.Id.ToString("N"),
             Status = "Ready",
-            Message = $"Artifact '{artifact.Topic}' v{artifact.VersionNumber} stored from '{sourceKey}'."
+            Message = $"Artifact '{artifact.ContractKey}' v{artifact.VersionNumber} stored from '{sourceKey}'."
         };
     }
 

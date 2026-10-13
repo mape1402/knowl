@@ -38,6 +38,11 @@ namespace KnOwl.RuntimeHost.Migrations.RuntimeStorage
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
 
+                    b.Property<string>("ContractKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<Guid>("DefinitionId")
                         .HasColumnType("uniqueidentifier");
 
@@ -62,11 +67,6 @@ namespace KnOwl.RuntimeHost.Migrations.RuntimeStorage
                     b.Property<Guid>("SourceReleaseId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("Topic")
-                        .IsRequired()
-                        .HasMaxLength(70)
-                        .HasColumnType("nvarchar(70)");
-
                     b.Property<Guid>("VersionId")
                         .HasColumnType("uniqueidentifier");
 
@@ -79,9 +79,9 @@ namespace KnOwl.RuntimeHost.Migrations.RuntimeStorage
 
                     b.HasIndex("SourceReleaseId");
 
-                    b.HasIndex("ArtifactType", "Topic", "DeployedAtUtc");
+                    b.HasIndex("ArtifactType", "ContractKey", "DeployedAtUtc");
 
-                    b.HasIndex("ArtifactType", "Topic", "VersionNumber")
+                    b.HasIndex("ArtifactType", "ContractKey", "VersionNumber")
                         .IsUnique();
 
                     b.ToTable("RuntimeContractArtifacts", (string)null);

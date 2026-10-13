@@ -258,8 +258,8 @@ public static class KnOwlControlPlaneApiEndpointRouteBuilderExtensions
         {
             var item = new EventDefinition
             {
+                Key = request.Key.Trim(),
                 Name = request.Name.Trim(),
-                Topic = request.Topic.Trim(),
                 Description = request.Description,
                 Versions =
                 {
@@ -283,7 +283,7 @@ public static class KnOwlControlPlaneApiEndpointRouteBuilderExtensions
                 return Results.NotFound();
             }
 
-            await service.UpdateDefinition(id, request.Name.Trim(), request.Topic.Trim(), request.Description, DateTime.UtcNow, cancellationToken);
+            await service.UpdateDefinition(id, request.Name.Trim(), request.Description, DateTime.UtcNow, cancellationToken);
             var updated = await service.GetById(id, includeVersions: true, cancellationToken);
             return Results.Ok(updated!.ToResponse());
         }).RequireKnOwlPolicy(authorization.EventsWritePolicy);
@@ -352,8 +352,8 @@ public static class KnOwlControlPlaneApiEndpointRouteBuilderExtensions
         {
             var item = new CommandDefinition
             {
+                Key = request.Key.Trim(),
                 Name = request.Name.Trim(),
-                Topic = request.Topic.Trim(),
                 Description = request.Description,
                 Versions =
                 {
@@ -378,7 +378,7 @@ public static class KnOwlControlPlaneApiEndpointRouteBuilderExtensions
                 return Results.NotFound();
             }
 
-            await service.UpdateDefinition(id, request.Name.Trim(), request.Topic.Trim(), request.Description, DateTime.UtcNow, cancellationToken);
+            await service.UpdateDefinition(id, request.Name.Trim(), request.Description, DateTime.UtcNow, cancellationToken);
             var updated = await service.GetById(id, includeVersions: true, cancellationToken);
             return Results.Ok(updated!.ToResponse());
         }).RequireKnOwlPolicy(authorization.CommandsWritePolicy);

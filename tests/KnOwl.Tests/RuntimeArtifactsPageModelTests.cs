@@ -36,8 +36,8 @@ public sealed class RuntimeArtifactsPageModelTests
     public async Task OnGetCommandFilterIncludesLogicalCommandArtifacts()
     {
         var model = new RuntimeArtifactsIndexModel(new InMemoryRuntimeContractCatalogService(
-            CreateArtifact(Guid.NewGuid(), Guid.NewGuid(), ContractArtifactType.Event, "Customer Registered", topic: "customer.registered"),
-            CreateArtifact(Guid.NewGuid(), Guid.NewGuid(), ContractArtifactType.Command, "Customer Register", topic: "customer.register")))
+            CreateArtifact(Guid.NewGuid(), Guid.NewGuid(), ContractArtifactType.Event, "Customer Registered", contractKey: "customer.registered"),
+            CreateArtifact(Guid.NewGuid(), Guid.NewGuid(), ContractArtifactType.Command, "Customer Register", contractKey: "customer.register")))
         {
             Type = "Command"
         };
@@ -58,14 +58,14 @@ public sealed class RuntimeArtifactsPageModelTests
             Guid.NewGuid(),
             ContractArtifactType.Event,
             "Shipment Created",
-            topic: "shipment.created");
+            contractKey: "shipment.created");
         matching.ContentHash = "abc123";
         var ignored = CreateArtifact(
             Guid.NewGuid(),
             Guid.NewGuid(),
             ContractArtifactType.Command,
             "Shipment Create",
-            topic: "shipment.create");
+            contractKey: "shipment.create");
         ignored.ContentHash = "xyz789";
         var model = new RuntimeArtifactsIndexModel(new InMemoryRuntimeContractCatalogService(matching, ignored))
         {
@@ -90,7 +90,7 @@ public sealed class RuntimeArtifactsPageModelTests
             Guid.NewGuid(),
             ContractArtifactType.Event,
             "Billing Event",
-            topic: "billing.event",
+            contractKey: "billing.event",
             versionNumber: "2.1.0");
         var model = new RuntimeArtifactsIndexModel(new InMemoryRuntimeContractCatalogService(artifact))
         {
@@ -124,7 +124,7 @@ public sealed class RuntimeArtifactsPageModelTests
         Guid versionId,
         ContractArtifactType artifactType,
         string name,
-        string topic = "customer.register",
+        string contractKey = "customer.register",
         string versionNumber = "1.0.0")
         => new()
         {
@@ -135,7 +135,7 @@ public sealed class RuntimeArtifactsPageModelTests
             DefinitionId = definitionId,
             VersionId = versionId,
             Name = name,
-            Topic = topic,
+            ContractKey = contractKey,
             VersionNumber = versionNumber,
             Description = "Runtime artifact.",
             PayloadSchemaJson = "{}",
@@ -153,13 +153,13 @@ public sealed class RuntimeArtifactsPageModelTests
             string topic,
             string versionNumber,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.Topic == topic && x.VersionNumber == versionNumber));
+            => Task.FromResult(artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.ContractKey == topic && x.VersionNumber == versionNumber));
 
         public Task<RuntimeContractArtifact?> GetLatest(
             ContractArtifactType artifactType,
             string topic,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(artifacts.Where(x => x.ArtifactType == artifactType && x.Topic == topic).OrderByDescending(x => x.DeployedAtUtc).FirstOrDefault());
+            => Task.FromResult(artifacts.Where(x => x.ArtifactType == artifactType && x.ContractKey == topic).OrderByDescending(x => x.DeployedAtUtc).FirstOrDefault());
 
         public Task<RuntimeContractArtifact?> GetEvent(
             string eventKey,

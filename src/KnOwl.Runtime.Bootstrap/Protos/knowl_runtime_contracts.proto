@@ -11,13 +11,13 @@ service RuntimeContracts {
 
 message RuntimeContractExactRequest {
   string artifact_type = 1;
-  string topic = 2;
+  string contract_key = 2;
   string version_number = 3;
 }
 
 message RuntimeContractLatestRequest {
   string artifact_type = 1;
-  string topic = 2;
+  string contract_key = 2;
 }
 
 message RuntimeContractResponse {
@@ -29,7 +29,7 @@ message RuntimeContractResponse {
   string definition_id = 6;
   string version_id = 7;
   string name = 8;
-  string topic = 9;
+  string contract_key = 9;
   string version_number = 10;
   string description = 11;
   string payload_schema_json = 12;

@@ -14,8 +14,6 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
     IContractFieldMetadataInteractionService metadataFields,
     KnOwlButterMorphDraftStore draftStore) : IButterMorphPayloadSchemaDesignerHost
 {
-    private const string TopicMetadataKey = "topic";
-
     /// <inheritdoc />
     public async Task<ButterMorphPayloadSchemaDesignerLoadResult> Load(ButterMorphPayloadSchemaDesignerLoadRequest request)
     {
@@ -24,7 +22,7 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
             Version = "1.0.0",
             ShowManualActions = false,
             SchemaTypes = await LoadTypeCatalogAsync(),
-            MetadataFields = await LoadMetadataCatalogAsync(request.ContextKey)
+            MetadataFields = await LoadMetadataCatalogAsync()
         };
 
         if (request.ContextKey.StartsWith("event:new:", StringComparison.OrdinalIgnoreCase))
@@ -112,7 +110,7 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
             return;
         }
 
-        result.Key = KnOwlButterMorphDefinitionMapper.NormalizeKey(entity.Name);
+        result.Key = entity.Key;
         result.Name = entity.Name;
         result.Description = entity.Description ?? string.Empty;
         result.Version = NextVersion(latest?.VersionNumber);
@@ -130,7 +128,7 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
         }
 
         var entity = version.EventDefinition;
-        result.Key = entity is null ? string.Empty : KnOwlButterMorphDefinitionMapper.NormalizeKey(entity.Name);
+        result.Key = entity?.Key ?? string.Empty;
         result.Name = entity?.Name ?? string.Empty;
         result.Description = entity?.Description ?? string.Empty;
         result.Version = version.VersionNumber;
@@ -146,7 +144,7 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
             return;
         }
 
-        result.Key = KnOwlButterMorphDefinitionMapper.NormalizeKey(entity.Name);
+        result.Key = entity.Key;
         result.Name = entity.Name;
         result.Description = entity.Description ?? string.Empty;
         result.Version = NextVersion(latest?.VersionNumber);
@@ -164,7 +162,7 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
         }
 
         var entity = version.CommandDefinition;
-        result.Key = entity is null ? string.Empty : KnOwlButterMorphDefinitionMapper.NormalizeKey(entity.Name);
+        result.Key = entity?.Key ?? string.Empty;
         result.Name = entity?.Name ?? string.Empty;
         result.Description = entity?.Description ?? string.Empty;
         result.Version = version.VersionNumber;
@@ -173,7 +171,7 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
 
     private static void ApplyCommandReplyLoadResult(ButterMorphPayloadSchemaDesignerLoadResult result, CommandDefinition entity, CommandVersion? latest)
     {
-        result.Key = $"{KnOwlButterMorphDefinitionMapper.NormalizeKey(entity.Name)}.reply";
+        result.Key = $"{entity.Key}.reply";
         result.Name = $"{entity.Name} Reply";
         result.Description = entity.Description ?? string.Empty;
         result.Version = NextVersion(latest?.VersionNumber);
@@ -192,7 +190,7 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
         }
 
         var entity = version.CommandDefinition;
-        result.Key = entity is null ? string.Empty : $"{KnOwlButterMorphDefinitionMapper.NormalizeKey(entity.Name)}.reply";
+        result.Key = entity is null ? string.Empty : $"{entity.Key}.reply";
         result.Name = entity is null ? string.Empty : $"{entity.Name} Reply";
         result.Description = entity?.Description ?? string.Empty;
         result.Version = version.VersionNumber;
@@ -416,21 +414,21 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
             return Failed("Event version is required.");
         }
 
-        if (!TryReadTopic(request.Definition, out var topic))
+        if (!TryReadDefinitionKey(request.Definition, out var key))
         {
-            return Failed("Event topic or schema key is required.");
+            return Failed("Event schema key is required.");
         }
 
-        if (topic.Length > 70)
+        if (key.Length > 100)
         {
-            return Failed("Event topic must be 70 characters or fewer.");
+            return Failed("Event schema key must be 100 characters or fewer.");
         }
 
         var now = DateTime.UtcNow;
         EventDefinition eventDefinition = new()
         {
             Name = request.Definition.Name.Trim(),
-            Topic = topic,
+            Key = key,
             Description = string.IsNullOrWhiteSpace(request.Definition.Description) ? null : request.Definition.Description.Trim(),
             CreatedAtUtc = now,
             UpdatedAtUtc = now
@@ -467,21 +465,21 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
             return Failed("Command version is required.");
         }
 
-        if (!TryReadTopic(request.Definition, out var topic))
+        if (!TryReadDefinitionKey(request.Definition, out var key))
         {
-            return Failed("Command topic or schema key is required.");
+            return Failed("Command schema key is required.");
         }
 
-        if (topic.Length > 70)
+        if (key.Length > 100)
         {
-            return Failed("Command topic must be 70 characters or fewer.");
+            return Failed("Command schema key must be 100 characters or fewer.");
         }
 
         var now = DateTime.UtcNow;
         CommandDefinition commandDefinition = new()
         {
             Name = request.Definition.Name.Trim(),
-            Topic = topic,
+            Key = key,
             Description = string.IsNullOrWhiteSpace(request.Definition.Description) ? null : request.Definition.Description.Trim(),
             CreatedAtUtc = now,
             UpdatedAtUtc = now
@@ -520,30 +518,10 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
             ? string.IsNullOrWhiteSpace(fallback) ? null : fallback.Trim()
             : comment.Trim();
 
-    private static bool TryReadTopic(PayloadSchemaDefinition definition, out string topic)
+    private static bool TryReadDefinitionKey(PayloadSchemaDefinition definition, out string key)
     {
-        topic = string.Empty;
-        if (!definition.Metadata.TryGetValue(TopicMetadataKey, out JsonElement element))
-        {
-            topic = definition.Key?.Trim() ?? string.Empty;
-            return !string.IsNullOrWhiteSpace(topic);
-        }
-
-        if (element.ValueKind == JsonValueKind.String)
-        {
-            topic = element.GetString()?.Trim() ?? string.Empty;
-            return !string.IsNullOrWhiteSpace(topic);
-        }
-
-        if (element.ValueKind == JsonValueKind.Object &&
-            element.TryGetProperty("value", out JsonElement value) &&
-            value.ValueKind == JsonValueKind.String)
-        {
-            topic = value.GetString()?.Trim() ?? string.Empty;
-            return !string.IsNullOrWhiteSpace(topic);
-        }
-
-        return false;
+        key = definition.Key?.Trim() ?? string.Empty;
+        return !string.IsNullOrWhiteSpace(key);
     }
 
     private async Task<IReadOnlyCollection<SchemaTypeCatalogItem>> LoadTypeCatalogAsync()
@@ -576,7 +554,7 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
             .ToList();
     }
 
-    private async Task<IReadOnlyCollection<FieldMetadataCatalogItem>> LoadMetadataCatalogAsync(string contextKey)
+    private async Task<IReadOnlyCollection<FieldMetadataCatalogItem>> LoadMetadataCatalogAsync()
     {
         var entities = await metadataFields.GetActive();
 
@@ -593,24 +571,7 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
             .Select(x => KnOwlButterMorphDefinitionMapper.ToCatalogItem(x.Entity, x.Version!))
             .ToList();
 
-        if (IsContractPayloadContext(contextKey) && items.All(x => !string.Equals(x.Key, TopicMetadataKey, StringComparison.OrdinalIgnoreCase)))
-        {
-            items.Insert(0, CreateTopicMetadataCatalogItem());
-        }
-
         return items;
-    }
-
-    private static bool IsContractPayloadContext(string contextKey)
-    {
-        return contextKey.StartsWith("event:new:", StringComparison.OrdinalIgnoreCase) ||
-            contextKey.StartsWith("command:new:", StringComparison.OrdinalIgnoreCase) ||
-            KnOwlButterMorphContext.TryReadGuid(contextKey, "command-create-request:new:", out _) ||
-            KnOwlButterMorphContext.TryReadGuid(contextKey, "event-version:new:", out _) ||
-            KnOwlButterMorphContext.TryReadGuid(contextKey, "event-version:edit:", out _) ||
-            KnOwlButterMorphContext.TryReadGuid(contextKey, "command-version:new:", out _) ||
-            KnOwlButterMorphContext.TryReadGuid(contextKey, "command-version-request:new:", out _) ||
-            KnOwlButterMorphContext.TryReadGuid(contextKey, "command-version-request:edit:", out _);
     }
 
     private static IReadOnlyCollection<SchemaTypeCatalogItem> CreateTemporalSystemCatalogItems()
@@ -644,22 +605,6 @@ public sealed class KnOwlPayloadSchemaDesignerHost(
             string.Equals(name, "DateTime", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(name, "Time", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(name, "TimeSpan", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static FieldMetadataCatalogItem CreateTopicMetadataCatalogItem()
-    {
-        return new FieldMetadataCatalogItem
-        {
-            Id = "knowl-topic",
-            Key = TopicMetadataKey,
-            Name = "Topic",
-            Description = "Message topic used by this contract.",
-            Version = "1.0.0",
-            DataType = "string",
-            IsRequired = false,
-            Validation = "{\"maxLength\":70}",
-            AppliesToJson = "[\"Schema\"]"
-        };
     }
 
     private static string NextVersion(string? version)

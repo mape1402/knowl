@@ -14,8 +14,8 @@ public class CommandDefinition
     public string Name { get; set; } = string.Empty;
 
     [Required]
-    [MaxLength(70)]
-    public string Topic { get; set; } = string.Empty;
+    [MaxLength(100)]
+    public string Key { get; set; } = string.Empty;
 
     public string? Description { get; set; }
 

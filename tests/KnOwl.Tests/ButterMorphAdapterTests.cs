@@ -403,35 +403,13 @@ public sealed class ButterMorphAdapterTests
     }
 
     [Fact]
-    public async Task PayloadSchemaHostAddsOptionalTopicMetadataForCommandSchemas()
+    public async Task PayloadSchemaHostLoadsActiveMetadataCatalogItems()
     {
-        var host = new KnOwlPayloadSchemaDesignerHost(
-            new EventInteractionStub(),
-            new CommandInteractionStub(),
-            new SchemaTypeInteractionStub(),
-            new MetadataInteractionStub(),
-            new KnOwlButterMorphDraftStore());
-
-        var result = await host.Load(new global::ButterMorph.Web.Razor.ButterMorphPayloadSchemaDesignerLoadRequest
-        {
-            ContextKey = KnOwlButterMorphContext.CommandNew()
-        });
-
-        var topic = Assert.Single(result.MetadataFields, x => x.Key == "topic");
-        Assert.Equal("Topic", topic.Name);
-        Assert.False(topic.IsRequired);
-        Assert.Equal("[\"Schema\"]", topic.AppliesToJson);
-        Assert.Contains("maxLength", topic.Validation, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task PayloadSchemaHostDoesNotDuplicateExistingTopicMetadata()
-    {
-        var existingTopic = new ContractFieldMetadataDefinition
+        var metadata = new ContractFieldMetadataDefinition
         {
             Id = Guid.NewGuid(),
-            Key = "topic",
-            Name = "Existing Topic",
+            Key = "contract-category",
+            Name = "Contract Category",
             IsActive = true,
             Versions =
             [
@@ -442,8 +420,8 @@ public sealed class ButterMorphAdapterTests
                     IsActive = true,
                     DefinitionJson = KnOwlButterMorphDefinitionMapper.SerializeCustomFieldDefinition(new CustomFieldDefinition
                     {
-                        Key = "topic",
-                        Name = "Existing Topic",
+                        Key = "contract-category",
+                        Name = "Contract Category",
                         Version = "1.0.0",
                         DataType = "string",
                         AppliesTo = ["Schema"],
@@ -456,7 +434,7 @@ public sealed class ButterMorphAdapterTests
             new EventInteractionStub(),
             new CommandInteractionStub(),
             new SchemaTypeInteractionStub(),
-            new MetadataInteractionStub([existingTopic]),
+            new MetadataInteractionStub([metadata]),
             new KnOwlButterMorphDraftStore());
 
         var result = await host.Load(new global::ButterMorph.Web.Razor.ButterMorphPayloadSchemaDesignerLoadRequest
@@ -464,68 +442,7 @@ public sealed class ButterMorphAdapterTests
             ContextKey = KnOwlButterMorphContext.CommandNew()
         });
 
-        var topic = Assert.Single(result.MetadataFields, x => x.Key == "topic");
-        Assert.Equal("Existing Topic", topic.Name);
-    }
-
-    [Fact]
-    public async Task PayloadSchemaHostDoesNotAddTopicMetadataForCommandReplySchemas()
-    {
-        var command = new CommandDefinition
-        {
-            Id = Guid.NewGuid(),
-            Name = "Customer Register",
-            Topic = "customer.register"
-        };
-        var host = new KnOwlPayloadSchemaDesignerHost(
-            new EventInteractionStub(),
-            new CommandInteractionStub { Entity = command },
-            new SchemaTypeInteractionStub(),
-            new MetadataInteractionStub(),
-            new KnOwlButterMorphDraftStore());
-
-        var result = await host.Load(new global::ButterMorph.Web.Razor.ButterMorphPayloadSchemaDesignerLoadRequest
-        {
-            ContextKey = KnOwlButterMorphContext.CommandVersionReplyDraft(command.Id)
-        });
-
-        Assert.DoesNotContain(result.MetadataFields, x => x.Key == "topic");
-    }
-
-    [Fact]
-    public async Task PayloadSchemaHostAddsOptionalTopicMetadataForNewCommandRequestSchemas()
-    {
-        var host = new KnOwlPayloadSchemaDesignerHost(
-            new EventInteractionStub(),
-            new CommandInteractionStub(),
-            new SchemaTypeInteractionStub(),
-            new MetadataInteractionStub(),
-            new KnOwlButterMorphDraftStore());
-
-        var result = await host.Load(new global::ButterMorph.Web.Razor.ButterMorphPayloadSchemaDesignerLoadRequest
-        {
-            ContextKey = KnOwlButterMorphContext.CommandCreateRequestDraft(Guid.NewGuid())
-        });
-
-        Assert.Contains(result.MetadataFields, x => x.Key == "topic");
-    }
-
-    [Fact]
-    public async Task PayloadSchemaHostDoesNotAddTopicMetadataForNewCommandReplySchemas()
-    {
-        var host = new KnOwlPayloadSchemaDesignerHost(
-            new EventInteractionStub(),
-            new CommandInteractionStub(),
-            new SchemaTypeInteractionStub(),
-            new MetadataInteractionStub(),
-            new KnOwlButterMorphDraftStore());
-
-        var result = await host.Load(new global::ButterMorph.Web.Razor.ButterMorphPayloadSchemaDesignerLoadRequest
-        {
-            ContextKey = KnOwlButterMorphContext.CommandCreateReplyDraft(Guid.NewGuid())
-        });
-
-        Assert.DoesNotContain(result.MetadataFields, x => x.Key == "topic");
+        Assert.Contains(result.MetadataFields, x => x.Key == "contract-category");
     }
 
     [Fact]
@@ -622,7 +539,7 @@ public sealed class ButterMorphAdapterTests
 
         Assert.True(result.Succeeded);
         var command = Assert.Single(commands.Created);
-        Assert.Equal("customer.register", command.Topic);
+        Assert.Equal("customer.register", command.Key);
     }
 
     [Fact]
@@ -640,7 +557,7 @@ public sealed class ButterMorphAdapterTests
                 {
                     Id = Guid.NewGuid(),
                     Name = "Customer Created",
-                    Topic = "customer.created"
+                    Key = "customer.created"
                 }
             }
         };
@@ -686,7 +603,7 @@ public sealed class ButterMorphAdapterTests
                 {
                     Id = Guid.NewGuid(),
                     Name = "Reserve Customer",
-                    Topic = "customer.reserve"
+                    Key = "customer.reserve"
                 }
             }
         };
@@ -736,7 +653,7 @@ public sealed class ButterMorphAdapterTests
             {
                 Id = eventId,
                 Name = "Customer Created",
-                Topic = "customer.created",
+                Key = "customer.created",
                 Description = "Created event",
                 Versions =
                 [
@@ -745,7 +662,7 @@ public sealed class ButterMorphAdapterTests
                         Id = eventVersionId,
                         VersionNumber = "1.0.0",
                         PayloadSchemaJson = payloadJson,
-                        EventDefinition = new EventDefinition { Id = eventId, Name = "Customer Created", Topic = "customer.created" }
+                        EventDefinition = new EventDefinition { Id = eventId, Name = "Customer Created", Key = "customer.created" }
                     }
                 ]
             },
@@ -755,7 +672,7 @@ public sealed class ButterMorphAdapterTests
                 VersionNumber = "1.0.0",
                 Comment = "Draft edit",
                 PayloadSchemaJson = payloadJson,
-                EventDefinition = new EventDefinition { Id = eventId, Name = "Customer Created", Topic = "customer.created" }
+                EventDefinition = new EventDefinition { Id = eventId, Name = "Customer Created", Key = "customer.created" }
             }
         };
         var commands = new CommandInteractionStub
@@ -764,7 +681,7 @@ public sealed class ButterMorphAdapterTests
             {
                 Id = commandId,
                 Name = "Create Customer",
-                Topic = "customer.create",
+                Key = "customer.create",
                 Description = "Create command",
                 Versions =
                 [
@@ -774,7 +691,7 @@ public sealed class ButterMorphAdapterTests
                         VersionNumber = "2.3.4",
                         PayloadSchemaJson = payloadJson,
                         ReplyPayloadSchemaJson = payloadJson,
-                        CommandDefinition = new CommandDefinition { Id = commandId, Name = "Create Customer", Topic = "customer.create" }
+                        CommandDefinition = new CommandDefinition { Id = commandId, Name = "Create Customer", Key = "customer.create" }
                     }
                 ]
             },
@@ -785,7 +702,7 @@ public sealed class ButterMorphAdapterTests
                 Comment = "Command edit",
                 PayloadSchemaJson = payloadJson,
                 ReplyPayloadSchemaJson = payloadJson,
-                CommandDefinition = new CommandDefinition { Id = commandId, Name = "Create Customer", Topic = "customer.create" }
+                CommandDefinition = new CommandDefinition { Id = commandId, Name = "Create Customer", Key = "customer.create" }
             }
         };
         var host = new KnOwlPayloadSchemaDesignerHost(
@@ -819,12 +736,12 @@ public sealed class ButterMorphAdapterTests
         var commandVersionId = Guid.NewGuid();
         var events = new EventInteractionStub
         {
-            Entity = new EventDefinition { Id = eventId, Name = "Customer Created", Topic = "customer.created" },
+            Entity = new EventDefinition { Id = eventId, Name = "Customer Created", Key = "customer.created" },
             Version = new EventVersion { Id = eventVersionId, Status = ContractVersionStatus.Draft }
         };
         var commands = new CommandInteractionStub
         {
-            Entity = new CommandDefinition { Id = commandId, Name = "Create Customer", Topic = "customer.create" },
+            Entity = new CommandDefinition { Id = commandId, Name = "Create Customer", Key = "customer.create" },
             Version = new CommandVersion
             {
                 Id = commandVersionId,
@@ -892,7 +809,7 @@ public sealed class ButterMorphAdapterTests
     }
 
     [Fact]
-    public async Task PayloadSchemaHostRejectsNewEventWithoutTopic()
+    public async Task PayloadSchemaHostRejectsNewEventWithoutKey()
     {
         var result = await CreatePayloadSchemaHost().Save(CreatePayloadSave(KnOwlButterMorphContext.EventNew(), "1.0.0", key: "   "));
 
@@ -900,24 +817,24 @@ public sealed class ButterMorphAdapterTests
     }
 
     [Fact]
-    public async Task PayloadSchemaHostRejectsNewEventWithOversizedTopic()
+    public async Task PayloadSchemaHostRejectsNewEventWithOversizedKey()
     {
-        var result = await CreatePayloadSchemaHost().Save(CreatePayloadSave(KnOwlButterMorphContext.EventNew(), "1.0.0", key: new string('a', 71)));
+        var result = await CreatePayloadSchemaHost().Save(CreatePayloadSave(KnOwlButterMorphContext.EventNew(), "1.0.0", key: new string('a', 101)));
 
         Assert.False(result.Succeeded);
     }
 
     [Fact]
-    public async Task PayloadSchemaHostCreatesNewEventWithTopicMetadata()
+    public async Task PayloadSchemaHostCreatesNewEventWithSchemaKey()
     {
         var events = new EventInteractionStub();
         var host = CreatePayloadSchemaHost(events: events);
 
-        var result = await host.Save(CreatePayloadSave(KnOwlButterMorphContext.EventNew(), "1.0.0", topicMetadata: "customer.created"));
+        var result = await host.Save(CreatePayloadSave(KnOwlButterMorphContext.EventNew(), "1.0.0", key: "customer.created"));
 
         Assert.True(result.Succeeded);
         Assert.Single(events.Created);
-        Assert.Equal("customer.created", events.Created.Single().Topic);
+        Assert.Equal("customer.created", events.Created.Single().Key);
     }
 
     [Fact]
@@ -937,24 +854,24 @@ public sealed class ButterMorphAdapterTests
     }
 
     [Fact]
-    public async Task PayloadSchemaHostRejectsNewCommandWithOversizedTopic()
+    public async Task PayloadSchemaHostRejectsNewCommandWithOversizedKey()
     {
-        var result = await CreatePayloadSchemaHost().Save(CreatePayloadSave(KnOwlButterMorphContext.CommandNew(), "1.0.0", key: new string('b', 71)));
+        var result = await CreatePayloadSchemaHost().Save(CreatePayloadSave(KnOwlButterMorphContext.CommandNew(), "1.0.0", key: new string('b', 101)));
 
         Assert.False(result.Succeeded);
     }
 
     [Fact]
-    public async Task PayloadSchemaHostCreatesNewCommandWithTopicMetadataObject()
+    public async Task PayloadSchemaHostCreatesNewCommandWithSchemaKey()
     {
         var commands = new CommandInteractionStub();
         var host = CreatePayloadSchemaHost(commands: commands);
 
-        var result = await host.Save(CreatePayloadSave(KnOwlButterMorphContext.CommandNew(), "1.0.0", topicMetadataObjectValue: "customer.create"));
+        var result = await host.Save(CreatePayloadSave(KnOwlButterMorphContext.CommandNew(), "1.0.0", key: "customer.create"));
 
         Assert.True(result.Succeeded);
         Assert.Single(commands.Created);
-        Assert.Equal("customer.create", commands.Created.Single().Topic);
+        Assert.Equal("customer.create", commands.Created.Single().Key);
     }
 
     [Fact]
@@ -1235,6 +1152,7 @@ public sealed class ButterMorphAdapterTests
         var eventDefinition = new EventDefinition
         {
             Id = eventId,
+            Key = "legacy-event",
             Name = "Legacy Event",
             Description = "Legacy event",
             Versions =
@@ -1250,6 +1168,7 @@ public sealed class ButterMorphAdapterTests
         var commandDefinition = new CommandDefinition
         {
             Id = commandId,
+            Key = "legacy-command",
             Name = "Legacy Command",
             Description = "Legacy command",
             Versions =
@@ -1340,8 +1259,8 @@ public sealed class ButterMorphAdapterTests
 
         Assert.Equal("1.0.0", newEvent.Version);
         Assert.Equal("1.0.0", newCommand.Version);
-        Assert.Contains(commandCreateRequest.MetadataFields, x => x.Key == "topic");
-        Assert.DoesNotContain(commandCreateReply.MetadataFields, x => x.Key == "topic");
+        Assert.Empty(commandCreateRequest.MetadataFields);
+        Assert.Empty(commandCreateReply.MetadataFields);
         Assert.Equal("legacy-event", eventVersion.Key);
         Assert.Equal("preview.1", eventVersion.Version);
         Assert.Equal("{not-json", eventEdit.JsonSchema);
@@ -1357,7 +1276,7 @@ public sealed class ButterMorphAdapterTests
     }
 
     [Fact]
-    public async Task PayloadSchemaHostCoversSaveFailuresForDraftEditsAndInvalidTopics()
+    public async Task PayloadSchemaHostCoversSaveFailuresForDraftEditsAndInvalidKeys()
     {
         var commandVersionId = Guid.NewGuid();
         var host = new KnOwlPayloadSchemaDesignerHost(
@@ -1380,23 +1299,7 @@ public sealed class ButterMorphAdapterTests
         var missingCommandRequest = await host.Save(CreatePayloadSave(KnOwlButterMorphContext.EditCommandVersionRequest(Guid.NewGuid()), "1.0.0"));
         var missingCommandReply = await host.Save(CreatePayloadSave(KnOwlButterMorphContext.EditCommandVersionReply(Guid.NewGuid()), "1.0.0"));
         var blockedCommandReply = await host.Save(CreatePayloadSave(KnOwlButterMorphContext.EditCommandVersionReply(commandVersionId), "1.0.0"));
-        var commandMissingTopic = await host.Save(CreatePayloadSave(KnOwlButterMorphContext.CommandNew(), "1.0.0", key: " "));
-        var invalidTopicDefinition = new PayloadSchemaDefinition
-        {
-            Key = "fallback",
-            Name = "Invalid Topic",
-            Version = "1.0.0",
-            Type = "object",
-            Metadata = new Dictionary<string, JsonElement>
-            {
-                ["topic"] = KnOwlButterMorphDefinitionMapper.ParseElement("""{"value":123}""")
-            }
-        };
-        var commandInvalidTopic = await host.Save(new ButterMorphPayloadSchemaDesignerSaveRequest
-        {
-            ContextKey = KnOwlButterMorphContext.CommandNew(),
-            Definition = invalidTopicDefinition
-        });
+        var commandMissingKey = await host.Save(CreatePayloadSave(KnOwlButterMorphContext.CommandNew(), "1.0.0", key: " "));
 
         Assert.False(missingEventVersion.Succeeded);
         Assert.Contains("not found", missingEventVersion.Message, StringComparison.OrdinalIgnoreCase);
@@ -1406,8 +1309,7 @@ public sealed class ButterMorphAdapterTests
         Assert.Equal("Command version not found.", missingCommandReply.Message);
         Assert.False(blockedCommandReply.Succeeded);
         Assert.Contains("Only draft command versions can be edited", blockedCommandReply.Message, StringComparison.Ordinal);
-        Assert.False(commandMissingTopic.Succeeded);
-        Assert.False(commandInvalidTopic.Succeeded);
+        Assert.False(commandMissingKey.Succeeded);
     }
 
     [Fact]
@@ -1692,9 +1594,7 @@ public sealed class ButterMorphAdapterTests
         string version,
         string? comment = null,
         string key = "customer.created",
-        string name = "Customer Created",
-        string? topicMetadata = null,
-        string? topicMetadataObjectValue = null)
+        string name = "Customer Created")
     {
         PayloadSchemaDefinition definition = new()
         {
@@ -1705,21 +1605,6 @@ public sealed class ButterMorphAdapterTests
             VersionComment = comment ?? string.Empty,
             Type = "object"
         };
-        Dictionary<string, JsonElement> metadata = [];
-        if (topicMetadata is not null)
-        {
-            metadata["topic"] = KnOwlButterMorphDefinitionMapper.ParseElement(JsonSerializer.Serialize(topicMetadata));
-        }
-
-        if (topicMetadataObjectValue is not null)
-        {
-            metadata["topic"] = KnOwlButterMorphDefinitionMapper.ParseElement($$"""{"value":{{JsonSerializer.Serialize(topicMetadataObjectValue)}}}""");
-        }
-
-        if (metadata.Count > 0)
-        {
-            definition.Metadata = metadata;
-        }
 
         return new global::ButterMorph.Web.Razor.ButterMorphPayloadSchemaDesignerSaveRequest
         {
@@ -1806,7 +1691,7 @@ public sealed class ButterMorphAdapterTests
         public Task<EventVersion?> GetVersionById(Guid versionId, CancellationToken cancellationToken = default) => Task.FromResult(Version?.Id == versionId ? Version : null);
         public Task<bool> VersionExists(Guid eventId, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(VersionExistsResult);
         public Task Create(EventDefinition eventDefinition, CancellationToken cancellationToken = default) { Created.Add(eventDefinition); return Task.CompletedTask; }
-        public Task UpdateDefinition(Guid id, string name, string topic, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpdateDefinition(Guid id, string name, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task AddVersion(Guid eventId, EventVersion version, CancellationToken cancellationToken = default) { AddedVersions.Add(version); return Task.CompletedTask; }
         public Task UpdateDraftVersion(Guid versionId, string payloadSchemaJson, string? comment, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
         {
@@ -1850,7 +1735,7 @@ public sealed class ButterMorphAdapterTests
             Created.Add(commandDefinition);
             return Task.CompletedTask;
         }
-        public Task UpdateDefinition(Guid id, string name, string topic, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpdateDefinition(Guid id, string name, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task AddVersion(Guid commandId, CommandVersion version, CancellationToken cancellationToken = default) { AddedVersions.Add(version); return Task.CompletedTask; }
         public Task UpdateDraftVersion(Guid versionId, string requestSchemaJson, string? replySchemaJson, string? comment, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
         {
@@ -2013,9 +1898,9 @@ public sealed class ButterMorphAdapterTests
         public Task<ContractArtifact?> GetById(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(_artifacts.FirstOrDefault(x => x.Id == id));
         public Task<IReadOnlyList<ContractArtifact>> GetByIds(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ContractArtifact>>(_artifacts.Where(x => ids.Contains(x.Id)).ToArray());
         public Task<ContractArtifact?> GetBySourceVersion(ContractArtifactType artifactType, Guid versionId, CancellationToken cancellationToken = default) => Task.FromResult(_artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.VersionId == versionId));
-        public Task<ContractArtifact?> GetByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(_artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.Topic == topic && x.VersionNumber == versionNumber));
-        public Task<ContractArtifact?> GetDeployedByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(_artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.Topic == topic && x.VersionNumber == versionNumber));
-        public Task<ContractArtifact?> GetLatestDeployed(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken = default) => Task.FromResult(_artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.Topic == topic));
+        public Task<ContractArtifact?> GetByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(_artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.ContractKey == topic && x.VersionNumber == versionNumber));
+        public Task<ContractArtifact?> GetDeployedByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(_artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.ContractKey == topic && x.VersionNumber == versionNumber));
+        public Task<ContractArtifact?> GetLatestDeployed(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken = default) => Task.FromResult(_artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.ContractKey == topic));
         public Task Create(ContractArtifact artifact, CancellationToken cancellationToken = default)
         {
             _artifacts.Add(artifact);

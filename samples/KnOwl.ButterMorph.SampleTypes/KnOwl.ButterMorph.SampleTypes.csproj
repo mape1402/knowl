@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>KnOwl.ButterMorph.SampleTypes</PackageId>
+    <Description>Sample C# custom language types for KnOwl ButterMorph type bundle validation.</Description>
+    <PackageTags>knowl;buttermorph;sample;custom-types;contracts</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ButterMorph.Contracts" Version="2.1.0" />
+  </ItemGroup>
+
+</Project>

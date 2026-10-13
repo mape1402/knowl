@@ -329,7 +329,7 @@ public sealed class ContractReleaseInteractionServiceTests
             DefinitionId = definitionId ?? Guid.NewGuid(),
             VersionId = versionId ?? Guid.NewGuid(),
             Name = topic,
-            Topic = topic,
+            ContractKey = topic,
             VersionNumber = version,
             PayloadSchemaJson = "{}",
             ContentHash = Guid.NewGuid().ToString("N"),
@@ -364,9 +364,9 @@ public sealed class ContractReleaseInteractionServiceTests
         public Task<ContractArtifact?> GetById(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(artifacts.FirstOrDefault(x => x.Id == id));
         public Task<IReadOnlyList<ContractArtifact>> GetByIds(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ContractArtifact>>(artifacts.Where(x => ids.Contains(x.Id)).ToList());
         public Task<ContractArtifact?> GetBySourceVersion(ContractArtifactType artifactType, Guid versionId, CancellationToken cancellationToken = default) => Task.FromResult(artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.VersionId == versionId));
-        public Task<ContractArtifact?> GetByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.Topic == topic && x.VersionNumber == versionNumber));
-        public Task<ContractArtifact?> GetDeployedByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(artifacts.FirstOrDefault(x => IsDeployed(x) && x.ArtifactType == artifactType && x.Topic == topic && x.VersionNumber == versionNumber));
-        public Task<ContractArtifact?> GetLatestDeployed(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken = default) => Task.FromResult(artifacts.Where(x => IsDeployed(x) && x.ArtifactType == artifactType && x.Topic == topic).OrderByDescending(x => x.CreatedAtUtc).FirstOrDefault());
+        public Task<ContractArtifact?> GetByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.ContractKey == topic && x.VersionNumber == versionNumber));
+        public Task<ContractArtifact?> GetDeployedByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(artifacts.FirstOrDefault(x => IsDeployed(x) && x.ArtifactType == artifactType && x.ContractKey == topic && x.VersionNumber == versionNumber));
+        public Task<ContractArtifact?> GetLatestDeployed(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken = default) => Task.FromResult(artifacts.Where(x => IsDeployed(x) && x.ArtifactType == artifactType && x.ContractKey == topic).OrderByDescending(x => x.CreatedAtUtc).FirstOrDefault());
         public Task Create(ContractArtifact artifact, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         private static bool IsDeployed(ContractArtifact artifact)
@@ -447,7 +447,7 @@ public sealed class ContractReleaseInteractionServiceTests
         public Task<bool> VersionExists(Guid eventId, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<EventVersion?> GetVersionById(Guid versionId, CancellationToken cancellationToken = default) => Task.FromResult<EventVersion?>(null);
         public Task Create(EventDefinition eventDefinition, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task UpdateDefinition(Guid id, string name, string topic, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpdateDefinition(Guid id, string name, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task AddVersion(Guid eventId, EventVersion version, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task UpdateVersionStatus(Guid versionId, ContractVersionStatus status, DateTime changedAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task Delete(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -460,7 +460,7 @@ public sealed class ContractReleaseInteractionServiceTests
         public Task<bool> VersionExists(Guid commandId, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<CommandVersion?> GetVersionById(Guid versionId, CancellationToken cancellationToken = default) => Task.FromResult<CommandVersion?>(null);
         public Task Create(CommandDefinition commandDefinition, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task UpdateDefinition(Guid id, string name, string topic, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpdateDefinition(Guid id, string name, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task AddVersion(Guid commandId, CommandVersion version, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task UpdateVersionStatus(Guid versionId, ContractVersionStatus status, DateTime changedAtUtc, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task Delete(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;

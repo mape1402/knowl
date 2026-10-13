@@ -22,8 +22,8 @@ public sealed class ControlPlaneApiEndpointTests
         using var http = CreateClient(app);
 
         using var response = await http.PostAsJsonAsync("/api/v1/control-plane/commands", new CreateCommandRequest(
-            "Reserve Inventory",
             "inventories.reserve",
+            "Reserve Inventory",
             "Reserve stock before checkout.",
             "1.0.0",
             "{\"type\":\"object\",\"properties\":{\"sku\":{\"type\":\"string\"}}}",
@@ -33,7 +33,7 @@ public sealed class ControlPlaneApiEndpointTests
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<CommandDefinitionResponse>();
         Assert.NotNull(body);
-        Assert.Equal("inventories.reserve", body.Topic);
+        Assert.Equal("inventories.reserve", body.Key);
         Assert.Single(body.Versions);
         Assert.Equal("{\"type\":\"object\",\"properties\":{\"sku\":{\"type\":\"string\"}}}", body.Versions[0].RequestDefinitionJson);
         Assert.Equal("{\"type\":\"object\",\"properties\":{\"accepted\":{\"type\":\"boolean\"}}}", body.Versions[0].ReplyDefinitionJson);
@@ -95,11 +95,10 @@ public sealed class ControlPlaneApiEndpointTests
             return Task.CompletedTask;
         }
 
-        public Task UpdateDefinition(Guid id, string name, string topic, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+        public Task UpdateDefinition(Guid id, string name, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
         {
             var item = Items.Single(x => x.Id == id);
             item.Name = name;
-            item.Topic = topic;
             item.Description = description;
             item.UpdatedAtUtc = updatedAtUtc;
             return Task.CompletedTask;

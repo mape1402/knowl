@@ -27,8 +27,8 @@ internal sealed class CommandInteractionService(ICommandRepository repository) :
         => repository.Create(commandDefinition, cancellationToken);
 
     /// <inheritdoc />
-    public Task UpdateDefinition(Guid id, string name, string topic, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
-        => repository.UpdateDefinition(id, name, topic, description, updatedAtUtc, cancellationToken);
+    public Task UpdateDefinition(Guid id, string name, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+        => repository.UpdateDefinition(id, name, description, updatedAtUtc, cancellationToken);
 
     /// <inheritdoc />
     public Task AddVersion(Guid commandId, CommandVersion version, CancellationToken cancellationToken = default)

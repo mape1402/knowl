@@ -37,7 +37,7 @@ public sealed class ContractPageModelPostCoverageTests
         var model = new CommandNewModel(commands)
         {
             DraftId = Guid.Empty,
-            PayloadSchemaJson = PayloadJson("register.customer", "Register Customer", "1.0.0", topicObjectValue: "commands.customer.register"),
+            PayloadSchemaJson = PayloadJson("register.customer", "Register Customer", "1.0.0"),
             ReplyPayloadSchemaJson = """{"type":"object","properties":{"accepted":{"type":"boolean"}}}"""
         };
 
@@ -46,7 +46,7 @@ public sealed class ContractPageModelPostCoverageTests
         var redirect = Assert.IsType<RedirectToPageResult>(result);
         Assert.Equal("/Contracts/Commands/View", redirect.PageName);
         var command = Assert.Single(commands.Commands);
-        Assert.Equal("commands.customer.register", command.Topic);
+        Assert.Equal("register.customer", command.Key);
         Assert.Equal("Register Customer", command.Name);
         var version = Assert.Single(command.Versions);
         Assert.Equal("1.0.0", version.VersionNumber);
@@ -118,33 +118,6 @@ public sealed class ContractPageModelPostCoverageTests
         Assert.Contains(nameof(CommandNewModel.PayloadSchemaJson), model.ModelState.Keys);
     }
 
-    [Fact]
-    public async Task CommandNewPostUsesStringTopicMetadata()
-    {
-        var commands = new CommandServiceFake();
-        var model = new CommandNewModel(commands)
-        {
-            PayloadSchemaJson = """
-                {
-                  "key": "register.customer",
-                  "name": "Register Customer",
-                  "description": "Payload description",
-                  "version": "1.0.0",
-                  "versionComment": "Initial",
-                  "type": "object",
-                  "metadata": {
-                    "topic": "commands.literal"
-                  }
-                }
-                """
-        };
-
-        var result = await model.OnPostAsync(CancellationToken.None);
-
-        Assert.IsType<RedirectToPageResult>(result);
-        Assert.Equal("commands.literal", Assert.Single(commands.Commands).Topic);
-    }
-
     [Theory]
     [InlineData("", "Register Customer", "1.0.0")]
     [InlineData("register.customer", "", "1.0.0")]
@@ -163,24 +136,16 @@ public sealed class ContractPageModelPostCoverageTests
     }
 
     [Fact]
-    public async Task CommandNewPostRejectsOversizedTopicAndInvalidTopicMetadata()
+    public async Task CommandNewPostRejectsOversizedKey()
     {
         var model = new CommandNewModel(new CommandServiceFake())
         {
-            PayloadSchemaJson = PayloadJson(new string('x', 71), "Register Customer", "1.0.0")
+            PayloadSchemaJson = PayloadJson(new string('x', 101), "Register Customer", "1.0.0")
         };
         var oversized = await model.OnPostAsync(CancellationToken.None);
 
-        var invalidTopic = new CommandNewModel(new CommandServiceFake())
-        {
-            PayloadSchemaJson = PayloadJson("register.customer", "Register Customer", "1.0.0", topicNumber: true)
-        };
-        var invalid = await invalidTopic.OnPostAsync(CancellationToken.None);
-
         Assert.IsType<PageResult>(oversized);
-        Assert.IsType<PageResult>(invalid);
         Assert.False(model.ModelState.IsValid);
-        Assert.False(invalidTopic.ModelState.IsValid);
     }
 
     [Fact]
@@ -781,9 +746,7 @@ public sealed class ContractPageModelPostCoverageTests
     private static string PayloadJson(
         string key,
         string name,
-        string version,
-        string? topicObjectValue = null,
-        bool topicNumber = false)
+        string version)
     {
         PayloadSchemaDefinition definition = new()
         {
@@ -795,27 +758,12 @@ public sealed class ContractPageModelPostCoverageTests
             Type = "object"
         };
 
-        if (topicObjectValue is not null)
-        {
-            definition.Metadata = new Dictionary<string, JsonElement>
-            {
-                ["topic"] = JsonSerializer.Deserialize<JsonElement>($$"""{"value":{{JsonSerializer.Serialize(topicObjectValue)}}}""")
-            };
-        }
-        else if (topicNumber)
-        {
-            definition.Metadata = new Dictionary<string, JsonElement>
-            {
-                ["topic"] = JsonSerializer.Deserialize<JsonElement>("123")
-            };
-        }
-
         return JsonSerializer.Serialize(definition, new JsonSerializerOptions(JsonSerializerDefaults.Web));
     }
 
-    private static CommandDefinition CreateCommand(string name, string topic, string version)
+    private static CommandDefinition CreateCommand(string name, string key, string version)
     {
-        var command = new CommandDefinition { Name = name, Topic = topic, Description = "Description" };
+        var command = new CommandDefinition { Name = name, Key = key, Description = "Description" };
         command.Versions.Add(new CommandVersion
         {
             CommandDefinitionId = command.Id,
@@ -827,9 +775,9 @@ public sealed class ContractPageModelPostCoverageTests
         return command;
     }
 
-    private static EventDefinition CreateEvent(string name, string topic, string version)
+    private static EventDefinition CreateEvent(string name, string key, string version)
     {
-        var eventDefinition = new EventDefinition { Name = name, Topic = topic, Description = "Description" };
+        var eventDefinition = new EventDefinition { Name = name, Key = key, Description = "Description" };
         eventDefinition.Versions.Add(new EventVersion
         {
             EventDefinitionId = eventDefinition.Id,
@@ -862,7 +810,7 @@ public sealed class ContractPageModelPostCoverageTests
             return Task.CompletedTask;
         }
 
-        public Task UpdateDefinition(Guid id, string name, string topic, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+        public Task UpdateDefinition(Guid id, string name, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
         public Task AddVersion(Guid commandId, CommandVersion version, CancellationToken cancellationToken = default)
@@ -899,7 +847,7 @@ public sealed class ContractPageModelPostCoverageTests
             return Task.CompletedTask;
         }
 
-        public Task UpdateDefinition(Guid id, string name, string topic, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
+        public Task UpdateDefinition(Guid id, string name, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
         public Task AddVersion(Guid eventId, EventVersion version, CancellationToken cancellationToken = default)

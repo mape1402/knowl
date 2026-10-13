@@ -42,15 +42,15 @@ public sealed class KnOwlRuntimeDbContext : DbContext
         {
             entity.ToTable("RuntimeContractArtifacts");
             entity.HasKey(x => x.Id);
-            entity.HasIndex(x => new { x.ArtifactType, x.Topic, x.VersionNumber }).IsUnique();
+            entity.HasIndex(x => new { x.ArtifactType, x.ContractKey, x.VersionNumber }).IsUnique();
             entity.HasIndex(x => x.SourceReleaseId);
-            entity.HasIndex(x => new { x.ArtifactType, x.Topic, x.DeployedAtUtc });
+            entity.HasIndex(x => new { x.ArtifactType, x.ContractKey, x.DeployedAtUtc });
             entity.Property(x => x.ArtifactType)
                 .HasConversion<string>()
                 .HasMaxLength(32)
                 .IsRequired();
             entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
-            entity.Property(x => x.Topic).HasMaxLength(70).IsRequired();
+            entity.Property(x => x.ContractKey).HasMaxLength(100).IsRequired();
             entity.Property(x => x.VersionNumber).HasMaxLength(13).IsRequired();
             entity.Property(x => x.PayloadSchemaJson).IsRequired();
             entity.Property(x => x.ContentHash).HasMaxLength(128).IsRequired();

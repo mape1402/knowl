@@ -40,7 +40,7 @@
     <div class="od-page-head">
         <div>
             <h1 class="od-page-title">@Model.Command?.Name</h1>
-            <p class="od-page-subtitle">@(string.IsNullOrWhiteSpace(Model.Command?.Topic) ? "Command" : Model.Command.Topic)</p>
+            <p class="od-page-subtitle">@(string.IsNullOrWhiteSpace(Model.Command?.Key) ? "Command" : Model.Command.Key)</p>
         </div>
         <div class="d-flex gap-2">
             <a class="btn btn-outline-secondary" asp-page="/Contracts/Commands/Index">Back</a>
@@ -63,7 +63,7 @@
         <section class="od-panel">
             <div class="contract-detail-summary">
                 <div><span class="event-meta-label">Name</span><p class="event-meta-value">@Model.Command.Name</p></div>
-                <div><span class="event-meta-label">Topic</span><p class="event-meta-value">@(string.IsNullOrWhiteSpace(Model.Command.Topic) ? "-" : Model.Command.Topic)</p></div>
+                <div><span class="event-meta-label">Key</span><p class="event-meta-value">@(string.IsNullOrWhiteSpace(Model.Command.Key) ? "-" : Model.Command.Key)</p></div>
                 <div><span class="event-meta-label">Versions</span><p class="event-meta-value">@Model.Command.Versions.Count</p></div>
             </div>
             <div class="mt-3">

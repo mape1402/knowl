@@ -52,9 +52,9 @@ public sealed class RuntimeArtifactDeliveryPackage
     public Guid VersionId { get; set; }
 
     /// <summary>
-    /// Gets or sets the contract topic.
+    /// Gets or sets the contract key.
     /// </summary>
-    public string Topic { get; set; } = string.Empty;
+    public string ContractKey { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the contract version number.

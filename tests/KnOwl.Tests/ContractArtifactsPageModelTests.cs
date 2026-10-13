@@ -74,14 +74,14 @@ public class ContractArtifactsPageModelTests
                 Guid.NewGuid(),
                 ContractArtifactType.Event,
                 "Billing Started",
-                topic: "billing.started",
+                contractKey: "billing.started",
                 description: "Billing workflow artifact."),
             CreateArtifact(
                 customerDefinitionId,
                 Guid.NewGuid(),
                 ContractArtifactType.Event,
                 "Customer Registered",
-                topic: "customer.registered",
+                contractKey: "customer.registered",
                 description: "Customer workflow artifact."));
         var model = new IndexModel(repository)
         {
@@ -107,14 +107,14 @@ public class ContractArtifactsPageModelTests
                 firstVersionId,
                 ContractArtifactType.Event,
                 "Customer Registered",
-                topic: "customer.registered",
+                contractKey: "customer.registered",
                 versionNumber: "1.0.0"),
             CreateArtifact(
                 definitionId,
                 secondVersionId,
                 ContractArtifactType.Event,
                 "Customer Registered",
-                topic: "customer.registered",
+                contractKey: "customer.registered",
                 versionNumber: "2.0.0"));
         var model = new IndexModel(repository)
         {
@@ -134,7 +134,7 @@ public class ContractArtifactsPageModelTests
         Guid versionId,
         ContractArtifactType artifactType,
         string name,
-        string topic = "customer.register",
+        string contractKey = "customer.register",
         string versionNumber = "1.0.0",
         string description = "Registers a customer.")
         => new()
@@ -144,7 +144,7 @@ public class ContractArtifactsPageModelTests
             DefinitionId = definitionId,
             VersionId = versionId,
             Name = name,
-            Topic = topic,
+            ContractKey = contractKey,
             VersionNumber = versionNumber,
             Description = description,
             PayloadSchemaJson = "{}",
@@ -161,7 +161,7 @@ public class ContractArtifactsPageModelTests
             DefinitionId = definitionId,
             VersionId = versionId,
             Name = "Customer Register",
-            Topic = "customer.register",
+            ContractKey = "customer.register",
             VersionNumber = "1.0.0",
             Description = "Registers a customer.",
             PayloadSchemaJson = CommandArtifactPayloadDocument.Compose(
@@ -192,13 +192,13 @@ public class ContractArtifactsPageModelTests
             => Task.FromResult(artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.VersionId == versionId));
 
         public Task<ContractArtifact?> GetByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default)
-            => Task.FromResult(artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.Topic == topic && x.VersionNumber == versionNumber));
+            => Task.FromResult(artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.ContractKey == topic && x.VersionNumber == versionNumber));
 
         public Task<ContractArtifact?> GetDeployedByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default)
-            => Task.FromResult(artifacts.FirstOrDefault(x => IsDeployed(x) && x.ArtifactType == artifactType && x.Topic == topic && x.VersionNumber == versionNumber));
+            => Task.FromResult(artifacts.FirstOrDefault(x => IsDeployed(x) && x.ArtifactType == artifactType && x.ContractKey == topic && x.VersionNumber == versionNumber));
 
         public Task<ContractArtifact?> GetLatestDeployed(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken = default)
-            => Task.FromResult(artifacts.Where(x => IsDeployed(x) && x.ArtifactType == artifactType && x.Topic == topic).OrderByDescending(x => x.CreatedAtUtc).FirstOrDefault());
+            => Task.FromResult(artifacts.Where(x => IsDeployed(x) && x.ArtifactType == artifactType && x.ContractKey == topic).OrderByDescending(x => x.CreatedAtUtc).FirstOrDefault());
 
         public Task Create(ContractArtifact artifact, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();

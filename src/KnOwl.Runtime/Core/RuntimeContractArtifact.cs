@@ -25,8 +25,8 @@ public sealed class RuntimeContractArtifact
     public string Name { get; set; } = string.Empty;
 
     [Required]
-    [MaxLength(70)]
-    public string Topic { get; set; } = string.Empty;
+    [MaxLength(100)]
+    public string ContractKey { get; set; } = string.Empty;
 
     [Required]
     [MaxLength(13)]

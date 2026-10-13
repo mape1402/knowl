@@ -58,15 +58,15 @@ public class NewModel(ICommandInteractionService commands) : PageModel
             return Page();
         }
 
-        if (!TryReadTopic(definition, out var topic))
+        if (!TryReadDefinitionKey(definition, out var key))
         {
-            ModelState.AddModelError(nameof(PayloadSchemaJson), "Command topic or schema key is required in the request schema.");
+            ModelState.AddModelError(nameof(PayloadSchemaJson), "Command schema key is required in the request schema.");
             return Page();
         }
 
-        if (topic.Length > 70)
+        if (key.Length > 100)
         {
-            ModelState.AddModelError(nameof(PayloadSchemaJson), "Command topic must be 70 characters or fewer.");
+            ModelState.AddModelError(nameof(PayloadSchemaJson), "Command schema key must be 100 characters or fewer.");
             return Page();
         }
 
@@ -87,7 +87,7 @@ public class NewModel(ICommandInteractionService commands) : PageModel
         CommandDefinition commandDefinition = new()
         {
             Name = definition.Name.Trim(),
-            Topic = topic,
+            Key = key,
             Description = string.IsNullOrWhiteSpace(definition.Description) ? null : definition.Description.Trim(),
             CreatedAtUtc = now,
             UpdatedAtUtc = now
@@ -151,29 +151,9 @@ public class NewModel(ICommandInteractionService commands) : PageModel
         }
     }
 
-    private static bool TryReadTopic(PayloadSchemaDefinition definition, out string topic)
+    private static bool TryReadDefinitionKey(PayloadSchemaDefinition definition, out string key)
     {
-        topic = string.Empty;
-        if (!definition.Metadata.TryGetValue("topic", out var element))
-        {
-            topic = definition.Key?.Trim() ?? string.Empty;
-            return !string.IsNullOrWhiteSpace(topic);
-        }
-
-        if (element.ValueKind == JsonValueKind.String)
-        {
-            topic = element.GetString()?.Trim() ?? string.Empty;
-            return !string.IsNullOrWhiteSpace(topic);
-        }
-
-        if (element.ValueKind == JsonValueKind.Object &&
-            element.TryGetProperty("value", out var valueElement) &&
-            valueElement.ValueKind == JsonValueKind.String)
-        {
-            topic = valueElement.GetString()?.Trim() ?? string.Empty;
-            return !string.IsNullOrWhiteSpace(topic);
-        }
-
-        return false;
+        key = definition.Key?.Trim() ?? string.Empty;
+        return !string.IsNullOrWhiteSpace(key);
     }
 }

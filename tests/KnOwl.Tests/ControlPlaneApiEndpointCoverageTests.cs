@@ -52,19 +52,19 @@ public sealed class ControlPlaneApiEndpointCoverageTests
         await AssertStatus(client.PatchAsJsonAsync($"/api/v1/control-plane/metadata-fields/{metadataId}/versions/{state.MetadataFields.Single(x => x.Id == metadataId).Versions.Last().Id}/active", new SetVersionActiveRequest(false)), HttpStatusCode.NoContent);
 
         await AssertStatus(client.GetAsync("/api/v1/control-plane/events/"), HttpStatusCode.OK);
-        await AssertStatus(client.PostAsJsonAsync("/api/v1/control-plane/events/", new CreateEventRequest(" Customer Created ", " customer.created ", "Created", " 1.0.0 ", "{}", "Initial")), HttpStatusCode.Created);
-        var eventId = state.Events.Single(x => x.Topic == "customer.created").Id;
-        await AssertStatus(client.PutAsJsonAsync($"/api/v1/control-plane/events/{eventId}", new UpdateEventRequest("Customer Changed", "customer.changed", "Updated")), HttpStatusCode.OK);
+        await AssertStatus(client.PostAsJsonAsync("/api/v1/control-plane/events/", new CreateEventRequest(" customer.created ", " Customer Created ", "Created", " 1.0.0 ", "{}", "Initial")), HttpStatusCode.Created);
+        var eventId = state.Events.Single(x => x.Key == "customer.created").Id;
+        await AssertStatus(client.PutAsJsonAsync($"/api/v1/control-plane/events/{eventId}", new UpdateEventRequest("Customer Changed", "Updated")), HttpStatusCode.OK);
         await AssertStatus(client.PostAsJsonAsync($"/api/v1/control-plane/events/{eventId}/versions", new CreateEventVersionRequest("1.1.0", "{}", "Minor")), HttpStatusCode.Created);
         await AssertStatus(client.PostAsJsonAsync($"/api/v1/control-plane/events/{eventId}/versions", new CreateEventVersionRequest("1.1.0", "{}", "Duplicate")), HttpStatusCode.Conflict);
         await AssertStatus(client.PostAsJsonAsync($"/api/v1/control-plane/events/{eventId}/versions/{state.Events.Single(x => x.Id == eventId).Versions.Last().Id}/transition", new TransitionVersionRequest(ContractVersionStatus.InReview)), HttpStatusCode.NoContent);
         await AssertStatus(client.DeleteAsync($"/api/v1/control-plane/events/{eventId}"), HttpStatusCode.NoContent);
 
         await AssertStatus(client.GetAsync("/api/v1/control-plane/commands/"), HttpStatusCode.OK);
-        await AssertStatus(client.PostAsJsonAsync("/api/v1/control-plane/commands/", new CreateCommandRequest(" Create Customer ", " customer.create ", "Create", " 1.0.0 ", "{}", "   ", "Initial")), HttpStatusCode.Created);
-        var commandId = state.Commands.Single(x => x.Topic == "customer.create").Id;
+        await AssertStatus(client.PostAsJsonAsync("/api/v1/control-plane/commands/", new CreateCommandRequest(" customer.create ", " Create Customer ", "Create", " 1.0.0 ", "{}", "   ", "Initial")), HttpStatusCode.Created);
+        var commandId = state.Commands.Single(x => x.Key == "customer.create").Id;
         Assert.Null(state.Commands.Single(x => x.Id == commandId).Versions.Single().ReplyPayloadSchemaJson);
-        await AssertStatus(client.PutAsJsonAsync($"/api/v1/control-plane/commands/{commandId}", new UpdateCommandRequest("Create Customer", "customer.create.v2", "Updated")), HttpStatusCode.OK);
+        await AssertStatus(client.PutAsJsonAsync($"/api/v1/control-plane/commands/{commandId}", new UpdateCommandRequest("Create Customer", "Updated")), HttpStatusCode.OK);
         await AssertStatus(client.PostAsJsonAsync($"/api/v1/control-plane/commands/{commandId}/versions", new CreateCommandVersionRequest("1.1.0", "{}", """{"type":"object"}""", "Minor")), HttpStatusCode.Created);
         await AssertStatus(client.PostAsJsonAsync($"/api/v1/control-plane/commands/{commandId}/versions", new CreateCommandVersionRequest("1.1.0", "{}", null, "Duplicate")), HttpStatusCode.Conflict);
         await AssertStatus(client.PostAsJsonAsync($"/api/v1/control-plane/commands/{commandId}/versions/{state.Commands.Single(x => x.Id == commandId).Versions.Last().Id}/transition", new TransitionVersionRequest(ContractVersionStatus.InReview)), HttpStatusCode.NoContent);
@@ -126,13 +126,13 @@ public sealed class ControlPlaneApiEndpointCoverageTests
         await AssertStatus(client.PutAsJsonAsync($"/api/v1/control-plane/metadata-fields/{secondMetadataId}", new UpdateMetadataFieldRequest("meta-one", "Duplicate", null, true)), HttpStatusCode.Conflict);
 
         await AssertStatus(client.GetAsync($"/api/v1/control-plane/events/{missing}"), HttpStatusCode.NotFound);
-        await AssertStatus(client.PutAsJsonAsync($"/api/v1/control-plane/events/{missing}", new UpdateEventRequest("Missing", "missing", null)), HttpStatusCode.NotFound);
+        await AssertStatus(client.PutAsJsonAsync($"/api/v1/control-plane/events/{missing}", new UpdateEventRequest("Missing", null)), HttpStatusCode.NotFound);
         await AssertStatus(client.PostAsJsonAsync($"/api/v1/control-plane/events/{missing}/versions", new CreateEventVersionRequest("1.0.0", "{}", null)), HttpStatusCode.NotFound);
         await AssertStatus(client.PostAsJsonAsync($"/api/v1/control-plane/events/{missing}/versions/{Guid.NewGuid()}/transition", new TransitionVersionRequest(ContractVersionStatus.InReview)), HttpStatusCode.NotFound);
         await AssertStatus(client.DeleteAsync($"/api/v1/control-plane/events/{missing}"), HttpStatusCode.NotFound);
 
         await AssertStatus(client.GetAsync($"/api/v1/control-plane/commands/{missing}"), HttpStatusCode.NotFound);
-        await AssertStatus(client.PutAsJsonAsync($"/api/v1/control-plane/commands/{missing}", new UpdateCommandRequest("Missing", "missing", null)), HttpStatusCode.NotFound);
+        await AssertStatus(client.PutAsJsonAsync($"/api/v1/control-plane/commands/{missing}", new UpdateCommandRequest("Missing", null)), HttpStatusCode.NotFound);
         await AssertStatus(client.PostAsJsonAsync($"/api/v1/control-plane/commands/{missing}/versions", new CreateCommandVersionRequest("1.0.0", "{}", null, null)), HttpStatusCode.NotFound);
         await AssertStatus(client.PostAsJsonAsync($"/api/v1/control-plane/commands/{missing}/versions/{Guid.NewGuid()}/transition", new TransitionVersionRequest(ContractVersionStatus.InReview)), HttpStatusCode.NotFound);
         await AssertStatus(client.DeleteAsync($"/api/v1/control-plane/commands/{missing}"), HttpStatusCode.NotFound);
@@ -279,7 +279,7 @@ public sealed class ControlPlaneApiEndpointCoverageTests
         Task<EventVersion?> IEventInteractionService.GetVersionById(Guid versionId, CancellationToken cancellationToken) => Task.FromResult(Events.SelectMany(x => x.Versions).FirstOrDefault(x => x.Id == versionId));
         Task<bool> IEventInteractionService.VersionExists(Guid eventId, string versionNumber, CancellationToken cancellationToken) => Task.FromResult(Events.First(x => x.Id == eventId).Versions.Any(x => x.VersionNumber == versionNumber));
         Task IEventInteractionService.Create(EventDefinition eventDefinition, CancellationToken cancellationToken) { eventDefinition.Id = Guid.NewGuid(); foreach (var version in eventDefinition.Versions) version.Id = Guid.NewGuid(); Events.Add(eventDefinition); return Task.CompletedTask; }
-        Task IEventInteractionService.UpdateDefinition(Guid id, string name, string topic, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken) { var item = Events.First(x => x.Id == id); item.Name = name; item.Topic = topic; item.Description = description; item.UpdatedAtUtc = updatedAtUtc; return Task.CompletedTask; }
+        Task IEventInteractionService.UpdateDefinition(Guid id, string name, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken) { var item = Events.First(x => x.Id == id); item.Name = name; item.Description = description; item.UpdatedAtUtc = updatedAtUtc; return Task.CompletedTask; }
         Task IEventInteractionService.AddVersion(Guid eventId, EventVersion version, CancellationToken cancellationToken) { version.Id = Guid.NewGuid(); Events.First(x => x.Id == eventId).Versions.Add(version); return Task.CompletedTask; }
         Task IEventInteractionService.Delete(Guid id, CancellationToken cancellationToken) { Events.First(x => x.Id == id).IsActive = false; return Task.CompletedTask; }
 
@@ -288,7 +288,7 @@ public sealed class ControlPlaneApiEndpointCoverageTests
         Task<CommandVersion?> ICommandInteractionService.GetVersionById(Guid versionId, CancellationToken cancellationToken) => Task.FromResult(Commands.SelectMany(x => x.Versions).FirstOrDefault(x => x.Id == versionId));
         Task<bool> ICommandInteractionService.VersionExists(Guid commandId, string versionNumber, CancellationToken cancellationToken) => Task.FromResult(Commands.First(x => x.Id == commandId).Versions.Any(x => x.VersionNumber == versionNumber));
         Task ICommandInteractionService.Create(CommandDefinition commandDefinition, CancellationToken cancellationToken) { commandDefinition.Id = Guid.NewGuid(); foreach (var version in commandDefinition.Versions) version.Id = Guid.NewGuid(); Commands.Add(commandDefinition); return Task.CompletedTask; }
-        Task ICommandInteractionService.UpdateDefinition(Guid id, string name, string topic, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken) { var item = Commands.First(x => x.Id == id); item.Name = name; item.Topic = topic; item.Description = description; item.UpdatedAtUtc = updatedAtUtc; return Task.CompletedTask; }
+        Task ICommandInteractionService.UpdateDefinition(Guid id, string name, string? description, DateTime updatedAtUtc, CancellationToken cancellationToken) { var item = Commands.First(x => x.Id == id); item.Name = name; item.Description = description; item.UpdatedAtUtc = updatedAtUtc; return Task.CompletedTask; }
         Task ICommandInteractionService.AddVersion(Guid commandId, CommandVersion version, CancellationToken cancellationToken) { version.Id = Guid.NewGuid(); Commands.First(x => x.Id == commandId).Versions.Add(version); return Task.CompletedTask; }
         Task ICommandInteractionService.Delete(Guid id, CancellationToken cancellationToken) { Commands.First(x => x.Id == id).IsActive = false; return Task.CompletedTask; }
 
@@ -301,9 +301,9 @@ public sealed class ControlPlaneApiEndpointCoverageTests
         Task<ContractArtifact?> IContractArtifactRepository.GetById(Guid id, CancellationToken cancellationToken) => Task.FromResult(Artifacts.FirstOrDefault(x => x.Id == id));
         Task<IReadOnlyList<ContractArtifact>> IContractArtifactRepository.GetByIds(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<ContractArtifact>>(Artifacts.Where(x => ids.Contains(x.Id)).ToList());
         Task<ContractArtifact?> IContractArtifactRepository.GetBySourceVersion(ContractArtifactType artifactType, Guid versionId, CancellationToken cancellationToken) => Task.FromResult(Artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.VersionId == versionId));
-        Task<ContractArtifact?> IContractArtifactRepository.GetByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken) => Task.FromResult(Artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.Topic == topic && x.VersionNumber == versionNumber));
-        Task<ContractArtifact?> IContractArtifactRepository.GetDeployedByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken) => Task.FromResult(Artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.Topic == topic && x.VersionNumber == versionNumber));
-        Task<ContractArtifact?> IContractArtifactRepository.GetLatestDeployed(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken) => Task.FromResult(Artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.Topic == topic));
+        Task<ContractArtifact?> IContractArtifactRepository.GetByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken) => Task.FromResult(Artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.ContractKey == topic && x.VersionNumber == versionNumber));
+        Task<ContractArtifact?> IContractArtifactRepository.GetDeployedByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken) => Task.FromResult(Artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.ContractKey == topic && x.VersionNumber == versionNumber));
+        Task<ContractArtifact?> IContractArtifactRepository.GetLatestDeployed(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken) => Task.FromResult(Artifacts.FirstOrDefault(x => x.ArtifactType == artifactType && x.ContractKey == topic));
         Task IContractArtifactRepository.Create(ContractArtifact artifact, CancellationToken cancellationToken) { Artifacts.Add(artifact); return Task.CompletedTask; }
         Task<IReadOnlyList<ContractArtifact>> IControlPlaneContractCatalogService.GetAll(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<ContractArtifact>>(Artifacts);
         Task<ContractArtifact?> IControlPlaneContractCatalogService.GetExact(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken) => Task.FromResult(Artifacts.FirstOrDefault());
@@ -383,7 +383,7 @@ public sealed class ControlPlaneApiEndpointCoverageTests
                 DefinitionId = Guid.NewGuid(),
                 VersionId = versionId ?? Guid.NewGuid(),
                 Name = "Customer Created",
-                Topic = "customer.created",
+                ContractKey = "customer.created",
                 VersionNumber = "1.0.0",
                 PayloadSchemaJson = "{}",
                 ContentHash = Guid.NewGuid().ToString("N"),

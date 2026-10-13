@@ -51,7 +51,7 @@ public sealed class RuntimeContractDeploymentServiceTests
         runtime.Items.Add(new RuntimeContractArtifact
         {
             ArtifactType = ContractArtifactType.Event,
-            Topic = "customer.created",
+            ContractKey = "customer.created",
             VersionNumber = "1.0.0",
             ContentHash = "hash-a",
             Name = "customer.created",
@@ -74,19 +74,19 @@ public sealed class RuntimeContractDeploymentServiceTests
         using var provider = CreateProvider(new RuntimeArtifactRepository());
         var service = provider.GetRequiredService<IRuntimeContractDeploymentService>();
 
-        var missingTopic = CreatePackage("hash-a");
-        missingTopic.Topic = " ";
+        var missingContractKey = CreatePackage("hash-a");
+        missingContractKey.ContractKey = " ";
         var missingVersion = CreatePackage("hash-a");
         missingVersion.VersionNumber = " ";
         var missingHash = CreatePackage("hash-a");
         missingHash.ContentHash = " ";
 
-        var topicResult = await service.DeployArtifact(missingTopic, "control-plane");
+        var topicResult = await service.DeployArtifact(missingContractKey, "control-plane");
         var versionResult = await service.DeployArtifact(missingVersion, "control-plane");
         var hashResult = await service.DeployArtifact(missingHash, "control-plane");
 
         Assert.False(topicResult.Accepted);
-        Assert.Contains("topic", topicResult.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("contract key", topicResult.Message, StringComparison.OrdinalIgnoreCase);
         Assert.False(versionResult.Accepted);
         Assert.Contains("version", versionResult.Message, StringComparison.OrdinalIgnoreCase);
         Assert.False(hashResult.Accepted);
@@ -100,7 +100,7 @@ public sealed class RuntimeContractDeploymentServiceTests
         runtime.Items.Add(new RuntimeContractArtifact
         {
             ArtifactType = ContractArtifactType.Event,
-            Topic = "customer.created",
+            ContractKey = "customer.created",
             VersionNumber = "1.0.0",
             ContentHash = "hash-a",
             Name = "customer.created",
@@ -110,7 +110,7 @@ public sealed class RuntimeContractDeploymentServiceTests
         runtime.Items.Add(new RuntimeContractArtifact
         {
             ArtifactType = ContractArtifactType.Event,
-            Topic = "customer.created",
+            ContractKey = "customer.created",
             VersionNumber = "1.1.0",
             ContentHash = "hash-b",
             Name = "customer.created",
@@ -135,7 +135,7 @@ public sealed class RuntimeContractDeploymentServiceTests
         runtime.Items.Add(new RuntimeContractArtifact
         {
             ArtifactType = ContractArtifactType.Command,
-            Topic = "customer.register",
+            ContractKey = "customer.register",
             VersionNumber = "1.0.0",
             ContentHash = "hash-command",
             Name = "Register Customer",
@@ -164,7 +164,7 @@ public sealed class RuntimeContractDeploymentServiceTests
         var request = new RuntimeContractArtifact
         {
             ArtifactType = ContractArtifactType.CommandRequest,
-            Topic = "customer.legacy",
+            ContractKey = "customer.legacy",
             VersionNumber = "1.0.0",
             ContentHash = "hash-request",
             Name = "Legacy Request",
@@ -173,7 +173,7 @@ public sealed class RuntimeContractDeploymentServiceTests
         var reply = new RuntimeContractArtifact
         {
             ArtifactType = ContractArtifactType.CommandReply,
-            Topic = "customer.legacy",
+            ContractKey = "customer.legacy",
             VersionNumber = "1.0.0",
             ContentHash = "hash-reply",
             Name = "Legacy Reply",
@@ -206,7 +206,7 @@ public sealed class RuntimeContractDeploymentServiceTests
             DefinitionId = Guid.NewGuid(),
             VersionId = Guid.NewGuid(),
             Name = "customer.created",
-            Topic = "customer.created",
+            ContractKey = "customer.created",
             VersionNumber = "1.0.0",
             PayloadSchemaJson = "{}",
             ContentHash = hash,
@@ -229,8 +229,8 @@ public sealed class RuntimeContractDeploymentServiceTests
     {
         public List<RuntimeContractArtifact> Items { get; } = [];
         public Task<IReadOnlyList<RuntimeContractArtifact>> GetAll(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<RuntimeContractArtifact>>(Items);
-        public Task<RuntimeContractArtifact?> GetByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(Items.FirstOrDefault(x => x.ArtifactType == artifactType && x.Topic == topic && x.VersionNumber == versionNumber));
-        public Task<RuntimeContractArtifact?> GetLatest(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken = default) => Task.FromResult(Items.Where(x => x.ArtifactType == artifactType && x.Topic == topic).OrderByDescending(x => x.DeployedAtUtc).FirstOrDefault());
+        public Task<RuntimeContractArtifact?> GetByIdentity(ContractArtifactType artifactType, string topic, string versionNumber, CancellationToken cancellationToken = default) => Task.FromResult(Items.FirstOrDefault(x => x.ArtifactType == artifactType && x.ContractKey == topic && x.VersionNumber == versionNumber));
+        public Task<RuntimeContractArtifact?> GetLatest(ContractArtifactType artifactType, string topic, CancellationToken cancellationToken = default) => Task.FromResult(Items.Where(x => x.ArtifactType == artifactType && x.ContractKey == topic).OrderByDescending(x => x.DeployedAtUtc).FirstOrDefault());
 
         public Task Create(RuntimeContractArtifact artifact, CancellationToken cancellationToken = default)
         {

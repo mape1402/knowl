@@ -14,20 +14,20 @@ public interface IRuntimeContractCatalogService
     Task<IReadOnlyList<RuntimeContractArtifact>> GetAll(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gets one artifact by type, topic and exact version number.
+    /// Gets one artifact by type, contract key and exact version number.
     /// </summary>
     Task<RuntimeContractArtifact?> GetExact(
         ContractArtifactType artifactType,
-        string topic,
+        string contractKey,
         string versionNumber,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gets the latest deployed artifact by type and topic.
+    /// Gets the latest deployed artifact by type and contract key.
     /// </summary>
     Task<RuntimeContractArtifact?> GetLatest(
         ContractArtifactType artifactType,
-        string topic,
+        string contractKey,
         CancellationToken cancellationToken = default);
 
     /// <summary>
