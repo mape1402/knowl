@@ -1,6 +1,12 @@
-namespace KnOwl.ButterMorph.SampleTypes;
-
 using global::ButterMorph.Contracts;
+
+[assembly: ButterMorphLanguageTypeBundle(
+    "knowl-sample-contract-types",
+    "csharp",
+    Version = "1.0.0",
+    Description = "Sample C# value objects and enums for validating KnOwl type bundles and mappings.")]
+
+namespace KnOwl.ButterMorph.SampleTypes;
 
 /// <summary>
 /// Stable customer identifier used by sample contracts.
