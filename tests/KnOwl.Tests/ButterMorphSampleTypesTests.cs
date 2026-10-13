@@ -8,9 +8,10 @@ public sealed class ButterMorphSampleTypesTests
     [Fact]
     public void SampleTypesAssemblyIsDiscoverableAsButterMorphBundle()
     {
-        ReflectionButterMorphLanguageTypeBundleDiscovery discovery = new();
+        MetadataButterMorphLanguageTypeBundleDiscovery discovery = new();
 
-        var result = discovery.Discover(typeof(KnOwlSampleLanguageTypeBundle).Assembly);
+        using var assemblyStream = File.OpenRead(typeof(CustomerCode).Assembly.Location);
+        var result = discovery.Discover(assemblyStream, "KnOwl.ButterMorph.SampleTypes.dll");
 
         Assert.True(result.Succeeded, string.Join(Environment.NewLine, result.Diagnostics));
         Assert.Empty(result.Diagnostics);

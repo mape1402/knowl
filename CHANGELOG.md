@@ -1,5 +1,11 @@
 # Changelog
 
+## [v2.4.0]
+
+- Updates ButterMorph dependencies to `2.1.1` across the Control Plane Web UI, Control Plane bootstrap package, and KnOwl ButterMorph sample type bundle.
+- Aligns the sample type bundle with ButterMorph's metadata-only assembly discovery model by declaring bundle metadata with `ButterMorphLanguageTypeBundleAttribute`.
+- Validates the sample bundle scanner flow against ButterMorph's assembly load fix so uploaded type bundles can be inspected without loading provider classes into the host runtime.
+
 ## [v2.3.0]
 
 - Adds a host-configurable WolfAuth feature flag through `KnOwl:WolfAuth:Enabled`, defaulting to `true`, so hosts can disable KnOwl's WolfAuth login gate per environment without removing WolfAuth provider configuration.

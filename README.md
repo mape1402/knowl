@@ -22,6 +22,7 @@ The goal is to keep product hosts thin. Your app owns the executable project, co
 - Navigate reusable Web UI screens with card-based browsing, searchable operational lists, and version details.
 - Browse Markdown documentation spaces, topics, pages, and page versions from the Control Plane UI.
 - Render Documentation Markdown with a navigable page index, in-page search, and Mermaid diagrams with zoom, pan, and expanded-view controls.
+- Manage ButterMorph language type bundles and type mappings for schema viewers and generated language-specific contract models.
 - Theme Control Plane and Runtime hosts with light and dark palettes, custom titles, icons, and sidebar branding.
 - Keep host-specific database migrations outside the reusable NuGet libraries.
 
@@ -126,9 +127,10 @@ dotnet ef migrations add InitialKnOwlControlPlane `
 dotnet ef database update --context KnOwlDbContext
 ```
 
-Run the host and open the Control Plane UI. From there you can create data types, custom metadata fields, events, commands, versions, artifacts, runtime environments, runtime nodes, and releases.
+Run the host and open the Control Plane UI. From there you can create data types, custom metadata fields, type bundles, type mappings, events, commands, versions, artifacts, runtime environments, runtime nodes, and releases.
 Control Plane list and detail screens include query-string search for contracts, versions, artifacts, releases, environments, and runtime node setup, so teams can filter large catalogs without custom host code.
 Documentation pages include rendered-text search with highlighted matches and previous/next navigation. Mermaid diagrams render directly from fenced Markdown blocks and include zoom out, reset, zoom in, and expanded-view controls without requiring host-specific JavaScript.
+ButterMorph `2.1.1` powers the reusable schema designers, viewers, language type bundle discovery, and type mapping surfaces. Uploaded type bundle assemblies are inspected through ButterMorph's metadata-only discovery path so bundle metadata can be scanned without loading provider classes into the host runtime.
 
 The bootstrap package also maps the Control Plane REST API at `/api/v1/control-plane`.
 
@@ -484,7 +486,7 @@ dotnet build KnOwl.slnx --no-restore --configuration Release
 dotnet test KnOwl.slnx --no-build --configuration Release
 ```
 
-The test suite is intentionally granular. It includes focused unit coverage for public contract shapes, API mappers, token providers, page models, WolfAuth integration, distribution credential security, storage repositories, distribution flows, Documentation rendering, and Runtime behavior. The current release validates 2,939 xUnit cases on both `net9.0` and `net10.0` with 99%+ line coverage.
+The test suite is intentionally granular. It includes focused unit coverage for public contract shapes, API mappers, token providers, page models, WolfAuth integration, ButterMorph host adapters, distribution credential security, storage repositories, distribution flows, Documentation rendering, and Runtime behavior. The current release validates the suite on both `net9.0` and `net10.0` with 99%+ line coverage.
 
 Pack the libraries:
 
@@ -504,4 +506,4 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-knowl-distributi
 
 The release workflow builds, tests, packs, creates the GitHub release, and publishes NuGet packages. Production releases are driven by `.release` and `CHANGELOG.md`.
 
-Current release: `2.3.0`
+Current release: `2.4.0`

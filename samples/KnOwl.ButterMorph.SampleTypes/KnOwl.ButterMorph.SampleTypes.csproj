@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="ButterMorph.Contracts" Version="2.1.0" />
+    <PackageReference Include="ButterMorph.Contracts" Version="2.1.1" />
   </ItemGroup>
 
 </Project>
