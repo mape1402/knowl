@@ -1,0 +1,111 @@
+@page
+@model KnOwl.ControlPlane.WebUI.Pages.Contracts.TypeBundles.IndexModel
+@{
+    ViewData["Title"] = "Type Bundles";
+    var newBundleUrl = "/buttermorph/language-type-bundles/designer?mode=create&popup=true";
+}
+
+<div class="od-page-head">
+    <div>
+        <h1 class="od-page-title">Type Bundles</h1>
+        <p class="od-page-subtitle">Language-native custom type bundles available to ButterMorph mappings.</p>
+    </div>
+    <button type="button"
+            class="btn btn-primary"
+            data-buttermorph-url="@newBundleUrl"
+            data-buttermorph-title="New type bundle">
+        <i class="bi bi-plus-lg"></i> New type bundle
+    </button>
+</div>
+
+<form method="get" class="od-search-bar">
+    <label class="od-search-field" for="type-bundles-search">
+        <span>Search type bundles</span>
+        <input id="type-bundles-search" name="search" value="@Model.Search" class="form-control" placeholder="Assembly, language, version, description, status" />
+    </label>
+    <button type="submit" class="btn btn-secondary"><i class="bi bi-search"></i> Search</button>
+    @if (!string.IsNullOrWhiteSpace(Model.Search))
+    {
+        <a class="btn btn-secondary" asp-page="/Contracts/TypeBundles/Index">Clear</a>
+        <span class="od-search-count">@Model.Items.Count of @Model.TotalItems</span>
+    }
+</form>
+
+@Html.AntiForgeryToken()
+
+<section class="od-list-shell">
+    @if (Model.Items.Count == 0)
+    {
+        <p class="od-empty">@(string.IsNullOrWhiteSpace(Model.Search) ? "No type bundles found." : "No type bundles match the current search.")</p>
+    }
+    else
+    {
+        <div class="od-grid">
+            @foreach (var item in Model.Items)
+            {
+                <article class="od-item-card">
+                    <div class="od-item-top">
+                        <div>
+                            <h2 class="od-item-title">@item.AssemblyKey</h2>
+                            <p class="od-item-meta">@item.AssemblyId</p>
+                        </div>
+                        <div class="d-flex align-items-start gap-2">
+                            <span class="od-status @(item.IsActive ? "od-status-active" : "od-status-inactive")">@(item.IsActive ? "Active" : "Inactive")</span>
+                            <div class="dropdown">
+                                <button class="od-kebab" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Type bundle actions">&#8942;</button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    @if (item.IsActive)
+                                    {
+                                        <li>
+                                            <form method="post" asp-page-handler="Deactivate" asp-route-id="@item.Id" class="od-inline-form" data-status-transition-form data-confirm-title="Deactivate type bundle" data-confirm-message="Deactivate @item.AssemblyKey?" data-confirm-label="Deactivate">
+                                                <button type="submit" class="dropdown-item text-danger">Deactivate</button>
+                                            </form>
+                                        </li>
+                                    }
+                                    else
+                                    {
+                                        <li><span class="dropdown-item-text">No actions</span></li>
+                                    }
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="od-item-description">@(string.IsNullOrWhiteSpace(item.Description) ? "No description." : item.Description)</p>
+                    <div class="od-card-footer">
+                        <span>@item.LanguageKey</span>
+                        <span>@item.TypeCount types</span>
+                        <span>@item.AssemblyVersion</span>
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</section>
+
+@section Scripts {
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-host.js"></script>
+    <script src="~/_content/KnOwl.ControlPlane.WebUI/js/buttermorph-knowl-host.js" asp-append-version="true"></script>
+    <script>
+        (() => {
+            const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value || "";
+            window.addEventListener("message", async event => {
+                if (event.origin !== window.location.origin || !event.data || event.data.type !== "ButterMorphLanguageTypeBundleSaved") {
+                    return;
+                }
+
+                const response = await fetch("@Url.Page("/Contracts/TypeBundles/Index", "SaveBundle")", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "RequestVerificationToken": token
+                    },
+                    body: JSON.stringify(event.data.bundle || {})
+                });
+
+                if (response.ok) {
+                    window.location.reload();
+                }
+            });
+        })();
+    </script>
+}

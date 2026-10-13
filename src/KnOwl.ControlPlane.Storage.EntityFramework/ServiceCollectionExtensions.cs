@@ -25,6 +25,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICommandRepository, CommandRepository>();
         services.AddScoped<ISchemaTypeRepository, SchemaTypeRepository>();
         services.AddScoped<IContractFieldMetadataRepository, ContractFieldMetadataRepository>();
+        services.AddScoped<ILanguageTypeMappingRepository, LanguageTypeMappingRepository>();
+        services.AddScoped<ILanguageTypeBundleRepository, LanguageTypeBundleRepository>();
         return services;
     }
 }

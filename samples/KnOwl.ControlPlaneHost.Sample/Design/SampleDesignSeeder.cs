@@ -1,6 +1,8 @@
 using System.Text.Json;
 using KnOwl.ControlPlane.Application;
 using KnOwl.ControlPlane.Design.Core;
+using KnOwl.ControlPlane.Storage.EntityFramework.Design.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace KnOwl.ControlPlaneHost.Sample.Design;
 
@@ -10,7 +12,13 @@ internal static class SampleDesignSeeder
 
     public static async Task Initialize(WebApplication app)
     {
-        using var scope = app.Services.CreateScope();
+        await using var scope = app.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetService<KnOwlDbContext>();
+        if (db is not null)
+        {
+            await db.Database.MigrateAsync();
+        }
+
         var schemaTypes = scope.ServiceProvider.GetRequiredService<ISchemaTypeInteractionService>();
         var metadataFields = scope.ServiceProvider.GetRequiredService<IContractFieldMetadataInteractionService>();
 

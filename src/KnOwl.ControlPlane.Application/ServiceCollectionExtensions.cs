@@ -16,6 +16,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICommandInteractionService, CommandInteractionService>();
         services.AddScoped<ISchemaTypeInteractionService, SchemaTypeInteractionService>();
         services.AddScoped<IContractFieldMetadataInteractionService, ContractFieldMetadataInteractionService>();
+        services.AddScoped<ILanguageTypeMappingInteractionService, LanguageTypeMappingInteractionService>();
+        services.AddScoped<ILanguageTypeBundleInteractionService, LanguageTypeBundleInteractionService>();
         services.AddSingleton<IContractVersionTransitionPolicy, ContractVersionTransitionPolicy>();
         services.AddScoped<IContractVersionPromotionService, ContractVersionPromotionService>();
         services.AddScoped<IContractSnapshotValidationService, ContractSnapshotValidationService>();

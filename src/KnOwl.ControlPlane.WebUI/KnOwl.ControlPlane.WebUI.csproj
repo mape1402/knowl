@@ -9,8 +9,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="ButterMorph.Json.Schema" Version="2.0.0" />
-    <PackageReference Include="ButterMorph.Web.Razor" Version="2.0.0" />
+    <PackageReference Include="ButterMorph.Json.Schema" Version="2.1.0" />
+    <PackageReference Include="ButterMorph.Language.CSharp" Version="2.1.0" />
+    <PackageReference Include="ButterMorph.Web.Razor" Version="2.1.0" />
   </ItemGroup>
 
   <PropertyGroup>

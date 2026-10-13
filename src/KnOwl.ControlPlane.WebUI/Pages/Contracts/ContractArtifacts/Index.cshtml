@@ -180,15 +180,6 @@ else
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 
-    const prettyJson = value => {
-        if (!value || !value.trim()) return '{}';
-        try {
-            return JSON.stringify(JSON.parse(value), null, 2);
-        } catch {
-            return value;
-        }
-    };
-
     document.querySelectorAll('.js-open-artifact-detail').forEach(card => {
         card.addEventListener('click', () => {
             const artifact = artifactByKey.get((card.dataset.artifactKey || '').toLowerCase());
@@ -201,9 +192,11 @@ else
                             <h3 class="od-section-title">${escapeHtml(part.label)}</h3>
                             <p class="od-item-meta">Payload schema</p>
                         </div>
-                        <span class="od-item-meta">Hash ${escapeHtml((part.contentHash || '').slice(0, 12) || '-')}</span>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="od-item-meta">Hash ${escapeHtml((part.contentHash || '').slice(0, 12) || '-')}</span>
+                            <button type="button" class="btn btn-outline-secondary btn-sm js-view-artifact-schema" data-viewer-url="${escapeHtml(part.viewerUrl || '')}" data-viewer-title="${escapeHtml(part.label || 'Schema')} schema">View</button>
+                        </div>
                     </div>
-                    <pre class="contract-json-output">${escapeHtml(prettyJson(part.payloadSchemaJson))}</pre>
                 </section>`).join('');
 
             title.textContent = `${artifact.contractKind} artifact`;
@@ -220,9 +213,22 @@ else
                     </div>
                     ${schemaSections}
                 </article>`;
+            content.querySelectorAll('.js-view-artifact-schema').forEach(button => {
+                button.addEventListener('click', () => {
+                    const url = button.getAttribute('data-viewer-url');
+                    if (!url) return;
+                    window.ButterMorphHost?.openFrame(url, {
+                        title: button.getAttribute('data-viewer-title') || 'Schema',
+                        width: 1280,
+                        height: 840
+                    });
+                });
+            });
             modal.show();
         });
     });
 })();
 </script>
+<script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-host.js"></script>
+<script src="~/_content/KnOwl.ControlPlane.WebUI/js/buttermorph-knowl-host.js" asp-append-version="true"></script>
 }

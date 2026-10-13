@@ -46,6 +46,11 @@ public static class KnOwlButterMorphContext
     public static string EditEventVersion(Guid versionId) => $"event-version:edit:{versionId}";
 
     /// <summary>
+    /// Creates a context key for viewing an event version payload schema.
+    /// </summary>
+    public static string ViewEventVersion(Guid versionId) => $"event-version:view:{versionId}";
+
+    /// <summary>
     /// Creates a context key for a new command definition.
     /// </summary>
     public static string CommandNew() => $"command:new:{Guid.NewGuid():N}";
@@ -81,9 +86,25 @@ public static class KnOwlButterMorphContext
     public static string EditCommandVersionRequest(Guid versionId) => $"command-version-request:edit:{versionId}";
 
     /// <summary>
+    /// Creates a context key for viewing an existing command request schema.
+    /// </summary>
+    public static string ViewCommandVersionRequest(Guid versionId) => $"command-version-request:view:{versionId}";
+
+    /// <summary>
     /// Creates a context key for editing an existing draft command reply schema.
     /// </summary>
     public static string EditCommandVersionReply(Guid versionId) => $"command-version-reply:edit:{versionId}";
+
+    /// <summary>
+    /// Creates a context key for viewing an existing command reply schema.
+    /// </summary>
+    public static string ViewCommandVersionReply(Guid versionId) => $"command-version-reply:view:{versionId}";
+
+    /// <summary>
+    /// Creates a context key for viewing a persisted artifact schema.
+    /// </summary>
+    public static string ViewArtifact(Guid artifactId, string part)
+        => $"artifact:view:{part}:{artifactId}";
 
     /// <summary>
     /// Attempts to read a GUID identifier from a context key with the expected prefix.

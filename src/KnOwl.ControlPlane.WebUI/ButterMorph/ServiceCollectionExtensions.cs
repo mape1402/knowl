@@ -1,6 +1,7 @@
 using ButterMorph.DependencyInjection;
 using ButterMorph.Design;
 using ButterMorph.Json.Schema;
+using ButterMorph.Language.CSharp;
 using ButterMorph.SchemaDesign;
 using ButterMorph.Web.Razor;
 using KnOwl.ControlPlane.WebUI;
@@ -18,7 +19,8 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddKnOwlButterMorphDesigner(this IServiceCollection services, KnOwlControlPlaneThemeOptions themeOptions)
     {
-        services.AddButterMorph();
+        services.AddButterMorph()
+            .AddCSharpLanguageAdapter();
         services.AddButterMorphJsonSchema();
         services.AddButterMorphSchemaDesign();
         services.AddButterMorphDesign();
@@ -27,6 +29,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IButterMorphSchemaTypeDesignerHost, KnOwlSchemaTypeDesignerHost>();
         services.AddScoped<IButterMorphFieldMetadataDesignerHost, KnOwlFieldMetadataDesignerHost>();
         services.AddScoped<IButterMorphPayloadSchemaDesignerHost, KnOwlPayloadSchemaDesignerHost>();
+        services.AddScoped<IButterMorphPayloadSchemaViewerHost, KnOwlPayloadSchemaViewerHost>();
+        services.AddScoped<IButterMorphLanguageTypeMappingHost, KnOwlLanguageTypeMappingHost>();
         return services;
     }
 
