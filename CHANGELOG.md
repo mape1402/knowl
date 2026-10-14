@@ -1,5 +1,10 @@
 # Changelog
 
+## [v2.4.1]
+
+- Updates ButterMorph dependencies to `2.1.3` across the Control Plane Web UI, Control Plane bootstrap package, and KnOwl ButterMorph sample type bundle.
+- Verifies the updated ButterMorph references with restore, build, tests, and Control Plane host startup.
+
 ## [v2.4.0]
 
 - Updates ButterMorph dependencies to `2.1.1` across the Control Plane Web UI, Control Plane bootstrap package, and KnOwl ButterMorph sample type bundle.
