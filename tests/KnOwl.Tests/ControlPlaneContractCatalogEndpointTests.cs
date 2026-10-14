@@ -29,12 +29,41 @@ public sealed class ControlPlaneContractCatalogEndpointTests
     }
 
     [Fact]
+    public async Task EventLatestEndpointReturnsLatestDeployedArtifactWithContractKey()
+    {
+        var expected = CreateArtifact("customer.created", "1.2.0");
+        await using var app = await CreateApp(new CatalogService(latest: expected));
+        using var http = CreateClient(app);
+
+        using var response = await http.GetAsync("/contracts/events/customer.created/latest");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var json = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"contractKey\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"topic\"", json, StringComparison.OrdinalIgnoreCase);
+        var artifact = await response.Content.ReadFromJsonAsync<ContractArtifact>();
+        Assert.Equal(expected.Id, artifact?.Id);
+        Assert.Equal("customer.created", artifact?.ContractKey);
+    }
+
+    [Fact]
     public async Task ExactEndpointReturnsNotFoundWhenArtifactIsNotDeployed()
     {
         await using var app = await CreateApp(new CatalogService());
         using var http = CreateClient(app);
 
         using var response = await http.GetAsync("/contracts/events/customer.created/versions/1.0.0");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task EventLatestEndpointReturnsNotFoundWhenArtifactIsMissing()
+    {
+        await using var app = await CreateApp(new CatalogService());
+        using var http = CreateClient(app);
+
+        using var response = await http.GetAsync("/contracts/events/customer.created/latest");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -53,6 +82,38 @@ public sealed class ControlPlaneContractCatalogEndpointTests
         var artifacts = await response.Content.ReadFromJsonAsync<CommandContractArtifacts<ContractArtifact>>();
         Assert.Equal(request.Id, artifacts?.RequestArtifact.Id);
         Assert.Equal(reply.Id, artifacts?.ReplyArtifact?.Id);
+    }
+
+    [Fact]
+    public async Task CommandLatestEndpointReturnsRequestAndOptionalReply()
+    {
+        var request = CreateArtifact("customer.register", "1.1.0", ContractArtifactType.CommandRequest);
+        var reply = CreateArtifact("customer.register", "1.1.0", ContractArtifactType.CommandReply);
+        await using var app = await CreateApp(new CatalogService(latestCommandArtifacts: new CommandContractArtifacts<ContractArtifact>("customer.register", "1.1.0", request, reply)));
+        using var http = CreateClient(app);
+
+        using var response = await http.GetAsync("/contracts/commands/customer.register/latest");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var json = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"contractKey\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"topic\"", json, StringComparison.OrdinalIgnoreCase);
+        var artifacts = await response.Content.ReadFromJsonAsync<CommandContractArtifacts<ContractArtifact>>();
+        Assert.Equal("customer.register", artifacts?.CommandKey);
+        Assert.Equal("1.1.0", artifacts?.Version);
+        Assert.Equal(request.Id, artifacts?.RequestArtifact.Id);
+        Assert.Equal(reply.Id, artifacts?.ReplyArtifact?.Id);
+    }
+
+    [Fact]
+    public async Task CommandLatestEndpointReturnsNotFoundWhenCommandIsMissing()
+    {
+        await using var app = await CreateApp(new CatalogService());
+        using var http = CreateClient(app);
+
+        using var response = await http.GetAsync("/contracts/commands/customer.register/latest");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     private static async Task<WebApplication> CreateApp(IControlPlaneContractCatalogService catalog)
@@ -97,7 +158,8 @@ public sealed class ControlPlaneContractCatalogEndpointTests
         ContractArtifact? exact = null,
         ContractArtifact? latest = null,
         ContractArtifact? eventArtifact = null,
-        CommandContractArtifacts<ContractArtifact>? commandArtifacts = null) : IControlPlaneContractCatalogService
+        CommandContractArtifacts<ContractArtifact>? commandArtifacts = null,
+        CommandContractArtifacts<ContractArtifact>? latestCommandArtifacts = null) : IControlPlaneContractCatalogService
     {
         public Task<IReadOnlyList<ContractArtifact>> GetAll(CancellationToken cancellationToken = default)
             => Task.FromResult(all ?? []);
@@ -126,5 +188,10 @@ public sealed class ControlPlaneContractCatalogEndpointTests
             string versionNumber,
             CancellationToken cancellationToken = default)
             => Task.FromResult(commandArtifacts);
+
+        public Task<CommandContractArtifacts<ContractArtifact>?> GetLatestCommand(
+            string commandKey,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(latestCommandArtifacts);
     }
 }

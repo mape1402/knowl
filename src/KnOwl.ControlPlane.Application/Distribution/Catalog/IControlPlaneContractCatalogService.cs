@@ -44,4 +44,11 @@ public interface IControlPlaneContractCatalogService
         string commandKey,
         string versionNumber,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets latest deployed command request and optional reply artifacts by key.
+    /// </summary>
+    Task<CommandContractArtifacts<ContractArtifact>?> GetLatestCommand(
+        string commandKey,
+        CancellationToken cancellationToken = default);
 }

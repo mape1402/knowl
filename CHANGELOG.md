@@ -1,5 +1,11 @@
 # Changelog
 
+## [v2.4.2]
+
+- Adds latest-version Control Plane contract catalog endpoints for deployed events and commands.
+- Keeps catalog responses on `contractKey` while covering latest command artifacts for both current combined command artifacts and legacy request/reply artifacts.
+- Documents the new Control Plane latest catalog endpoints and verifies the change with focused catalog tests plus the full test suite.
+
 ## [v2.4.1]
 
 - Updates ButterMorph dependencies to `2.1.3` across the Control Plane Web UI, Control Plane bootstrap package, and KnOwl ButterMorph sample type bundle.

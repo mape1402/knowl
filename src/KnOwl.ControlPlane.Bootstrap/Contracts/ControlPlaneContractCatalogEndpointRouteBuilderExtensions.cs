@@ -1,3 +1,4 @@
+using KnOwl.Contracts.Artifacts;
 using KnOwl.ControlPlane.Application.Distribution.Catalog;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -35,6 +36,15 @@ public static class ControlPlaneContractCatalogEndpointRouteBuilderExtensions
             return artifact is null ? Results.NotFound() : Results.Ok(artifact);
         });
 
+        group.MapGet("/events/{eventKey}/latest", async (
+            string eventKey,
+            IControlPlaneContractCatalogService catalog,
+            CancellationToken cancellationToken) =>
+        {
+            var artifact = await catalog.GetLatest(ContractArtifactType.Event, eventKey, cancellationToken);
+            return artifact is null ? Results.NotFound() : Results.Ok(artifact);
+        });
+
         group.MapGet("/commands/{commandKey}/versions/{versionNumber}", async (
             string commandKey,
             string versionNumber,
@@ -42,6 +52,15 @@ public static class ControlPlaneContractCatalogEndpointRouteBuilderExtensions
             CancellationToken cancellationToken) =>
         {
             var artifacts = await catalog.GetCommand(commandKey, versionNumber, cancellationToken);
+            return artifacts is null ? Results.NotFound() : Results.Ok(artifacts);
+        });
+
+        group.MapGet("/commands/{commandKey}/latest", async (
+            string commandKey,
+            IControlPlaneContractCatalogService catalog,
+            CancellationToken cancellationToken) =>
+        {
+            var artifacts = await catalog.GetLatestCommand(commandKey, cancellationToken);
             return artifacts is null ? Results.NotFound() : Results.Ok(artifacts);
         });
 
