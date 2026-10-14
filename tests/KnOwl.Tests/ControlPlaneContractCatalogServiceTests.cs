@@ -96,6 +96,46 @@ public sealed class ControlPlaneContractCatalogServiceTests
         Assert.Null(missing);
     }
 
+    [Fact]
+    public async Task GetLatestCommandReturnsNewestModernCommandAsRequestAndReply()
+    {
+        ArtifactRepository artifacts = new(
+            CreateCommandArtifact("customer.register", "1.0.0", ContractVersionStatus.Deployed, DateTime.UtcNow.AddMinutes(-10)),
+            CreateCommandArtifact("customer.register", "1.1.0", ContractVersionStatus.Deployed, DateTime.UtcNow),
+            CreateCommandArtifact("customer.register", "2.0.0", ContractVersionStatus.Approved, DateTime.UtcNow.AddMinutes(10)));
+
+        using var provider = CreateProvider(artifacts);
+        var catalog = provider.GetRequiredService<IControlPlaneContractCatalogService>();
+
+        var result = await catalog.GetLatestCommand("customer.register");
+
+        Assert.NotNull(result);
+        Assert.Equal("1.1.0", result.Version);
+        Assert.Equal("customer.register", result.CommandKey);
+        Assert.Equal(ContractArtifactType.CommandRequest, result.RequestArtifact.ArtifactType);
+        Assert.Equal(ContractArtifactType.CommandReply, result.ReplyArtifact?.ArtifactType);
+    }
+
+    [Fact]
+    public async Task GetLatestCommandFallsBackToLatestLegacyRequestAndMatchingReply()
+    {
+        var oldRequest = CreateArtifact("customer.legacy", "1.0.0", ContractVersionStatus.Deployed, DateTime.UtcNow.AddMinutes(-10), ContractArtifactType.CommandRequest);
+        var oldReply = CreateArtifact("customer.legacy", "1.0.0", ContractVersionStatus.Deployed, DateTime.UtcNow.AddMinutes(-9), ContractArtifactType.CommandReply);
+        var latestRequest = CreateArtifact("customer.legacy", "1.1.0", ContractVersionStatus.Deployed, DateTime.UtcNow, ContractArtifactType.CommandRequest);
+        var latestReply = CreateArtifact("customer.legacy", "1.1.0", ContractVersionStatus.Deployed, DateTime.UtcNow.AddMinutes(1), ContractArtifactType.CommandReply);
+        ArtifactRepository artifacts = new(oldRequest, oldReply, latestRequest, latestReply);
+
+        using var provider = CreateProvider(artifacts);
+        var catalog = provider.GetRequiredService<IControlPlaneContractCatalogService>();
+
+        var result = await catalog.GetLatestCommand("customer.legacy");
+
+        Assert.NotNull(result);
+        Assert.Equal("1.1.0", result.Version);
+        Assert.Same(latestRequest, result.RequestArtifact);
+        Assert.Same(latestReply, result.ReplyArtifact);
+    }
+
     private static ServiceProvider CreateProvider(IContractArtifactRepository artifacts)
     {
         return new ServiceCollection()

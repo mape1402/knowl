@@ -54,6 +54,27 @@ internal sealed class ControlPlaneContractCatalogService(IContractArtifactReposi
         return new CommandContractArtifacts<ContractArtifact>(commandKey, versionNumber, request, reply);
     }
 
+    /// <inheritdoc />
+    public async Task<CommandContractArtifacts<ContractArtifact>?> GetLatestCommand(
+        string commandKey,
+        CancellationToken cancellationToken = default)
+    {
+        var command = await artifacts.GetLatestDeployed(ContractArtifactType.Command, commandKey, cancellationToken);
+        if (command is not null)
+        {
+            return ToCommandArtifacts(command);
+        }
+
+        var request = await artifacts.GetLatestDeployed(ContractArtifactType.CommandRequest, commandKey, cancellationToken);
+        if (request is null)
+        {
+            return null;
+        }
+
+        var reply = await artifacts.GetDeployedByIdentity(ContractArtifactType.CommandReply, commandKey, request.VersionNumber, cancellationToken);
+        return new CommandContractArtifacts<ContractArtifact>(commandKey, request.VersionNumber, request, reply);
+    }
+
     private static CommandContractArtifacts<ContractArtifact> ToCommandArtifacts(ContractArtifact command)
     {
         var payload = CommandArtifactPayloadDocument.Read(command.PayloadSchemaJson);

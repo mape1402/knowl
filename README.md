@@ -263,7 +263,9 @@ Control Plane hosts expose deployed source artifacts only when their artifact st
 
 - `GET /contracts/artifacts`
 - `GET /contracts/events/{eventKey}/versions/{versionNumber}`
+- `GET /contracts/events/{eventKey}/latest`
 - `GET /contracts/commands/{commandKey}/versions/{versionNumber}`
+- `GET /contracts/commands/{commandKey}/latest`
 
 Runtime hosts expose deployed local artifacts:
 
