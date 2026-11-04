@@ -2,6 +2,7 @@ using KnOwl.Contracts.Artifacts;
 using KnOwl.ControlPlane.Application.Distribution;
 using KnOwl.ControlPlane.Application.Distribution.Catalog;
 using KnOwl.ControlPlane.Design.Core;
+using KnOwl.ControlPlane.Distribution.Core;
 using KnOwl.ControlPlane.Distribution.Storage;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -9,6 +10,29 @@ namespace KnOwl.Tests;
 
 public sealed class ControlPlaneContractCatalogServiceTests
 {
+    [Fact]
+    public async Task SearchDelegatesToTheConfiguredStorageCapability()
+    {
+        var expected = new DeployedContractSearchResult(
+            Guid.NewGuid(),
+            ContractArtifactType.Event,
+            "customers.created",
+            "1.0.0",
+            "hash",
+            DateTime.UtcNow,
+            true);
+        var artifacts = new ArtifactRepository();
+        artifacts.SearchResults = [expected];
+        using var provider = CreateProvider(artifacts);
+        var catalog = provider.GetRequiredService<IControlPlaneContractCatalogService>();
+        var query = new DeployedContractSearchQuery { Text = "CUSTOMERS", Limit = 1 };
+
+        var result = await catalog.Search(query);
+
+        Assert.Equal([expected], result);
+        Assert.Same(query, artifacts.LastSearchQuery);
+    }
+
     [Fact]
     public async Task GetAllReturnsOnlyDeployedArtifacts()
     {
@@ -181,11 +205,18 @@ public sealed class ControlPlaneContractCatalogServiceTests
         return artifact;
     }
 
-    private sealed class ArtifactRepository(params ContractArtifact[] artifacts) : IContractArtifactRepository
+    private sealed class ArtifactRepository(params ContractArtifact[] artifacts) : IContractArtifactRepository, IDeployedContractSearchRepository
     {
         public List<ContractArtifact> Items { get; } = [.. artifacts];
+        public IReadOnlyList<DeployedContractSearchResult> SearchResults { get; set; } = [];
+        public DeployedContractSearchQuery? LastSearchQuery { get; private set; }
         public Task<IReadOnlyList<ContractArtifact>> GetAll(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ContractArtifact>>(Items);
         public Task<IReadOnlyList<ContractArtifact>> GetDeployed(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ContractArtifact>>(Items.Where(IsDeployed).OrderByDescending(x => x.CreatedAtUtc).ToList());
+        public Task<IReadOnlyList<DeployedContractSearchResult>> SearchDeployed(DeployedContractSearchQuery query, CancellationToken cancellationToken = default)
+        {
+            LastSearchQuery = query;
+            return Task.FromResult(SearchResults);
+        }
         public Task<ContractArtifact?> GetById(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(Items.FirstOrDefault(x => x.Id == id));
         public Task<IReadOnlyList<ContractArtifact>> GetByIds(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ContractArtifact>>(Items.Where(x => ids.Contains(x.Id)).ToList());
         public Task<ContractArtifact?> GetBySourceVersion(ContractArtifactType artifactType, Guid versionId, CancellationToken cancellationToken = default) => Task.FromResult(Items.FirstOrDefault(x => x.ArtifactType == artifactType && x.VersionId == versionId));

@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using KnOwl.Contracts.Artifacts;
 using KnOwl.ControlPlane.Application.Distribution.Catalog;
 using KnOwl.ControlPlane.Bootstrap.Contracts;
+using KnOwl.ControlPlane.Distribution.Core;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -13,6 +14,40 @@ namespace KnOwl.Tests;
 
 public sealed class ControlPlaneContractCatalogEndpointTests
 {
+    [Fact]
+    public async Task SearchEndpointReturnsBoundedSummariesWithoutSchemaDocuments()
+    {
+        var summary = new DeployedContractSearchResult(
+            Guid.NewGuid(),
+            ContractArtifactType.Command,
+            "customer.register",
+            "1.0.0",
+            "abc123",
+            DateTime.UtcNow,
+            true);
+        await using var app = await CreateApp(new CatalogService(search: [summary]));
+        using var http = CreateClient(app);
+
+        using var response = await http.GetAsync("/contracts/artifacts/search?type=command&q=REGISTER&limit=1");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var json = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"contractKey\":\"customer.register\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("payloadSchemaJson", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("replyPayloadSchemaJson", json, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task SearchEndpointRejectsUnsupportedArtifactTypes()
+    {
+        await using var app = await CreateApp(new CatalogService());
+        using var http = CreateClient(app);
+
+        using var response = await http.GetAsync("/contracts/artifacts/search?type=type");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     [Fact]
     public async Task EventEndpointReturnsDeployedArtifact()
     {
@@ -155,6 +190,7 @@ public sealed class ControlPlaneContractCatalogEndpointTests
 
     private sealed class CatalogService(
         IReadOnlyList<ContractArtifact>? all = null,
+        IReadOnlyList<DeployedContractSearchResult>? search = null,
         ContractArtifact? exact = null,
         ContractArtifact? latest = null,
         ContractArtifact? eventArtifact = null,
@@ -163,6 +199,11 @@ public sealed class ControlPlaneContractCatalogEndpointTests
     {
         public Task<IReadOnlyList<ContractArtifact>> GetAll(CancellationToken cancellationToken = default)
             => Task.FromResult(all ?? []);
+
+        public Task<IReadOnlyList<DeployedContractSearchResult>> Search(
+            DeployedContractSearchQuery query,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(search ?? []);
 
         public Task<ContractArtifact?> GetExact(
             ContractArtifactType artifactType,

@@ -1,4 +1,5 @@
 using KnOwl.Contracts.Artifacts;
+using KnOwl.ControlPlane.Distribution.Core;
 using KnOwl.ControlPlane.Distribution.Storage;
 
 namespace KnOwl.ControlPlane.Application.Distribution.Catalog;
@@ -6,6 +7,21 @@ namespace KnOwl.ControlPlane.Application.Distribution.Catalog;
 /// <inheritdoc />
 internal sealed class ControlPlaneContractCatalogService(IContractArtifactRepository artifacts) : IControlPlaneContractCatalogService
 {
+    /// <inheritdoc />
+    public Task<IReadOnlyList<DeployedContractSearchResult>> Search(
+        DeployedContractSearchQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        if (artifacts is not IDeployedContractSearchRepository searchRepository)
+        {
+            throw new NotSupportedException(
+                $"The configured {nameof(IContractArtifactRepository)} must implement {nameof(IDeployedContractSearchRepository)} to search deployed contracts.");
+        }
+
+        return searchRepository.SearchDeployed(query, cancellationToken);
+    }
+
     /// <inheritdoc />
     public Task<IReadOnlyList<ContractArtifact>> GetAll(CancellationToken cancellationToken = default)
         => artifacts.GetDeployed(cancellationToken);

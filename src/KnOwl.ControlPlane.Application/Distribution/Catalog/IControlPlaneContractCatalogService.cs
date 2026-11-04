@@ -1,4 +1,5 @@
 using KnOwl.Contracts.Artifacts;
+using KnOwl.ControlPlane.Distribution.Core;
 
 namespace KnOwl.ControlPlane.Application.Distribution.Catalog;
 
@@ -7,6 +8,15 @@ namespace KnOwl.ControlPlane.Application.Distribution.Catalog;
 /// </summary>
 public interface IControlPlaneContractCatalogService
 {
+    /// <summary>
+    /// Searches bounded summaries of deployed contracts without returning their schema documents.
+    /// </summary>
+    Task<IReadOnlyList<DeployedContractSearchResult>> Search(
+        DeployedContractSearchQuery query,
+        CancellationToken cancellationToken = default)
+        => Task.FromException<IReadOnlyList<DeployedContractSearchResult>>(
+            new NotSupportedException("The configured Control Plane contract catalog does not support deployed-contract search."));
+
     /// <summary>
     /// Gets all deployed contract artifacts.
     /// </summary>

@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace KnOwl.ControlPlane.Storage.EntityFramework.Distribution.Repositories;
 
 /// <inheritdoc />
-public sealed class ContractArtifactRepository(KnOwlDbContext db) : IContractArtifactRepository
+public sealed class ContractArtifactRepository(KnOwlDbContext db) : IContractArtifactRepository, IDeployedContractSearchRepository
 {
     private static readonly string DeployedStatus = ContractVersionStatus.Deployed.ToString();
 
@@ -28,6 +28,52 @@ public sealed class ContractArtifactRepository(KnOwlDbContext db) : IContractArt
             .AsNoTracking()
             .Where(x => x.SourceStatus == DeployedStatus)
             .OrderByDescending(x => x.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<DeployedContractSearchResult>> SearchDeployed(
+        DeployedContractSearchQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        var deployedArtifacts = ApplyTextFilter(
+            db.ContractArtifacts
+                .AsNoTracking()
+                .Where(x => x.SourceStatus == DeployedStatus && x.PayloadSchemaJson != string.Empty),
+            query.NormalizedText);
+
+        IQueryable<ContractArtifact> results = query.ArtifactType switch
+        {
+            ContractArtifactType.Event => deployedArtifacts.Where(x => x.ArtifactType == ContractArtifactType.Event),
+            ContractArtifactType.Command => LogicalCommands(deployedArtifacts),
+            ContractArtifactType.CommandRequest => deployedArtifacts.Where(x => x.ArtifactType == ContractArtifactType.CommandRequest),
+            ContractArtifactType.CommandReply => deployedArtifacts.Where(x => x.ArtifactType == ContractArtifactType.CommandReply),
+            null => deployedArtifacts.Where(x => x.ArtifactType == ContractArtifactType.Event)
+                .Concat(LogicalCommands(deployedArtifacts)),
+            _ => throw new ArgumentOutOfRangeException(nameof(query), query.ArtifactType, "The artifact type is not supported.")
+        };
+        var collapseLegacyRequests = query.ArtifactType is null or ContractArtifactType.Command;
+
+        return await results
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ThenBy(x => x.ContractKey.ToUpper())
+            .ThenBy(x => x.ContractKey)
+            .ThenBy(x => x.VersionNumber.ToUpper())
+            .ThenBy(x => x.VersionNumber)
+            .ThenBy(x => x.Id)
+            .Take(query.EffectiveLimit)
+            .Select(x => new DeployedContractSearchResult(
+                x.Id,
+                collapseLegacyRequests && x.ArtifactType == ContractArtifactType.CommandRequest
+                    ? ContractArtifactType.Command
+                    : x.ArtifactType,
+                x.ContractKey,
+                x.VersionNumber,
+                x.ContentHash,
+                x.CreatedAtUtc,
+                true))
             .ToListAsync(cancellationToken);
     }
 
@@ -93,5 +139,46 @@ public sealed class ContractArtifactRepository(KnOwlDbContext db) : IContractArt
         db.ContractArtifacts.Add(artifact);
         await db.SaveChangesAsync(cancellationToken);
     }
+
+    private IQueryable<ContractArtifact> LogicalCommands(IQueryable<ContractArtifact> deployedArtifacts)
+    {
+        var modernCommands = deployedArtifacts.Where(x => x.ArtifactType == ContractArtifactType.Command);
+
+        var legacyRequestRepresentatives = deployedArtifacts
+            .Where(x => x.ArtifactType == ContractArtifactType.CommandRequest)
+            .Where(request => !db.ContractArtifacts.Any(command =>
+                command.SourceStatus == DeployedStatus &&
+                command.ArtifactType == ContractArtifactType.Command &&
+                command.ContractKey.ToUpper() == request.ContractKey.ToUpper() &&
+                command.VersionNumber.ToUpper() == request.VersionNumber.ToUpper()));
+
+        return modernCommands.Concat(legacyRequestRepresentatives);
+    }
+
+    private static IQueryable<ContractArtifact> ApplyTextFilter(IQueryable<ContractArtifact> query, string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return query;
+        }
+
+        var normalized = text.ToUpperInvariant();
+        if (Guid.TryParse(text, out var identifier))
+        {
+            return query.Where(x =>
+                x.Id == identifier ||
+                x.DefinitionId == identifier ||
+                x.VersionId == identifier ||
+                x.ContractKey.ToUpper().Contains(normalized) ||
+                x.VersionNumber.ToUpper().Contains(normalized) ||
+                x.ContentHash.ToUpper().Contains(normalized));
+        }
+
+        return query.Where(x =>
+            x.ContractKey.ToUpper().Contains(normalized) ||
+            x.VersionNumber.ToUpper().Contains(normalized) ||
+            x.ContentHash.ToUpper().Contains(normalized));
+    }
+
 }
 

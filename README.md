@@ -263,6 +263,7 @@ The sample design-time DbContext factories target the same sample databases used
 Control Plane hosts expose deployed source artifacts only when their artifact status is deployed:
 
 - `GET /contracts/artifacts`
+- `GET /contracts/artifacts/search?type={event|command|request|reply}&q={text}&limit={1-100}`
 - `GET /contracts/events/{eventKey}/versions/{versionNumber}`
 - `GET /contracts/events/{eventKey}/latest`
 - `GET /contracts/commands/{commandKey}/versions/{versionNumber}`
@@ -290,6 +291,10 @@ Event responses return one artifact. Command responses return both sides of the 
   }
 }
 ```
+
+`/contracts/artifacts/search` is the bounded discovery operation for large deployed catalogs. It searches case-insensitively by contract key, version, artifact identifier, or content hash and returns summaries only: identifier, type, key, version, hash, creation date, and schema availability. It never transfers the schema JSON. Omit `q` to browse deployed contracts; the endpoint still returns at most 50 items by default and never more than 100. Results use a stable creation-date, key, version, and identifier ordering.
+
+Without a type filter, events and logical commands are returned. A current `Command` artifact is preferred; a legacy request/reply pair is represented as one logical command before the limit is applied. Use `type=request` or `type=reply` only when a consumer explicitly needs those legacy artifact parts. After selecting a result, use the existing event or command version endpoints to retrieve the full schema document.
 
 `replyArtifact` is optional. Request artifacts are required.
 
