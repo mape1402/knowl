@@ -1,5 +1,13 @@
 # Changelog
 
+## [v2.4.3]
+
+- Adds a bounded deployed-contract search at `GET /contracts/artifacts/search`, with server-side filtering, stable ordering, and a default limit of 50 results capped at 100.
+- Returns contract summaries without payload schema JSON and preserves the existing exact and latest event/command catalog operations for full schema retrieval.
+- Treats commands as logical contracts before applying the result limit, preferring current combined command artifacts while retaining explicit legacy request and reply searches.
+- Upgrades ButterMorph dependencies to `2.1.5` and bounds KnOwl's transient designer handoff data with one-shot consumption and scheduled expiration.
+- Adds focused repository, catalog-service, and endpoint coverage for deployed-contract search alongside full regression validation on `net9.0` and `net10.0`.
+
 ## [v2.4.2]
 
 - Adds latest-version Control Plane contract catalog endpoints for deployed events and commands.
