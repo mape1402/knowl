@@ -8,7 +8,7 @@ public class ButterMorphDraftsModel(KnOwlButterMorphDraftStore draftStore) : Pag
 {
     public IActionResult OnGetPayloadSchema(string context)
     {
-        var schema = draftStore.GetPayloadSchema(context);
+        var schema = draftStore.TakePayloadSchema(context);
         return new JsonResult(new
         {
             payloadSchemaJson = schema
@@ -17,7 +17,7 @@ public class ButterMorphDraftsModel(KnOwlButterMorphDraftStore draftStore) : Pag
 
     public IActionResult OnGetCreatedEvent(string context)
     {
-        var eventId = draftStore.GetCreatedEvent(context);
+        var eventId = draftStore.TakeCreatedEvent(context);
         return new JsonResult(new
         {
             eventId,
@@ -27,7 +27,7 @@ public class ButterMorphDraftsModel(KnOwlButterMorphDraftStore draftStore) : Pag
 
     public IActionResult OnGetCreatedCommand(string context)
     {
-        var commandId = draftStore.GetCreatedCommand(context);
+        var commandId = draftStore.TakeCreatedCommand(context);
         return new JsonResult(new
         {
             commandId,

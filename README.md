@@ -130,7 +130,8 @@ dotnet ef database update --context KnOwlDbContext
 Run the host and open the Control Plane UI. From there you can create data types, custom metadata fields, type bundles, type mappings, events, commands, versions, artifacts, runtime environments, runtime nodes, and releases.
 Control Plane list and detail screens include query-string search for contracts, versions, artifacts, releases, environments, and runtime node setup, so teams can filter large catalogs without custom host code.
 Documentation pages include rendered-text search with highlighted matches and previous/next navigation. Mermaid diagrams render directly from fenced Markdown blocks and include zoom out, reset, zoom in, and expanded-view controls without requiring host-specific JavaScript.
-ButterMorph `2.1.1` powers the reusable schema designers, viewers, language type bundle discovery, and type mapping surfaces. Uploaded type bundle assemblies are inspected through ButterMorph's metadata-only discovery path so bundle metadata can be scanned without loading provider classes into the host runtime.
+ButterMorph `2.1.5` powers the reusable schema designers, viewers, language type bundle discovery, and type mapping surfaces. Its current session lifecycle releases editor resources when a designer closes or refreshes. Uploaded type bundle assemblies are inspected through ButterMorph's metadata-only discovery path so bundle metadata can be scanned without loading provider classes into the host runtime.
+KnOwl also bounds its short-lived designer handoff data and expires abandoned drafts. If a Control Plane host runs on multiple replicas, route requests from an open designer to the same replica with sticky-session affinity until the draft is completed.
 
 The bootstrap package also maps the Control Plane REST API at `/api/v1/control-plane`.
 

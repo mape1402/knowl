@@ -40,6 +40,10 @@ public sealed class ButterMorphDraftsPageModelTests
         Assert.Equal("/Contracts/Commands/View?id=" + commandId, Read<string>(createdCommand.Value, "redirectUrl"));
         Assert.Null(Read<Guid?>(missingCommand.Value, "commandId"));
         Assert.Equal(string.Empty, Read<string>(missingCommand.Value, "redirectUrl"));
+
+        Assert.Equal(string.Empty, Read<string>(Assert.IsType<JsonResult>(model.OnGetPayloadSchema("ctx")).Value, "payloadSchemaJson"));
+        Assert.Null(Read<Guid?>(Assert.IsType<JsonResult>(model.OnGetCreatedEvent("ctx")).Value, "eventId"));
+        Assert.Null(Read<Guid?>(Assert.IsType<JsonResult>(model.OnGetCreatedCommand("ctx")).Value, "commandId"));
     }
 
     private static T? Read<T>(object? value, string property)

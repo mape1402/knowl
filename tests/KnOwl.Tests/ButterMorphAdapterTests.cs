@@ -10,6 +10,7 @@ using KnOwl.ControlPlane.Design.Core;
 using KnOwl.ControlPlane.Distribution.Storage;
 using ButterMorph.SchemaDesign;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using KnOwlSchemaTypeDefinition = KnOwl.ControlPlane.Design.Core.SchemaTypeDefinition;
 using ButterMorphSchemaTypeDefinition = ButterMorph.SchemaDesign.SchemaTypeDefinition;
 
@@ -60,9 +61,9 @@ public sealed class ButterMorphAdapterTests
     {
         KnOwlButterMorphDraftStore store = new();
 
-        Assert.Equal(string.Empty, store.GetPayloadSchema("missing"));
-        Assert.Null(store.GetCreatedEvent("missing"));
-        Assert.Null(store.GetCreatedCommand("missing"));
+        Assert.Equal(string.Empty, store.TakePayloadSchema("missing"));
+        Assert.Null(store.TakeCreatedEvent("missing"));
+        Assert.Null(store.TakeCreatedCommand("missing"));
     }
 
     [Fact]
@@ -79,6 +80,50 @@ public sealed class ButterMorphAdapterTests
         Assert.Equal("{\"type\":\"object\"}", store.GetPayloadSchema("ctx"));
         Assert.Equal(eventId, store.GetCreatedEvent("ctx"));
         Assert.Equal(commandId, store.GetCreatedCommand("ctx"));
+        Assert.Equal("{\"type\":\"object\"}", store.TakePayloadSchema("ctx"));
+        Assert.Equal(eventId, store.TakeCreatedEvent("ctx"));
+        Assert.Equal(commandId, store.TakeCreatedCommand("ctx"));
+
+        Assert.Equal(string.Empty, store.TakePayloadSchema("ctx"));
+        Assert.Null(store.TakeCreatedEvent("ctx"));
+        Assert.Null(store.TakeCreatedCommand("ctx"));
+    }
+
+    [Fact]
+    public void DraftStoreExpiresUnconsumedEntries()
+    {
+        var clock = new MutableTimeProvider(DateTimeOffset.Parse("2026-11-03T18:00:00Z"));
+        var store = new KnOwlButterMorphDraftStore(clock, new KnOwlButterMorphDraftStoreOptions
+        {
+            Retention = TimeSpan.FromMinutes(5)
+        });
+
+        store.SavePayloadSchema("expired", "{\"type\":\"object\"}");
+        clock.Advance(TimeSpan.FromMinutes(5));
+
+        Assert.Equal(1, store.PurgeExpired());
+        Assert.Equal(string.Empty, store.TakePayloadSchema("expired"));
+    }
+
+    [Fact]
+    public void DraftStoreEvictsTheOldestEntryAtCapacity()
+    {
+        var clock = new MutableTimeProvider(DateTimeOffset.Parse("2026-11-03T18:00:00Z"));
+        var store = new KnOwlButterMorphDraftStore(clock, new KnOwlButterMorphDraftStoreOptions
+        {
+            Retention = TimeSpan.FromHours(1),
+            MaximumEntries = 2
+        });
+
+        store.SavePayloadSchema("first", "first");
+        clock.Advance(TimeSpan.FromSeconds(1));
+        store.SavePayloadSchema("second", "second");
+        clock.Advance(TimeSpan.FromSeconds(1));
+        store.SavePayloadSchema("third", "third");
+
+        Assert.Equal(string.Empty, store.TakePayloadSchema("first"));
+        Assert.Equal("second", store.TakePayloadSchema("second"));
+        Assert.Equal("third", store.TakePayloadSchema("third"));
     }
 
     [Fact]
@@ -789,7 +834,7 @@ public sealed class ButterMorphAdapterTests
         Assert.True(editedCommandReply.Succeeded);
         Assert.Contains("customer.created", commands.UpdatedReplySchemaJson, StringComparison.Ordinal);
         Assert.True(capturedDraft.Succeeded);
-        Assert.Contains("customer.created", store.GetPayloadSchema("scratch-context"), StringComparison.Ordinal);
+        Assert.Contains("customer.created", store.TakePayloadSchema("scratch-context"), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1578,6 +1623,7 @@ public sealed class ButterMorphAdapterTests
             .Invoke(null, [designerTheme, theme]);
 
         Assert.NotNull(provider.GetRequiredService<KnOwlButterMorphDraftStore>());
+        Assert.Contains(provider.GetServices<IHostedService>(), service => service is KnOwlButterMorphDraftStoreCleanupService);
         Assert.IsType<KnOwlSchemaTypeDesignerHost>(provider.GetRequiredService<IButterMorphSchemaTypeDesignerHost>());
         Assert.IsType<KnOwlFieldMetadataDesignerHost>(provider.GetRequiredService<IButterMorphFieldMetadataDesignerHost>());
         Assert.IsType<KnOwlPayloadSchemaDesignerHost>(provider.GetRequiredService<IButterMorphPayloadSchemaDesignerHost>());
@@ -1906,6 +1952,15 @@ public sealed class ButterMorphAdapterTests
             _artifacts.Add(artifact);
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class MutableTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        private DateTimeOffset currentUtcNow = utcNow;
+
+        public override DateTimeOffset GetUtcNow() => currentUtcNow;
+
+        public void Advance(TimeSpan elapsed) => currentUtcNow = currentUtcNow.Add(elapsed);
     }
 }
 
