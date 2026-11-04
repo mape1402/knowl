@@ -25,7 +25,9 @@ public static class ServiceCollectionExtensions
         services.AddButterMorphSchemaDesign();
         services.AddButterMorphDesign();
         services.AddButterMorphRazorDesigner(options => ConfigureDesignerTheme(options.Theme, themeOptions));
+        services.AddOptions<KnOwlButterMorphDraftStoreOptions>();
         services.AddSingleton<KnOwlButterMorphDraftStore>();
+        services.AddHostedService<KnOwlButterMorphDraftStoreCleanupService>();
         services.AddScoped<IButterMorphSchemaTypeDesignerHost, KnOwlSchemaTypeDesignerHost>();
         services.AddScoped<IButterMorphFieldMetadataDesignerHost, KnOwlFieldMetadataDesignerHost>();
         services.AddScoped<IButterMorphPayloadSchemaDesignerHost, KnOwlPayloadSchemaDesignerHost>();
