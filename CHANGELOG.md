@@ -1,5 +1,10 @@
 # Changelog
 
+## [v2.4.4]
+
+- Updates all direct ButterMorph integrations to `2.1.6`, including the Control Plane Web UI, bootstrap integration, and custom C# sample type bundle.
+- Verifies the upgrade across the full KnOwl solution and test suite for both `net9.0` and `net10.0`.
+
 ## [v2.4.3]
 
 - Adds a bounded deployed-contract search at `GET /contracts/artifacts/search`, with server-side filtering, stable ordering, and a default limit of 50 results capped at 100.
